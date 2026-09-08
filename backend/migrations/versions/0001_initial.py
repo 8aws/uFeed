@@ -22,18 +22,19 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.create_table(
         "users",
-        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("id", sa.Uuid(), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column("email", sa.String(length=320), nullable=False),
         sa.Column("password_hash", sa.String(length=255), nullable=False),
         sa.Column("locale", sa.String(length=5), nullable=False, server_default="en"),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
+        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
     )
     op.create_index("ix_users_email", "users", ["email"], unique=True)
 
     op.create_table(
         "sources",
-        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("id", sa.Uuid(), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column("feed_url", sa.Text(), nullable=False),
         sa.Column("site_url", sa.Text(), nullable=True),
         sa.Column("title", sa.String(length=500), nullable=True),
@@ -51,7 +52,7 @@ def upgrade() -> None:
 
     op.create_table(
         "api_keys",
-        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("id", sa.Uuid(), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column("key_hash", sa.String(length=255), nullable=False),
         sa.Column("prefix", sa.String(length=16), nullable=False),
@@ -65,6 +66,7 @@ def upgrade() -> None:
         sa.Column("last_used_at", sa.DateTime(), nullable=True),
         sa.Column("revoked_at", sa.DateTime(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
+        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_api_keys_user_id", "api_keys", ["user_id"])
@@ -72,7 +74,7 @@ def upgrade() -> None:
 
     op.create_table(
         "folders",
-        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("id", sa.Uuid(), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column("name", sa.String(length=200), nullable=False),
         sa.Column("position", sa.Integer(), nullable=False, server_default="0"),
@@ -82,7 +84,7 @@ def upgrade() -> None:
 
     op.create_table(
         "articles",
-        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("id", sa.Uuid(), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column("source_id", sa.Uuid(), nullable=False),
         sa.Column("guid", sa.Text(), nullable=False),
         sa.Column("url", sa.Text(), nullable=True),
@@ -101,12 +103,13 @@ def upgrade() -> None:
 
     op.create_table(
         "subscriptions",
-        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("id", sa.Uuid(), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column("source_id", sa.Uuid(), nullable=False),
         sa.Column("folder_id", sa.Uuid(), nullable=True),
         sa.Column("custom_title", sa.String(length=500), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
+        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["source_id"], ["sources.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["folder_id"], ["folders.id"], ondelete="SET NULL"),
