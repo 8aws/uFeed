@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -21,5 +21,5 @@ class ApiKey(Base, TimestampMixin):
     prefix: Mapped[str] = mapped_column(String(16), index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     scopes: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, nullable=False)
-    last_used_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    revoked_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

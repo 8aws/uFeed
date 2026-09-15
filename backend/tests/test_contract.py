@@ -29,7 +29,8 @@ def test_openapi_exposes_contract(client: TestClient) -> None:
 
 
 def test_stubs_return_501_with_error_shape(client: TestClient) -> None:
-    resp = client.post("/api/auth/login", json={"email": "a@b.com", "password": "x"})
+    # folders is still a stub (implemented in WS3) and needs no DB/auth.
+    resp = client.get("/api/folders")
     assert resp.status_code == 501
     body = resp.json()
     assert body["error"]["code"] == "not_implemented"

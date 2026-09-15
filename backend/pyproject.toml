@@ -16,7 +16,7 @@ dependencies = [
     # Brought forward for WS1 (auth) / WS2 (ingestion) so branches don't each edit deps.
     "feedparser>=6.0.11",
     "httpx>=0.27",
-    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.2",
     "pyjwt>=2.9",
 ]
 

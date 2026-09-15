@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    DateTime,
     ForeignKey,
     Index,
     String,
@@ -36,5 +37,7 @@ class Article(Base):
     content_html: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     lang: Mapped[str | None] = mapped_column(String(5), nullable=True)
-    published_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    fetched_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

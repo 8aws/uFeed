@@ -27,8 +27,18 @@ def upgrade() -> None:
         sa.Column("password_hash", sa.String(length=255), nullable=False),
         sa.Column("locale", sa.String(length=5), nullable=False, server_default="en"),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
     )
     op.create_index("ix_users_email", "users", ["email"], unique=True)
 
@@ -41,8 +51,8 @@ def upgrade() -> None:
         sa.Column("favicon_url", sa.Text(), nullable=True),
         sa.Column("etag", sa.String(length=500), nullable=True),
         sa.Column("last_modified", sa.String(length=200), nullable=True),
-        sa.Column("last_fetch_at", sa.DateTime(), nullable=True),
-        sa.Column("next_fetch_at", sa.DateTime(), nullable=True),
+        sa.Column("last_fetch_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("next_fetch_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("fetch_interval_s", sa.Integer(), nullable=False, server_default="900"),
         sa.Column("error_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
@@ -63,10 +73,20 @@ def upgrade() -> None:
             nullable=False,
             server_default="{}",
         ),
-        sa.Column("last_used_at", sa.DateTime(), nullable=True),
-        sa.Column("revoked_at", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
+        sa.Column("last_used_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
     )
     op.create_index("ix_api_keys_user_id", "api_keys", ["user_id"])
@@ -93,8 +113,13 @@ def upgrade() -> None:
         sa.Column("content_html", sa.Text(), nullable=True),
         sa.Column("summary", sa.Text(), nullable=True),
         sa.Column("lang", sa.String(length=5), nullable=True),
-        sa.Column("published_at", sa.DateTime(), nullable=True),
-        sa.Column("fetched_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
+        sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "fetched_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["source_id"], ["sources.id"], ondelete="CASCADE"),
         sa.UniqueConstraint("source_id", "guid", name="uq_articles_source_guid"),
     )
@@ -108,8 +133,18 @@ def upgrade() -> None:
         sa.Column("source_id", sa.Uuid(), nullable=False),
         sa.Column("folder_id", sa.Uuid(), nullable=True),
         sa.Column("custom_title", sa.String(length=500), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["source_id"], ["sources.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["folder_id"], ["folders.id"], ondelete="SET NULL"),
@@ -125,7 +160,7 @@ def upgrade() -> None:
         sa.Column("article_id", sa.Uuid(), primary_key=True),
         sa.Column("is_read", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("is_saved", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.Column("read_at", sa.DateTime(), nullable=True),
+        sa.Column("read_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["article_id"], ["articles.id"], ondelete="CASCADE"),
     )
