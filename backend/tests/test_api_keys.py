@@ -4,6 +4,14 @@ import uuid
 
 from httpx import AsyncClient
 
+from app.core.security import parse_api_key_prefix
+
+
+def test_parse_prefix_handles_underscores_in_secret() -> None:
+    # base64url secrets can contain "_"; the prefix must still parse.
+    assert parse_api_key_prefix("uf_abcd1234_se_cr_et") == "abcd1234"
+    assert parse_api_key_prefix("not-a-key") is None
+
 
 async def _auth_headers(api: AsyncClient) -> dict:
     resp = await api.post(

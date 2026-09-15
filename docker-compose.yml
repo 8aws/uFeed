@@ -46,6 +46,20 @@ services:
     ports:
       - "8000:8000"
 
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    # The backend applies migrations; the worker just runs the ingestion loop.
+    command: ["python", "-m", "app.workers.run"]
+    volumes:
+      - ./backend:/app
+
   proxy:
     image: caddy:2-alpine
     restart: unless-stopped

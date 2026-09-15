@@ -82,7 +82,9 @@ def hash_api_key(plaintext: str) -> str:
 
 
 def parse_api_key_prefix(plaintext: str) -> str | None:
-    parts = plaintext.split("_")
+    # maxsplit=2: the random secret may itself contain "_" (base64url alphabet),
+    # so only split off the leading "uf" and the fixed-width prefix.
+    parts = plaintext.split("_", 2)
     if len(parts) != 3 or parts[0] != API_KEY_PLAINTEXT_PREFIX:
         return None
     return parts[1]
