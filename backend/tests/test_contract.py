@@ -28,12 +28,14 @@ def test_openapi_exposes_contract(client: TestClient) -> None:
     assert not missing, f"missing contract paths: {sorted(missing)}"
 
 
-def test_stubs_return_501_with_error_shape(client: TestClient) -> None:
-    # OPML export is still a stub (implemented in WS4) and needs no DB/auth.
-    resp = client.get("/api/opml/export")
-    assert resp.status_code == 501
+def test_error_envelope_on_unauthorized(client: TestClient) -> None:
+    # All endpoints are implemented now; check the {error:{code,message}}
+    # envelope on a real error path (missing auth).
+    resp = client.get("/api/me")
+    assert resp.status_code == 401
     body = resp.json()
-    assert body["error"]["code"] == "not_implemented"
+    assert body["error"]["code"] == "unauthorized"
+    assert "message" in body["error"]
 
 
 def test_validation_error_shape(client: TestClient) -> None:

@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import uuid
 
+import httpx
 from fastapi import APIRouter, UploadFile
+from fastapi.responses import Response
 
 from app.api.deps import CurrentUser, DbSession
-from app.api.errors import AppError, not_implemented
+from app.api.errors import AppError
 from app.schemas.common import OkResponse
 from app.schemas.discover import DiscoveredFeed, DiscoverRequest, OpmlImportResult
 from app.schemas.source import SourceOut, SubscribeRequest, SubscriptionOut
+from app.services import discovery as discovery_service
 from app.services import folders as folder_service
+from app.services import opml as opml_service
 from app.services import subscriptions as sub_service
 from app.services.subscriptions import SubscriptionRow
 
@@ -50,19 +54,27 @@ async def unsubscribe(subscription_id: uuid.UUID, user: CurrentUser, db: DbSessi
     return OkResponse()
 
 
-# --- WS4: discovery + OPML (still stubbed) ----------------------------------
+# --- Discovery + OPML --------------------------------------------------------
 
 
 @router.post("/discover", response_model=list[DiscoveredFeed])
-async def discover(body: DiscoverRequest) -> list[DiscoveredFeed]:
-    raise not_implemented("discover")
+async def discover(body: DiscoverRequest, user: CurrentUser) -> list[DiscoveredFeed]:
+    async with httpx.AsyncClient() as client:
+        return await discovery_service.discover_feeds(client, body.url)
 
 
 @router.post("/opml/import", response_model=OpmlImportResult)
-async def opml_import(file: UploadFile) -> OpmlImportResult:
-    raise not_implemented("opml.import")
+async def opml_import(user: CurrentUser, db: DbSession, file: UploadFile) -> OpmlImportResult:
+    content = await file.read()
+    imported, skipped = await opml_service.import_opml(db, user.id, content)
+    return OpmlImportResult(imported=imported, skipped=skipped)
 
 
 @router.get("/opml/export")
-async def opml_export() -> None:
-    raise not_implemented("opml.export")
+async def opml_export(user: CurrentUser, db: DbSession) -> Response:
+    xml = await opml_service.export_opml(db, user.id)
+    return Response(
+        content=xml,
+        media_type="application/xml",
+        headers={"Content-Disposition": 'attachment; filename="ufeed.opml"'},
+    )
