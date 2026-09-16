@@ -15,8 +15,8 @@
 		reverse_proxy backend:8000
 	}
 
-	# Frontend -> added in WS5. For now, point root at the backend health page.
+	# Everything else -> the SvelteKit SPA (served by the frontend container).
 	handle {
-		reverse_proxy backend:8000
+		reverse_proxy frontend:80
 	}
 }

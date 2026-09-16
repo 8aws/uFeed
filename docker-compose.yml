@@ -60,11 +60,18 @@ services:
     volumes:
       - ./backend:/app
 
+  frontend:
+    build: ./Frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+
   proxy:
     image: caddy:2-alpine
     restart: unless-stopped
     depends_on:
       - backend
+      - frontend
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -72,8 +79,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-
-  # Frontend is added in WS5. Placeholder wiring lives in Caddyfile.
 
 volumes:
   pgdata:
