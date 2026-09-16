@@ -366,7 +366,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -385,7 +390,7 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -405,7 +410,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/folders/{folder_id}": {
@@ -415,6 +425,11 @@
         ],
         "summary": "Update Folder",
         "operationId": "update_folder_api_folders__folder_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "folder_id",
@@ -466,6 +481,11 @@
         ],
         "summary": "Delete Folder",
         "operationId": "delete_folder_api_folders__folder_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "folder_id",
@@ -524,7 +544,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -543,7 +568,7 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -563,7 +588,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/sources/{subscription_id}": {
@@ -573,6 +603,11 @@
         ],
         "summary": "Unsubscribe",
         "operationId": "unsubscribe_api_sources__subscription_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "subscription_id",
@@ -721,6 +756,11 @@
         ],
         "summary": "List Articles",
         "operationId": "list_articles_api_articles_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "folder",
@@ -864,6 +904,11 @@
         ],
         "summary": "Get Article",
         "operationId": "get_article_api_articles__article_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "article_id",
@@ -907,6 +952,11 @@
         ],
         "summary": "Mark Read",
         "operationId": "mark_read_api_articles__article_id__read_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "article_id",
@@ -948,6 +998,11 @@
         ],
         "summary": "Mark Unread",
         "operationId": "mark_unread_api_articles__article_id__read_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "article_id",
@@ -991,6 +1046,11 @@
         ],
         "summary": "Mark Saved",
         "operationId": "mark_saved_api_articles__article_id__save_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "article_id",
@@ -1032,6 +1092,11 @@
         ],
         "summary": "Mark Unsaved",
         "operationId": "mark_unsaved_api_articles__article_id__save_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "article_id",
@@ -1106,7 +1171,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/sources": {

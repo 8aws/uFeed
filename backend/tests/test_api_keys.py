@@ -61,10 +61,10 @@ async def test_valid_key_authorizes_public_api(api: AsyncClient) -> None:
     created = await api.post("/api/keys", headers=headers, json={"name": "ext", "scopes": []})
     plaintext = created.json()["key"]
 
-    # Valid key passes auth; data logic is WS3, so it reaches the 501 stub.
+    # Valid key passes auth and returns the owner's (empty) source list.
     resp = await api.get("/api/v1/sources", headers={"X-API-Key": plaintext})
-    assert resp.status_code == 501
-    assert resp.json()["error"]["code"] == "not_implemented"
+    assert resp.status_code == 200
+    assert resp.json() == []
 
     # A revoked key is rejected.
     key_id = created.json()["id"]
