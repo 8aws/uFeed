@@ -19,6 +19,7 @@ dependencies = [
     "bcrypt>=4.2",
     "pyjwt>=2.9",
     "apscheduler>=3.10",
+    "redis>=5.2",
 ]
 
 [project.optional-dependencies]

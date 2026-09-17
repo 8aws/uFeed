@@ -42,5 +42,11 @@ fmt:
 openapi:
 	cd backend && python -m app.scripts.export_openapi
 
+backup:
+	./scripts/backup.sh
+
+restore:
+	./scripts/restore.sh $(f)
+
 shell:
 	docker compose exec backend sh

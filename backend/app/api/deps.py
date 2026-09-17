@@ -3,12 +3,14 @@ from __future__ import annotations
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.errors import AppError
+from app.core.config import settings
 from app.core.i18n import resolve_locale
+from app.core.ratelimit import check_rate
 from app.core.security import decode_token, user_id_from_sub
 from app.db.session import get_db
 from app.models.api_key import ApiKey
@@ -64,7 +66,19 @@ async def get_api_key(
     key = await resolve_api_key(db, x_api_key)
     if key is None:
         raise _unauthorized("Invalid API key.")
+    if not await check_rate(f"pub:{key.id}", settings.rate_limit_public_per_min):
+        raise AppError(429, "rate_limited", "Rate limit exceeded for this API key.")
     return key
 
 
 ApiKeyPrincipal = Annotated[ApiKey, Depends(get_api_key)]
+
+
+async def rate_limit_auth(request: Request) -> None:
+    """Throttle auth endpoints per client IP to blunt brute-force attempts."""
+    ip = request.client.host if request.client else "unknown"
+    if not await check_rate(f"auth:{ip}", settings.rate_limit_auth_per_min):
+        raise AppError(429, "rate_limited", "Too many attempts; try again shortly.")
+
+
+RateLimitAuth = Annotated[None, Depends(rate_limit_auth)]

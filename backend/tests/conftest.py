@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.api.deps import rate_limit_auth
 from app.core.config import settings
 from app.db.session import get_db
 from app.main import app
@@ -53,6 +54,9 @@ async def api(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield db_session
 
     app.dependency_overrides[get_db] = _override_get_db
+    # All tests share one client IP; disable the auth rate limiter here so the
+    # suite isn't throttled. The limiter itself is covered in test_ratelimit.
+    app.dependency_overrides[rate_limit_auth] = lambda: None
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

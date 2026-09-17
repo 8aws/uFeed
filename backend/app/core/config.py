@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     http_timeout_s: float = Field(default=20.0)
     user_agent: str = Field(default="uFeed/0.1 (+https://github.com/8aws/uFeed)")
 
+    # Rate limiting (fixed window per minute; 0 disables)
+    rate_limit_public_per_min: int = Field(default=120)
+    rate_limit_auth_per_min: int = Field(default=20)
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

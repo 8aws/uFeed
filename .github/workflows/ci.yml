@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ufeed
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: ufeed
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ufeed" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      cache:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://ufeed:secret@localhost:5432/ufeed
+      DATABASE_URL_SYNC: postgresql+psycopg://ufeed:secret@localhost:5432/ufeed
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: ci-secret
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install ".[dev]"
+      - run: ruff check .
+      - run: black --check .
+      - run: alembic upgrade head
+      - run: python -m pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import jwt
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.api.deps import DbSession
+from app.api.deps import DbSession, rate_limit_auth
 from app.api.errors import AppError
 from app.core.config import settings
 from app.core.security import (
@@ -22,7 +22,7 @@ from app.schemas.auth import (
 )
 from app.services import auth as auth_service
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(rate_limit_auth)])
 
 
 def _tokens_for(user: User) -> Tokens:

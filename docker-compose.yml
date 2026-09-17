@@ -72,6 +72,8 @@ services:
   proxy:
     image: caddy:2-alpine
     restart: unless-stopped
+    # UFEED_DOMAIN (optional) enables automatic HTTPS for that hostname.
+    env_file: .env
     depends_on:
       - backend
       - frontend
