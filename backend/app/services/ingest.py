@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from time import struct_time
+from urllib.parse import urlsplit
 
 import feedparser
 import httpx
@@ -26,6 +28,8 @@ class ParsedArticle:
     summary: str | None
     lang: str | None
     published_at: datetime | None
+    word_count: int | None = None
+    tags: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -34,6 +38,7 @@ class ParsedFeed:
     site_url: str | None
     lang: str | None
     articles: list[ParsedArticle]
+    favicon_url: str | None = None
 
 
 @dataclass(slots=True)
@@ -71,6 +76,38 @@ def _entry_content_html(entry: dict) -> str | None:
     return entry.get("summary")
 
 
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _word_count(html: str | None) -> int | None:
+    if not html:
+        return None
+    text = _TAG_RE.sub(" ", html)
+    words = [w for w in re.split(r"\s+", text) if w]
+    return len(words) or None
+
+
+def _entry_tags(entry: dict) -> list[str]:
+    tags = entry.get("tags") or []
+    out: list[str] = []
+    for tag in tags:
+        term = (tag.get("term") or tag.get("label") or "").strip() if isinstance(tag, dict) else ""
+        if term and term not in out:
+            out.append(term)
+    return out[:10]
+
+
+def _feed_favicon(feed: dict, site_url: str | None) -> str | None:
+    image = feed.get("image")
+    if isinstance(image, dict) and image.get("href"):
+        return image["href"]
+    if site_url:
+        parts = urlsplit(site_url)
+        if parts.scheme and parts.netloc:
+            return f"{parts.scheme}://{parts.netloc}/favicon.ico"
+    return None
+
+
 def parse_feed(content: bytes, feed_lang_fallback: str | None = None) -> ParsedFeed:
     """Parse raw feed bytes into a normalised ParsedFeed (no network)."""
     parsed = feedparser.parse(content)
@@ -80,23 +117,28 @@ def parse_feed(content: bytes, feed_lang_fallback: str | None = None) -> ParsedF
     articles: list[ParsedArticle] = []
     for entry in parsed.get("entries", []):
         published = _struct_to_dt(entry.get("published_parsed") or entry.get("updated_parsed"))
+        content_html = _entry_content_html(entry)
         articles.append(
             ParsedArticle(
                 guid=_entry_guid(entry),
                 url=entry.get("link"),
                 title=entry.get("title"),
                 author=entry.get("author"),
-                content_html=_entry_content_html(entry),
+                content_html=content_html,
                 summary=entry.get("summary"),
                 lang=entry.get("language") or feed_lang,
                 published_at=published,
+                word_count=_word_count(content_html),
+                tags=_entry_tags(entry),
             )
         )
+    site_url = feed.get("link")
     return ParsedFeed(
         title=feed.get("title"),
-        site_url=feed.get("link"),
+        site_url=site_url,
         lang=feed_lang,
         articles=articles,
+        favicon_url=_feed_favicon(feed, site_url),
     )
 
 
@@ -161,6 +203,8 @@ async def store_articles(db: AsyncSession, source: Source, parsed: ParsedFeed) -
             "content_html": a.content_html,
             "summary": a.summary,
             "lang": a.lang,
+            "word_count": a.word_count,
+            "tags": a.tags,
             "published_at": a.published_at,
         }
         for a in new
@@ -210,6 +254,8 @@ async def refresh_source(
             source.title = parsed.title
         if not source.site_url and parsed.site_url:
             source.site_url = parsed.site_url
+        if not source.favicon_url and parsed.favicon_url:
+            source.favicon_url = parsed.favicon_url
         source.etag = result.etag
         source.last_modified = result.last_modified
 

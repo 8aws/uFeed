@@ -20,7 +20,6 @@ async def main() -> None:
         seconds=settings.ingest_tick_s,
         max_instances=1,
         coalesce=True,
-        next_run_time=None,
     )
     scheduler.start()
     log.info("ingestion worker started (tick=%ss)", settings.ingest_tick_s)

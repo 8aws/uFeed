@@ -10,6 +10,7 @@ import type {
 	Page,
 	Subscription,
 	Tokens,
+	TrendingItem,
 	User
 } from '$lib/types';
 
@@ -118,11 +119,20 @@ export const api = {
 		request<unknown>(`/articles/${id}/read`, { method: read ? 'POST' : 'DELETE' }),
 	setSaved: (id: string, saved: boolean) =>
 		request<unknown>(`/articles/${id}/save`, { method: saved ? 'POST' : 'DELETE' }),
+	setFavorite: (id: string, favorite: boolean) =>
+		request<unknown>(`/articles/${id}/favorite`, { method: favorite ? 'POST' : 'DELETE' }),
 	markAllRead: (folder_id?: string | null, source_id?: string | null) =>
 		request<unknown>('/articles/mark-all-read', {
 			method: 'POST',
 			body: { folder_id, source_id }
-		})
+		}),
+	readEvent: (id: string, dwell_ms: number, completion: number) =>
+		request<unknown>(`/articles/${id}/read-event`, {
+			method: 'POST',
+			body: { dwell_ms, completion }
+		}),
+	trending: (window_hours = 48, limit = 8) =>
+		request<TrendingItem[]>(`/trending?window_hours=${window_hours}&limit=${limit}`)
 };
 
 /** OPML export needs the auth header, so fetch as a blob and trigger a download. */

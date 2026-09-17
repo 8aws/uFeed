@@ -23,4 +23,5 @@ class ArticleState(Base):
     )
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_saved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -13,6 +13,7 @@ from app.schemas.discover import DiscoveredFeed, DiscoverRequest, OpmlImportResu
 from app.schemas.source import SourceOut, SubscribeRequest, SubscriptionOut
 from app.services import discovery as discovery_service
 from app.services import folders as folder_service
+from app.services import ingest as ingest_service
 from app.services import opml as opml_service
 from app.services import subscriptions as sub_service
 from app.services.subscriptions import SubscriptionRow
@@ -44,6 +45,16 @@ async def subscribe(body: SubscribeRequest, user: CurrentUser, db: DbSession) ->
     sub, _created = await sub_service.subscribe(db, user.id, body.url, body.folder_id)
     row = await sub_service.get_subscription_row(db, user.id, sub.id)
     assert row is not None
+    # First-time feed: fetch now so the user sees articles immediately instead
+    # of waiting for the next worker tick. Best-effort; the worker retries.
+    if row.source.last_fetch_at is None:
+        try:
+            async with httpx.AsyncClient() as client:
+                await ingest_service.refresh_source(db, client, row.source)
+            row = await sub_service.get_subscription_row(db, user.id, sub.id)
+            assert row is not None
+        except Exception:  # noqa: BLE001 - never fail a subscribe on a bad feed
+            pass
     return _to_out(row)
 
 

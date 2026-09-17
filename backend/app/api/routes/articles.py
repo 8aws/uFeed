@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import AppError
-from app.schemas.article import ArticleOut, MarkAllReadRequest
+from app.schemas.article import ArticleOut, MarkAllReadRequest, ReadEventRequest
 from app.schemas.common import OkResponse, Page
 from app.services import articles as article_service
 from app.services.articles import ArticleRow
@@ -18,6 +18,7 @@ def _to_out(row: ArticleRow) -> ArticleOut:
     out = ArticleOut.model_validate(row.article)
     out.is_read = row.is_read
     out.is_saved = row.is_saved
+    out.is_favorite = row.is_favorite
     return out
 
 
@@ -29,6 +30,7 @@ async def list_articles(
     source: uuid.UUID | None = None,
     unread: bool | None = None,
     saved: bool | None = None,
+    favorite: bool | None = None,
     q: str | None = None,
     cursor: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
@@ -40,6 +42,7 @@ async def list_articles(
         source=source,
         unread=unread,
         saved=saved,
+        favorite=favorite,
         q=q,
         cursor=cursor,
         limit=limit,
@@ -79,6 +82,28 @@ async def mark_saved(article_id: uuid.UUID, user: CurrentUser, db: DbSession) ->
 @router.delete("/{article_id}/save", response_model=OkResponse)
 async def mark_unsaved(article_id: uuid.UUID, user: CurrentUser, db: DbSession) -> OkResponse:
     return await _set_state(user, db, article_id, is_saved=False)
+
+
+@router.post("/{article_id}/favorite", response_model=OkResponse)
+async def mark_favorite(article_id: uuid.UUID, user: CurrentUser, db: DbSession) -> OkResponse:
+    return await _set_state(user, db, article_id, is_favorite=True)
+
+
+@router.delete("/{article_id}/favorite", response_model=OkResponse)
+async def mark_unfavorite(article_id: uuid.UUID, user: CurrentUser, db: DbSession) -> OkResponse:
+    return await _set_state(user, db, article_id, is_favorite=False)
+
+
+@router.post("/{article_id}/read-event", response_model=OkResponse)
+async def read_event(
+    article_id: uuid.UUID, body: ReadEventRequest, user: CurrentUser, db: DbSession
+) -> OkResponse:
+    ok = await article_service.record_read_event(
+        db, user.id, article_id, body.dwell_ms, body.completion
+    )
+    if not ok:
+        raise AppError(404, "not_found", "Article not found.")
+    return OkResponse()
 
 
 @router.post("/mark-all-read", response_model=OkResponse)

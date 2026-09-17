@@ -22,6 +22,11 @@ export const en = {
 	mark_unread: 'Mark unread',
 	save: 'Save',
 	unsave: 'Unsave',
+	favorites: 'Favorites',
+	favorite: 'Favorite',
+	unfavorite: 'Unfavorite',
+	trending: 'Trending',
+	readers: 'readers',
 	open_original: 'Open original',
 	no_articles: 'Nothing here yet.',
 	loading: 'Loading…',
@@ -36,7 +41,7 @@ export const en = {
 	import_opml: 'Import OPML',
 	export_opml: 'Export OPML',
 	account: 'Account',
-	shortcuts: 'Keys: j/k move · o open · m read · s save',
+	shortcuts: 'Keys: j/k move · o open · m read · s save · f favorite',
 	refresh: 'Refresh'
 };
 

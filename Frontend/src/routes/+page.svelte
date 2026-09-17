@@ -1,16 +1,17 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
 	import { clearTokens } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
-	import { relativeTime } from '$lib/format';
-	import type { Article, DiscoveredFeed, Folder, Subscription } from '$lib/types';
+	import { relativeTime, readingTime } from '$lib/format';
+	import type { Article, DiscoveredFeed, Folder, Subscription, TrendingItem } from '$lib/types';
 
 	type Filter =
 		| { kind: 'all' }
 		| { kind: 'unread' }
 		| { kind: 'saved' }
+		| { kind: 'favorites' }
 		| { kind: 'source'; id: string }
 		| { kind: 'folder'; id: string };
 
@@ -24,6 +25,9 @@
 	let loading = $state(false);
 	let selected = $state(0);
 	let openArticle = $state<Article | null>(null);
+	let trending = $state<TrendingItem[]>([]);
+	let readerEl = $state<HTMLElement | null>(null);
+	let readingStart = 0;
 
 	// Add-feed UI.
 	let showAdd = $state(false);
@@ -38,6 +42,7 @@
 		const p: Record<string, string> = { limit: '30' };
 		if (filter.kind === 'unread') p.unread = 'true';
 		if (filter.kind === 'saved') p.saved = 'true';
+		if (filter.kind === 'favorites') p.favorite = 'true';
 		if (filter.kind === 'source') p.source = filter.id;
 		if (filter.kind === 'folder') p.folder = filter.id;
 		if (!reset && cursor) p.cursor = cursor;
@@ -68,12 +73,53 @@
 		loadArticles(true);
 	}
 
+	function flushReadEvent() {
+		const a = openArticle;
+		if (!a || !readingStart) return;
+		const dwell = Date.now() - readingStart;
+		let completion = 1;
+		if (readerEl && readerEl.scrollHeight > readerEl.clientHeight) {
+			completion = (readerEl.scrollTop + readerEl.clientHeight) / readerEl.scrollHeight;
+		}
+		readingStart = 0;
+		if (dwell > 1000) api.readEvent(a.id, dwell, Math.max(0, Math.min(1, completion))).catch(() => {});
+	}
+
+	function openArticleObj(a: Article) {
+		flushReadEvent();
+		openArticle = a;
+		readingStart = Date.now();
+		if (!a.is_read) markRead(a, true);
+	}
+
 	async function open(i: number) {
 		if (i < 0 || i >= articles.length) return;
 		selected = i;
-		const a = articles[i];
-		openArticle = a;
-		if (!a.is_read) await markRead(a, true);
+		openArticleObj(articles[i]);
+	}
+
+	function closeReader() {
+		flushReadEvent();
+		openArticle = null;
+	}
+
+	async function toggleFavorite(a: Article) {
+		a.is_favorite = !a.is_favorite;
+		articles = [...articles];
+		try {
+			await api.setFavorite(a.id, a.is_favorite);
+		} catch {
+			a.is_favorite = !a.is_favorite;
+			articles = [...articles];
+		}
+	}
+
+	async function loadTrending() {
+		try {
+			trending = await api.trending(48, 8);
+		} catch {
+			trending = [];
+		}
 	}
 
 	async function markRead(a: Article, read: boolean) {
@@ -163,6 +209,11 @@
 		} else if (e.key === 's') {
 			const a = articles[selected];
 			if (a) toggleSave(a);
+		} else if (e.key === 'f') {
+			const a = articles[selected];
+			if (a) toggleFavorite(a);
+		} else if (e.key === 'Escape') {
+			if (openArticle) closeReader();
 		}
 	}
 
@@ -194,7 +245,10 @@
 	onMount(async () => {
 		await loadSidebar();
 		await loadArticles(true);
+		loadTrending();
 	});
+
+	onDestroy(() => flushReadEvent());
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -224,6 +278,13 @@
 			>
 				{$t('saved')}
 			</button>
+			<button
+				class="nav"
+				class:active={filter.kind === 'favorites'}
+				onclick={() => setFilter({ kind: 'favorites' })}
+			>
+				★ {$t('favorites')}
+			</button>
 		</nav>
 
 		<div class="section">
@@ -251,6 +312,11 @@
 			{#each subs as s (s.id)}
 				<li class:active={filter.kind === 'source' && filter.id === s.source.id}>
 					<button class="feed" onclick={() => setFilter({ kind: 'source', id: s.source.id })}>
+						{#if s.source.favicon_url}
+							<img class="favicon" src={s.source.favicon_url} alt="" loading="lazy" />
+						{:else}
+							<span class="favicon dot"></span>
+						{/if}
 						<span class="ellipsis">{s.custom_title || s.source.title || s.source.feed_url}</span>
 						{#if s.unread_count}<span class="badge">{s.unread_count}</span>{/if}
 					</button>
@@ -275,6 +341,23 @@
 				<button onclick={markAllRead}>{$t('mark_all_read')}</button>
 			</div>
 		</header>
+
+		{#if trending.length > 0}
+			<section class="trending">
+				<h3>🔥 {$t('trending')}</h3>
+				<div class="cards">
+					{#each trending as ti (ti.article.id)}
+						<button class="card" onclick={() => openArticleObj(ti.article)}>
+							<span class="ctitle">{ti.article.title || ti.article.url}</span>
+							<span class="cmeta muted">
+								{sourceName(ti.article.source_id) || ''} · {ti.readers}
+								{$t('readers')}
+							</span>
+						</button>
+					{/each}
+				</div>
+			</section>
+		{/if}
 
 		{#if articles.length === 0 && !loading}
 			<p class="empty muted">{$t('no_articles')}</p>
@@ -311,15 +394,18 @@
 
 	{#if openArticle}
 		{@const a = openArticle}
-		<article class="reader">
+		<article class="reader" bind:this={readerEl}>
 			<div class="reader-head">
-				<button class="close" onclick={() => (openArticle = null)}>×</button>
+				<button class="close" onclick={closeReader} aria-label="close">×</button>
 				<div class="reader-actions">
 					<button onclick={() => markRead(a, !a.is_read)}>
 						{a.is_read ? $t('mark_unread') : $t('mark_read')}
 					</button>
 					<button class:active={a.is_saved} onclick={() => toggleSave(a)}>
 						{a.is_saved ? $t('unsave') : $t('save')}
+					</button>
+					<button class:active={a.is_favorite} onclick={() => toggleFavorite(a)}>
+						{a.is_favorite ? '★' : '☆'} {a.is_favorite ? $t('unfavorite') : $t('favorite')}
 					</button>
 					{#if a.url}<a class="btn" href={a.url} target="_blank" rel="noopener">{$t('open_original')}</a>{/if}
 				</div>
@@ -329,7 +415,13 @@
 				{sourceName(a.source_id)}
 				{#if a.author}· {$t('by')} {a.author}{/if}
 				· {relativeTime(a.published_at, $locale)}
+				{#if a.word_count}· {readingTime(a.word_count, $locale)}{/if}
 			</p>
+			{#if a.tags.length}
+				<div class="tags">
+					{#each a.tags as tag (tag)}<span class="tag">{tag}</span>{/each}
+				</div>
+			{/if}
 			<div class="content">
 				{@html a.content_html || a.summary || ''}
 			</div>
@@ -441,6 +533,68 @@
 		border-radius: 999px;
 		padding: 0 0.4rem;
 		font-size: 0.72rem;
+	}
+	.favicon {
+		width: 16px;
+		height: 16px;
+		border-radius: 3px;
+		flex: none;
+		object-fit: cover;
+	}
+	.favicon.dot {
+		width: 8px;
+		height: 8px;
+		margin: 0 4px;
+		border-radius: 50%;
+		background: var(--border);
+	}
+	.trending {
+		padding: 0.75rem 0.25rem;
+		border-bottom: 1px solid var(--border);
+	}
+	.trending h3 {
+		margin: 0 0 0.5rem;
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--muted);
+	}
+	.cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+		gap: 0.5rem;
+	}
+	.card {
+		text-align: left;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		padding: 0.5rem;
+	}
+	.ctitle {
+		font-weight: 600;
+		font-size: 0.85rem;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+	.cmeta {
+		font-size: 0.72rem;
+	}
+	.tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+		margin-top: 0.5rem;
+	}
+	.tag {
+		font-size: 0.72rem;
+		background: var(--accent-soft);
+		color: var(--accent);
+		border-radius: 999px;
+		padding: 0.1rem 0.5rem;
 	}
 	.spacer {
 		flex: 1;

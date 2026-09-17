@@ -4,7 +4,7 @@ import base64
 import binascii
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
 from sqlalchemy import and_, func, or_, select, tuple_
@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.article import Article
 from app.models.article_state import ArticleState
+from app.models.read_event import ReadEvent
 from app.models.subscription import Subscription
 
 # Sort key: prefer published_at, fall back to fetched_at (always present).
@@ -24,12 +25,22 @@ class ArticleRow:
     article: Article
     is_read: bool
     is_saved: bool
+    is_favorite: bool = False
 
 
 @dataclass(slots=True)
 class ArticlePage:
     rows: list[ArticleRow]
     next_cursor: str | None
+
+
+@dataclass(slots=True)
+class TrendingRow:
+    row: ArticleRow
+    readers: int
+    avg_completion: float
+    avg_dwell_ms: int
+    score: float
 
 
 def _fts_vector():
@@ -56,7 +67,7 @@ def decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID] | None:
 def _base_query(user_id: uuid.UUID):
     """Articles from the user's subscriptions, with their per-user state."""
     return (
-        select(Article, ArticleState.is_read, ArticleState.is_saved)
+        select(Article, ArticleState.is_read, ArticleState.is_saved, ArticleState.is_favorite)
         .join(Subscription, Subscription.source_id == Article.source_id)
         .outerjoin(
             ArticleState,
@@ -74,6 +85,7 @@ async def list_articles(
     source: uuid.UUID | None = None,
     unread: bool | None = None,
     saved: bool | None = None,
+    favorite: bool | None = None,
     q: str | None = None,
     cursor: str | None = None,
     limit: int = 50,
@@ -92,6 +104,8 @@ async def list_articles(
         stmt = stmt.where(ArticleState.is_saved.is_(True))
     elif saved is False:
         stmt = stmt.where(or_(ArticleState.is_saved.is_(None), ArticleState.is_saved.is_(False)))
+    if favorite is True:
+        stmt = stmt.where(ArticleState.is_favorite.is_(True))
     if q:
         stmt = stmt.where(_fts_vector().op("@@")(func.plainto_tsquery("simple", q)))
 
@@ -110,7 +124,7 @@ async def list_articles(
     stmt = stmt.order_by(_SORT_TS.desc(), Article.id.desc()).limit(limit + 1)
 
     result = (await db.execute(stmt)).all()
-    rows = [ArticleRow(a, bool(r), bool(s)) for a, r, s in result[:limit]]
+    rows = [ArticleRow(a, bool(r), bool(s), bool(f)) for a, r, s, f in result[:limit]]
 
     next_cursor = None
     if len(result) > limit:
@@ -127,8 +141,8 @@ async def get_article(
     row = (await db.execute(stmt)).first()
     if row is None:
         return None
-    article, is_read, is_saved = row
-    return ArticleRow(article, bool(is_read), bool(is_saved))
+    article, is_read, is_saved, is_favorite = row
+    return ArticleRow(article, bool(is_read), bool(is_saved), bool(is_favorite))
 
 
 async def _user_owns_article(db: AsyncSession, user_id: uuid.UUID, article_id: uuid.UUID) -> bool:
@@ -148,8 +162,9 @@ async def set_state(
     *,
     is_read: bool | None = None,
     is_saved: bool | None = None,
+    is_favorite: bool | None = None,
 ) -> bool:
-    """Upsert the per-user read/saved state for one article."""
+    """Upsert the per-user read/saved/favorite state for one article."""
     if not await _user_owns_article(db, user_id, article_id):
         return False
 
@@ -163,6 +178,9 @@ async def set_state(
     if is_saved is not None:
         values["is_saved"] = is_saved
         set_["is_saved"] = is_saved
+    if is_favorite is not None:
+        values["is_favorite"] = is_favorite
+        set_["is_favorite"] = is_favorite
 
     stmt = (
         pg_insert(ArticleState)
@@ -209,3 +227,80 @@ async def mark_all_read(
     result = await db.execute(stmt)
     await db.commit()
     return result.rowcount or 0
+
+
+async def record_read_event(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    article_id: uuid.UUID,
+    dwell_ms: int,
+    completion: float,
+) -> bool:
+    """Record one anonymised reading event for cross-user trending."""
+    if not await _user_owns_article(db, user_id, article_id):
+        return False
+    db.add(
+        ReadEvent(
+            article_id=article_id,
+            user_id=user_id,
+            dwell_ms=max(0, dwell_ms),
+            completion=max(0.0, min(1.0, completion)),
+        )
+    )
+    await db.commit()
+    return True
+
+
+async def trending(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    window_hours: int = 48,
+    limit: int = 8,
+) -> list[TrendingRow]:
+    """Most-read articles across all users in a time window (anonymised)."""
+    since = datetime.now(UTC) - timedelta(hours=window_hours)
+    agg = (
+        select(
+            ReadEvent.article_id.label("aid"),
+            func.count(func.distinct(ReadEvent.user_id)).label("readers"),
+            func.avg(ReadEvent.completion).label("avg_completion"),
+            func.avg(ReadEvent.dwell_ms).label("avg_dwell"),
+        )
+        .where(ReadEvent.created_at >= since)
+        .group_by(ReadEvent.article_id)
+        .subquery()
+    )
+    # Importance: more distinct readers, weighted up by how fully they read it.
+    score = (agg.c.readers * (1.0 + func.coalesce(agg.c.avg_completion, 0.0))).label("score")
+    stmt = (
+        select(
+            Article,
+            ArticleState.is_read,
+            ArticleState.is_saved,
+            ArticleState.is_favorite,
+            agg.c.readers,
+            agg.c.avg_completion,
+            agg.c.avg_dwell,
+            score,
+        )
+        .join(agg, agg.c.aid == Article.id)
+        .outerjoin(
+            ArticleState,
+            and_(ArticleState.article_id == Article.id, ArticleState.user_id == user_id),
+        )
+        .order_by(score.desc())
+        .limit(limit)
+    )
+    out: list[TrendingRow] = []
+    for a, r, s, f, readers, avg_c, avg_d, sc in (await db.execute(stmt)).all():
+        out.append(
+            TrendingRow(
+                row=ArticleRow(a, bool(r), bool(s), bool(f)),
+                readers=int(readers or 0),
+                avg_completion=float(avg_c or 0.0),
+                avg_dwell_ms=int(avg_d or 0),
+                score=float(sc or 0.0),
+            )
+        )
+    return out

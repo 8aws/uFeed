@@ -844,6 +844,22 @@
             }
           },
           {
+            "name": "favorite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Favorite"
+            }
+          },
+          {
             "name": "q",
             "in": "query",
             "required": false,
@@ -1148,6 +1164,158 @@
         }
       }
     },
+    "/api/articles/{article_id}/favorite": {
+      "post": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Mark Favorite",
+        "operationId": "mark_favorite_api_articles__article_id__favorite_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Mark Unfavorite",
+        "operationId": "mark_unfavorite_api_articles__article_id__favorite_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{article_id}/read-event": {
+      "post": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Read Event",
+        "operationId": "read_event_api_articles__article_id__read_event_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadEventRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/mark-all-read": {
       "post": {
         "tags": [
@@ -1192,6 +1360,72 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/trending": {
+      "get": {
+        "tags": [
+          "trending"
+        ],
+        "summary": "Get Trending",
+        "operationId": "get_trending_api_trending_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "window_hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 720,
+              "minimum": 1,
+              "default": 48,
+              "title": "Window Hours"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "default": 8,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrendingItem"
+                  },
+                  "title": "Response Get Trending Api Trending Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/sources": {
@@ -1699,6 +1933,25 @@
             ],
             "title": "Lang"
           },
+          "word_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Word Count"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
           "published_at": {
             "anyOf": [
               {
@@ -1719,6 +1972,11 @@
           "is_saved": {
             "type": "boolean",
             "title": "Is Saved",
+            "default": false
+          },
+          "is_favorite": {
+            "type": "boolean",
+            "title": "Is Favorite",
             "default": false
           }
         },
@@ -1983,6 +2241,22 @@
         ],
         "title": "Page[ArticleOut]"
       },
+      "ReadEventRequest": {
+        "properties": {
+          "dwell_ms": {
+            "type": "integer",
+            "title": "Dwell Ms",
+            "default": 0
+          },
+          "completion": {
+            "type": "number",
+            "title": "Completion",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "title": "ReadEventRequest"
+      },
       "RefreshRequest": {
         "properties": {
           "refresh_token": {
@@ -2177,6 +2451,38 @@
           "refresh_token"
         ],
         "title": "Tokens"
+      },
+      "TrendingItem": {
+        "properties": {
+          "article": {
+            "$ref": "#/components/schemas/ArticleOut"
+          },
+          "readers": {
+            "type": "integer",
+            "title": "Readers"
+          },
+          "avg_completion": {
+            "type": "number",
+            "title": "Avg Completion"
+          },
+          "avg_dwell_ms": {
+            "type": "integer",
+            "title": "Avg Dwell Ms"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article",
+          "readers",
+          "avg_completion",
+          "avg_dwell_ms",
+          "score"
+        ],
+        "title": "TrendingItem"
       },
       "UserOut": {
         "properties": {

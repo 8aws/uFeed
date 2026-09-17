@@ -24,6 +24,11 @@ export const es: Dict = {
 	mark_unread: 'Marcar no leído',
 	save: 'Guardar',
 	unsave: 'Quitar',
+	favorites: 'Favoritos',
+	favorite: 'Favorito',
+	unfavorite: 'Quitar favorito',
+	trending: 'Tendencias',
+	readers: 'lectores',
 	open_original: 'Abrir original',
 	no_articles: 'Aún no hay nada aquí.',
 	loading: 'Cargando…',
@@ -38,6 +43,6 @@ export const es: Dict = {
 	import_opml: 'Importar OPML',
 	export_opml: 'Exportar OPML',
 	account: 'Cuenta',
-	shortcuts: 'Teclas: j/k mover · o abrir · m leído · s guardar',
+	shortcuts: 'Teclas: j/k mover · o abrir · m leído · s guardar · f favorito',
 	refresh: 'Actualizar'
 };

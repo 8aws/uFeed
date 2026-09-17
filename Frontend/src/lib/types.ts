@@ -50,9 +50,20 @@ export interface Article {
 	summary: string | null;
 	content_html: string | null;
 	lang: string | null;
+	word_count: number | null;
+	tags: string[];
 	published_at: string | null;
 	is_read: boolean;
 	is_saved: boolean;
+	is_favorite: boolean;
+}
+
+export interface TrendingItem {
+	article: Article;
+	readers: number;
+	avg_completion: number;
+	avg_dwell_ms: number;
+	score: number;
 }
 
 export interface Page<T> {

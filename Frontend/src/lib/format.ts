@@ -15,3 +15,10 @@ export function relativeTime(iso: string | null, locale: Locale): string {
 	if (d < 30) return `${d}d`;
 	return new Date(iso).toLocaleDateString(locale);
 }
+
+/** Estimated reading time from a word count (~220 wpm). */
+export function readingTime(words: number | null, locale: Locale): string {
+	if (!words || words < 1) return '';
+	const min = Math.max(1, Math.round(words / 220));
+	return locale === 'es' ? `${min} min de lectura` : `${min} min read`;
+}
