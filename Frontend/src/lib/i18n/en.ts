@@ -54,6 +54,7 @@ export const en = {
 	for_you: 'For you',
 	foryou: 'For you',
 	similar: 'Similar',
+	summary_label: 'Summary',
 	trending_now: 'Trending now',
 	top: 'Top',
 	most_saved: 'Most saved',

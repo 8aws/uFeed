@@ -15,6 +15,7 @@ class ArticleOut(BaseModel):
     title: str | None = None
     author: str | None = None
     summary: str | None = None
+    ai_summary: str | None = None
     content_html: str | None = None
     image_url: str | None = None
     lang: str | None = None

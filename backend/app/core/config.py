@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     ai_enabled: bool = Field(default=True)
     embedding_dim: int = Field(default=384)
     embed_max_per_tick: int = Field(default=50)
+    summarize_max_per_tick: int = Field(default=20)
+    ai_summary_sentences: int = Field(default=3)
 
     @property
     def cors_origin_list(self) -> list[str]:

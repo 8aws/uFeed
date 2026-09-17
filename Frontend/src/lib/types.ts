@@ -49,6 +49,7 @@ export interface Article {
 	title: string | null;
 	author: string | null;
 	summary: string | null;
+	ai_summary: string | null;
 	content_html: string | null;
 	image_url: string | null;
 	lang: string | null;

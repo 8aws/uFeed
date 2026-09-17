@@ -56,6 +56,7 @@ export const es: Dict = {
 	for_you: 'Para ti',
 	foryou: 'Para ti',
 	similar: 'Similares',
+	summary_label: 'Resumen',
 	trending_now: 'Tendencia ahora',
 	top: 'Top',
 	most_saved: 'Más guardados',

@@ -47,6 +47,32 @@ async def test_embed_texts_fail_open_when_disabled(monkeypatch) -> None:
     assert await ai_service.embed_texts(["hello"]) is None
 
 
+async def test_summarize_texts_fail_open_when_disabled(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "ai_enabled", False)
+    assert await ai_service.summarize_texts(["hello world."]) is None
+
+
+async def test_ai_summary_exposed(api: AsyncClient, db_session: AsyncSession) -> None:
+    headers, _ = await _register(api)
+    src = Source(feed_url=f"https://ex.com/{uuid.uuid4().hex}.xml", title="S")
+    db_session.add(src)
+    await db_session.flush()
+    db_session.add(
+        Article(
+            source_id=src.id,
+            guid="g1",
+            title="T",
+            content_html="body",
+            ai_summary="A crisp AI summary.",
+        )
+    )
+    await db_session.commit()
+    await api.post("/api/sources", headers=headers, json={"url": src.feed_url})
+
+    items = (await api.get("/api/articles", headers=headers)).json()["items"]
+    assert items[0]["ai_summary"] == "A crisp AI summary."
+
+
 async def test_similar_articles(api: AsyncClient, db_session: AsyncSession) -> None:
     headers, _ = await _register(api)
     src, ids = await _seed_with_vectors(db_session)

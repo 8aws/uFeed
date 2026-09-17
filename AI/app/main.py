@@ -40,6 +40,15 @@ class SummarizeResponse(BaseModel):
     summary: str
 
 
+class SummarizeBatchRequest(BaseModel):
+    texts: list[str]
+    max_sentences: int = 3
+
+
+class SummarizeBatchResponse(BaseModel):
+    summaries: list[str]
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "backend": BACKEND, "dim": DIM, "device": DEVICE}
@@ -51,11 +60,27 @@ def embed(body: EmbedRequest) -> EmbedResponse:
     return EmbedResponse(dim=DIM, vectors=vectors)
 
 
+import re
+
+_TAG_RE = re.compile(r"<[^>]+>")
+_WS_RE = re.compile(r"\s+")
+
+
+def _summarize(text: str, max_sentences: int) -> str:
+    plain = _WS_RE.sub(" ", _TAG_RE.sub(" ", text or "")).strip()
+    # Portable extractive summary: the first N sentences. The OpenVINO backend
+    # (NAS) can replace this with an abstractive model behind the same API.
+    sentences = re.split(r"(?<=[.!?])\s+", plain)
+    return " ".join(sentences[: max(1, max_sentences)]).strip()
+
+
 @app.post("/summarize", response_model=SummarizeResponse)
 def summarize(body: SummarizeRequest) -> SummarizeResponse:
-    # Phase 2 will use OpenVINO; for now a simple lead-sentences extract.
-    import re
+    return SummarizeResponse(summary=_summarize(body.text, body.max_sentences))
 
-    sentences = re.split(r"(?<=[.!?])\s+", (body.text or "").strip())
-    summary = " ".join(sentences[: max(1, body.max_sentences)]).strip()
-    return SummarizeResponse(summary=summary)
+
+@app.post("/summarize_batch", response_model=SummarizeBatchResponse)
+def summarize_batch(body: SummarizeBatchRequest) -> SummarizeBatchResponse:
+    return SummarizeBatchResponse(
+        summaries=[_summarize(t, body.max_sentences) for t in body.texts]
+    )

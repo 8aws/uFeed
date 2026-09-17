@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.source import Source
-from app.services.ai import embed_pending
+from app.services.ai import embed_pending, summarize_pending
 from app.services.ingest import refresh_source
 
 log = logging.getLogger("ufeed.ingest")
@@ -46,7 +46,7 @@ async def run_tick() -> int:
                     await db.rollback()
                     log.exception("ingest failed for %s", source.feed_url)
                 processed += 1
-        # Embed newly-ingested articles (best-effort; no-op if AI is down).
+        # Embed + summarise newly-ingested articles (best-effort; no-op if AI down).
         try:
             embedded = await embed_pending(db)
             if embedded:
@@ -54,4 +54,11 @@ async def run_tick() -> int:
         except Exception:  # noqa: BLE001
             await db.rollback()
             log.exception("embedding pass failed")
+        try:
+            summarised = await summarize_pending(db)
+            if summarised:
+                log.info("summarised %d articles", summarised)
+        except Exception:  # noqa: BLE001
+            await db.rollback()
+            log.exception("summary pass failed")
     return processed

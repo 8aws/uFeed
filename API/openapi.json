@@ -2205,6 +2205,17 @@
             ],
             "title": "Summary"
           },
+          "ai_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Summary"
+          },
           "content_html": {
             "anyOf": [
               {

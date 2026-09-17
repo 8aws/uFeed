@@ -601,7 +601,7 @@
 											{sourceName(it.article.source_id) || ''} · {it.readers} {$t('readers')}
 										</span>
 										<p class="texcerpt">
-											{stripHtml(it.article.summary || it.article.content_html)}
+											{it.article.ai_summary || stripHtml(it.article.summary || it.article.content_html)}
 										</p>
 									</div>
 								</button>
@@ -667,7 +667,7 @@
 								{#if a.is_saved}<span class="star">★</span>{/if}
 								{#if a.is_favorite}<span class="star">♥</span>{/if}
 							</div>
-							<p class="excerpt">{stripHtml(a.summary || a.content_html)}</p>
+							<p class="excerpt">{a.ai_summary || stripHtml(a.summary || a.content_html)}</p>
 						</div>
 					</article>
 				{/each}
@@ -718,6 +718,12 @@
 			{#if a.tags.length}
 				<div class="tags">
 					{#each a.tags as tag (tag)}<span class="tag">{tag}</span>{/each}
+				</div>
+			{/if}
+			{#if a.ai_summary}
+				<div class="ai-summary">
+					<span class="ai-summary-label">✨ {$t('summary_label')}</span>
+					{a.ai_summary}
 				</div>
 			{/if}
 			<div class="content">
@@ -1232,6 +1238,22 @@
 		border: 1px solid var(--border);
 		border-radius: var(--radius);
 		padding: 0.45rem 0.8rem;
+	}
+	.ai-summary {
+		margin-top: 1rem;
+		padding: 0.75rem 1rem;
+		background: var(--accent-soft);
+		border-radius: var(--radius);
+		font-size: 0.9rem;
+		line-height: 1.5;
+	}
+	.ai-summary-label {
+		display: block;
+		font-size: 0.72rem;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--accent);
+		margin-bottom: 0.25rem;
 	}
 	.reader .content {
 		margin-top: 1rem;

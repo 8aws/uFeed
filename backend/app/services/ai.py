@@ -33,6 +33,57 @@ async def embed_texts(texts: list[str]) -> list[list[float]] | None:
         return None
 
 
+async def summarize_texts(texts: list[str]) -> list[str] | None:
+    """Call the AI service to summarise texts. None if AI is unavailable."""
+    if not settings.ai_enabled or not texts:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                f"{settings.ai_url}/summarize_batch",
+                json={"texts": texts, "max_sentences": settings.ai_summary_sentences},
+            )
+            resp.raise_for_status()
+            return resp.json()["summaries"]
+    except (httpx.HTTPError, KeyError, ValueError):
+        return None
+
+
+async def summarize_pending(db: AsyncSession, limit: int | None = None) -> int:
+    """Generate an AI summary for articles that lack one."""
+    limit = limit or settings.summarize_max_per_tick
+    rows = (
+        (
+            await db.execute(
+                select(Article)
+                .where(
+                    Article.ai_summary.is_(None),
+                    or_(Article.content_html.isnot(None), Article.summary.isnot(None)),
+                )
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not rows:
+        return 0
+    texts = [(a.content_html or a.summary or "")[:6000] for a in rows]
+    summaries = await summarize_texts(texts)
+    if summaries is None:
+        return 0
+    written = 0
+    for article, summary in zip(rows, summaries, strict=False):
+        summary = (summary or "").strip()
+        if summary:
+            await db.execute(
+                update(Article).where(Article.id == article.id).values(ai_summary=summary)
+            )
+            written += 1
+    await db.commit()
+    return written
+
+
 async def embed_pending(db: AsyncSession, limit: int | None = None) -> int:
     """Embed articles that don't yet have a vector. Returns how many embedded."""
     limit = limit or settings.embed_max_per_tick
