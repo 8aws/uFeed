@@ -7,12 +7,12 @@
 	import { relativeTime, readingTime, stripHtml } from '$lib/format';
 	import type { Article, DiscoveredFeed, Folder, Insights, Subscription } from '$lib/types';
 
-	type View = 'list' | 'cards' | 'masonry';
+	type View = 'list' | 'cardlist' | 'cards' | 'masonry';
 
 	function initialView(): View {
 		if (typeof localStorage !== 'undefined') {
 			const v = localStorage.getItem('view');
-			if (v === 'list' || v === 'cards' || v === 'masonry') return v;
+			if (v === 'list' || v === 'cardlist' || v === 'cards' || v === 'masonry') return v;
 		}
 		return 'list';
 	}
@@ -221,6 +221,13 @@
 
 	async function assignFolder(sub: Subscription, folderId: string) {
 		await api.updateSubscription(sub.id, { folder_id: folderId || null });
+		await loadSidebar();
+	}
+
+	async function removeFolder(folder: Folder) {
+		if (!confirm($t('confirm_delete_folder'))) return;
+		await api.deleteFolder(folder.id);
+		if (filter.kind === 'folder' && filter.id === folder.id) setFilter({ kind: 'unread' });
 		await loadSidebar();
 	}
 
@@ -500,6 +507,7 @@
 					<span class="ellipsis">📁 {g.folder.name}</span>
 					{#if folderUnread(g.subs)}<span class="badge">{folderUnread(g.subs)}</span>{/if}
 				</button>
+				<button class="x" title={$t('delete_folder')} onclick={() => removeFolder(g.folder)}>×</button>
 			</div>
 			{#if !collapsed.has(g.folder.id)}
 				<ul class="feeds indent">
@@ -526,6 +534,7 @@
 			<div class="actions">
 				<div class="viewsel" role="group" aria-label="view">
 					<button class:active={view === 'list'} onclick={() => setView('list')} title={$t('view_list')}>☰</button>
+					<button class:active={view === 'cardlist'} onclick={() => setView('cardlist')} title={$t('view_cardlist')}>▤</button>
 					<button class:active={view === 'cards'} onclick={() => setView('cards')} title={$t('view_cards')}>▭</button>
 					<button class:active={view === 'masonry'} onclick={() => setView('masonry')} title={$t('view_masonry')}>▦</button>
 				</div>
@@ -611,7 +620,7 @@
 				{/each}
 			</ul>
 		{:else}
-			<div class="grid" class:masonry={view === 'masonry'}>
+			<div class="grid" class:masonry={view === 'masonry'} class:cardlist={view === 'cardlist'}>
 				{#each articles as a, i (a.id)}
 					<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
 					<article
@@ -745,6 +754,10 @@
 		display: block;
 		column-width: 340px;
 		column-gap: 0.75rem;
+	}
+	.grid.cardlist {
+		display: flex;
+		flex-direction: column;
 	}
 	.acard {
 		display: flex;
@@ -880,7 +893,8 @@
 		color: var(--muted);
 		opacity: 0;
 	}
-	.feeds li:hover .x {
+	.feeds li:hover .x,
+	.folder-row:hover .x {
 		opacity: 1;
 	}
 	.badge {
