@@ -57,6 +57,48 @@
 	let view = $state<View>(initialView());
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
+	function loadCollapsed(): Set<string> {
+		try {
+			return new Set(JSON.parse(localStorage.getItem('collapsed_folders') || '[]'));
+		} catch {
+			return new Set();
+		}
+	}
+	let collapsed = $state<Set<string>>(loadCollapsed());
+
+	function toggleCollapse(id: string) {
+		const next = new Set(collapsed);
+		if (next.has(id)) next.delete(id);
+		else next.add(id);
+		collapsed = next;
+		try {
+			localStorage.setItem('collapsed_folders', JSON.stringify([...next]));
+		} catch {
+			/* ignore */
+		}
+	}
+
+	function initialShowTrending(): boolean {
+		try {
+			const v = localStorage.getItem('show_trending');
+			if (v === '0') return false;
+			if (v === '1') return true;
+		} catch {
+			/* ignore */
+		}
+		return typeof window === 'undefined' || window.innerWidth > 900;
+	}
+	let showTrending = $state(initialShowTrending());
+
+	function toggleTrending() {
+		showTrending = !showTrending;
+		try {
+			localStorage.setItem('show_trending', showTrending ? '1' : '0');
+		} catch {
+			/* ignore */
+		}
+	}
+
 	function setView(v: View) {
 		view = v;
 		try {
@@ -352,7 +394,7 @@
 		<div class="brand">
 			<div class="brand-name">
 				<strong>{$t('app_name')}</strong>
-				{#if $user}<span class="who ellipsis">{$user.email}</span>{/if}
+				{#if $user}<span class="who ellipsis">{$user.display_name || $user.email}</span>{/if}
 			</div>
 			<a href="/settings" title={$t('settings')} aria-label={$t('settings')}>⚙</a>
 		</div>
@@ -442,17 +484,28 @@
 		{/if}
 
 		{#each grouped as g (g.folder.id)}
-			<button
-				class="feed folder"
-				class:active={filter.kind === 'folder' && filter.id === g.folder.id}
-				onclick={() => setFilter({ kind: 'folder', id: g.folder.id })}
-			>
-				<span class="ellipsis">📁 {g.folder.name}</span>
-				{#if folderUnread(g.subs)}<span class="badge">{folderUnread(g.subs)}</span>{/if}
-			</button>
-			<ul class="feeds indent">
-				{#each g.subs as s (s.id)}{@render feedRow(s)}{/each}
-			</ul>
+			<div class="folder-row">
+				<button
+					class="caret"
+					aria-label="toggle"
+					onclick={() => toggleCollapse(g.folder.id)}
+				>
+					{collapsed.has(g.folder.id) ? '▸' : '▾'}
+				</button>
+				<button
+					class="feed folder"
+					class:active={filter.kind === 'folder' && filter.id === g.folder.id}
+					onclick={() => setFilter({ kind: 'folder', id: g.folder.id })}
+				>
+					<span class="ellipsis">📁 {g.folder.name}</span>
+					{#if folderUnread(g.subs)}<span class="badge">{folderUnread(g.subs)}</span>{/if}
+				</button>
+			</div>
+			{#if !collapsed.has(g.folder.id)}
+				<ul class="feeds indent">
+					{#each g.subs as s (s.id)}{@render feedRow(s)}{/each}
+				</ul>
+			{/if}
 		{/each}
 
 		<ul class="feeds">
@@ -476,12 +529,17 @@
 					<button class:active={view === 'cards'} onclick={() => setView('cards')} title={$t('view_cards')}>▭</button>
 					<button class:active={view === 'masonry'} onclick={() => setView('masonry')} title={$t('view_masonry')}>▦</button>
 				</div>
+				<button
+					class:active={showTrending}
+					onclick={toggleTrending}
+					title="{$t('trending_bar')} — {showTrending ? $t('hide') : $t('show')}"
+				>🔥</button>
 				<button onclick={() => loadArticles(true)} title={$t('refresh')}>↻</button>
 				<button onclick={markAllRead}>{$t('mark_all_read')}</button>
 			</div>
 		</header>
 
-		{#if insights}
+		{#if insights && showTrending}
 			<section class="trending">
 				<div class="rank-tabs">
 					{#each RANKINGS as r (r)}
@@ -510,6 +568,9 @@
 										<span class="cmeta muted">
 											{sourceName(it.article.source_id) || ''} · {it.readers} {$t('readers')}
 										</span>
+										<p class="texcerpt">
+											{stripHtml(it.article.summary || it.article.content_html)}
+										</p>
 									</div>
 								</button>
 							{/each}
@@ -899,20 +960,51 @@
 		line-height: 1;
 	}
 	.tcard {
-		flex: 0 0 240px;
+		flex: 0 0 480px;
+		max-width: 90vw;
 		display: flex;
-		gap: 0.5rem;
-		padding: 0.4rem;
+		gap: 0.6rem;
+		padding: 0.6rem;
 		text-align: left;
 		background: var(--surface);
 		border: 1px solid var(--border);
+		align-items: flex-start;
 	}
 	.tthumb {
-		width: 56px;
-		height: 56px;
+		width: 104px;
+		height: 104px;
 		object-fit: cover;
-		border-radius: 6px;
+		border-radius: 8px;
 		flex: none;
+	}
+	.ctitle {
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
+	}
+	.texcerpt {
+		margin: 0.15rem 0 0;
+		font-size: 0.78rem;
+		color: var(--muted);
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+	.folder-row {
+		display: flex;
+		align-items: center;
+	}
+	.caret {
+		border: none;
+		background: none;
+		color: var(--muted);
+		padding: 0 0.25rem;
+		font-size: 0.7rem;
+	}
+	.folder-row .feed.folder {
+		flex: 1;
+		margin-top: 0;
 	}
 	.tbody {
 		min-width: 0;

@@ -33,8 +33,20 @@ async def authenticate(db: AsyncSession, email: str, password: str) -> User | No
     return user
 
 
-async def update_locale(db: AsyncSession, user: User, locale: str) -> User:
-    user.locale = locale
+async def update_profile(
+    db: AsyncSession,
+    user: User,
+    *,
+    fields: set[str],
+    locale: str | None = None,
+    display_name: str | None = None,
+) -> User:
+    """Apply only the provided fields (fields = the keys actually sent)."""
+    if "locale" in fields and locale is not None:
+        user.locale = locale
+    if "display_name" in fields:
+        cleaned = (display_name or "").strip()
+        user.display_name = cleaned or None
     await db.commit()
     await db.refresh(user)
     return user

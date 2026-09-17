@@ -58,5 +58,10 @@ export const es: Dict = {
 	new_folder: 'Nueva carpeta',
 	no_folder: 'Sin carpeta',
 	share: 'Compartir',
-	link_copied: 'Enlace copiado'
+	link_copied: 'Enlace copiado',
+	display_name: 'Nombre visible',
+	name_placeholder: 'p. ej. Manu (se muestra en vez del correo)',
+	trending_bar: 'Barra de tendencias',
+	hide: 'Ocultar',
+	show: 'Mostrar'
 };

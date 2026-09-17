@@ -96,7 +96,8 @@ export const api = {
 	login: (email: string, password: string) =>
 		request<Tokens>('/auth/login', { method: 'POST', body: { email, password }, auth: false }),
 	me: () => request<User>('/me'),
-	updateMe: (locale: Locale) => request<User>('/me', { method: 'PATCH', body: { locale } }),
+	updateMe: (body: { locale?: Locale; display_name?: string | null }) =>
+		request<User>('/me', { method: 'PATCH', body }),
 
 	// folders
 	listFolders: () => request<Folder[]>('/folders'),

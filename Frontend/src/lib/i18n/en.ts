@@ -56,7 +56,12 @@ export const en = {
 	new_folder: 'New folder',
 	no_folder: 'No folder',
 	share: 'Share',
-	link_copied: 'Link copied'
+	link_copied: 'Link copied',
+	display_name: 'Display name',
+	name_placeholder: 'e.g. Manu (shown instead of your email)',
+	trending_bar: 'Trending bar',
+	hide: 'Hide',
+	show: 'Show'
 };
 
 export type Dict = typeof en;

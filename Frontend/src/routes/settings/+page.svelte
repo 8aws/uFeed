@@ -7,13 +7,26 @@
 
 	let importMsg = $state('');
 	let fileInput: HTMLInputElement;
+	let displayName = $state($user?.display_name ?? '');
+	let nameSaved = $state(false);
 
 	async function changeLanguage(value: Locale) {
 		setLocale(value);
 		try {
-			await api.updateMe(value);
+			await api.updateMe({ locale: value });
 		} catch {
 			/* not fatal */
+		}
+	}
+
+	async function saveName() {
+		try {
+			const updated = await api.updateMe({ display_name: displayName.trim() });
+			user.set(updated);
+			nameSaved = true;
+			setTimeout(() => (nameSaved = false), 1500);
+		} catch {
+			/* ignore */
 		}
 	}
 
@@ -67,6 +80,13 @@
 
 	<section>
 		<h2>{$t('account')}</h2>
+		<label class="field">
+			{$t('display_name')}
+			<div class="row">
+				<input bind:value={displayName} maxlength="60" placeholder={$t('name_placeholder')} />
+				<button class="primary" onclick={saveName}>{nameSaved ? '✓' : $t('save')}</button>
+			</div>
+		</label>
 		{#if $user}<p class="muted">{$user.email}</p>{/if}
 		<button onclick={logout}>{$t('logout')}</button>
 	</section>
@@ -102,6 +122,14 @@
 		gap: 0.5rem;
 		align-items: center;
 		flex-wrap: wrap;
+	}
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		margin-bottom: 0.9rem;
+		font-size: 0.85rem;
+		color: var(--muted);
 	}
 	button.active {
 		border-color: var(--accent);

@@ -59,9 +59,12 @@ async def test_me_and_patch_locale(api: AsyncClient) -> None:
     assert me.status_code == 200
     assert me.json()["locale"] == "es"
 
-    patched = await api.patch("/api/me", headers=headers, json={"locale": "en"})
+    patched = await api.patch(
+        "/api/me", headers=headers, json={"locale": "en", "display_name": "Manu"}
+    )
     assert patched.status_code == 200
     assert patched.json()["locale"] == "en"
+    assert patched.json()["display_name"] == "Manu"
 
 
 async def test_refresh_rotates_tokens(api: AsyncClient) -> None:

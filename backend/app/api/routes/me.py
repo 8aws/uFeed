@@ -16,6 +16,11 @@ async def get_me(user: CurrentUser) -> UserOut:
 
 @router.patch("/me", response_model=UserOut)
 async def update_me(body: UserUpdate, user: CurrentUser, db: DbSession) -> UserOut:
-    if body.locale is not None:
-        user = await auth_service.update_locale(db, user, body.locale)
+    user = await auth_service.update_profile(
+        db,
+        user,
+        fields=set(body.model_fields_set),
+        locale=body.locale,
+        display_name=body.display_name,
+    )
     return user

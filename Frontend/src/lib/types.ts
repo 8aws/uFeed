@@ -3,6 +3,7 @@ export type Locale = 'en' | 'es';
 export interface User {
 	id: string;
 	email: string;
+	display_name: string | null;
 	locale: Locale;
 	is_active: boolean;
 	created_at: string;

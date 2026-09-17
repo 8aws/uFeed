@@ -2815,6 +2815,17 @@
             "format": "email",
             "title": "Email"
           },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
           "locale": {
             "type": "string",
             "enum": [
@@ -2859,6 +2870,18 @@
               }
             ],
             "title": "Locale"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
           }
         },
         "type": "object",
