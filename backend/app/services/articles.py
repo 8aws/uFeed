@@ -326,6 +326,14 @@ async def _articles_with_state(
     return out
 
 
+async def rows_for_ids(
+    db: AsyncSession, user_id: uuid.UUID, ids: list[uuid.UUID]
+) -> list[ArticleRow]:
+    """Hydrate a list of article ids with the user's state, preserving order."""
+    m = await _articles_with_state(db, user_id, set(ids))
+    return [m[i] for i in ids if i in m]
+
+
 async def insights(
     db: AsyncSession,
     user_id: uuid.UUID,

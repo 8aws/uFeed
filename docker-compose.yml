@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ufeed}
@@ -62,6 +62,16 @@ services:
       disable: true
     volumes:
       - ./backend:/app
+
+  ai:
+    build: ./AI
+    restart: unless-stopped
+    env_file: .env
+    # AI_BACKEND=hashing (portable, default) | openvino (Intel iGPU/NPU on NAS).
+    # For OpenVINO on the NAS, pass devices: /dev/dri (iGPU) and /dev/accel (NPU).
+    # devices:
+    #   - /dev/dri:/dev/dri
+    #   - /dev/accel:/dev/accel
 
   frontend:
     build: ./Frontend

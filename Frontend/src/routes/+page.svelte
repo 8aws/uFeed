@@ -22,6 +22,7 @@
 		| { kind: 'unread' }
 		| { kind: 'saved' }
 		| { kind: 'favorites' }
+		| { kind: 'foryou' }
 		| { kind: 'source'; id: string }
 		| { kind: 'folder'; id: string };
 
@@ -40,6 +41,7 @@
 	let carouselEl = $state<HTMLElement | null>(null);
 	let readerEl = $state<HTMLElement | null>(null);
 	let readingStart = 0;
+	let similarList = $state<Article[]>([]);
 
 	const RANKINGS: (keyof Insights)[] = [
 		'trending_now',
@@ -142,6 +144,13 @@
 		if (loading) return;
 		loading = true;
 		try {
+			if (filter.kind === 'foryou') {
+				articles = await api.forYou(40);
+				cursor = null;
+				hasMore = false;
+				if (reset) selected = 0;
+				return;
+			}
 			const page = await api.listArticles(buildParams(reset));
 			articles = reset ? page.items : [...articles, ...page.items];
 			cursor = page.next_cursor;
@@ -174,6 +183,12 @@
 		flushReadEvent();
 		openArticle = a;
 		readingStart = Date.now();
+		similarList = [];
+		api.similar(a.id, 6)
+			.then((r) => {
+				if (openArticle?.id === a.id) similarList = r;
+			})
+			.catch(() => {});
 		if (!a.is_read) markRead(a, true);
 	}
 
@@ -186,6 +201,7 @@
 	function closeReader() {
 		flushReadEvent();
 		openArticle = null;
+		similarList = [];
 	}
 
 	async function toggleFavorite(a: Article) {
@@ -438,6 +454,13 @@
 				onclick={() => setFilter({ kind: 'favorites' })}
 			>
 				★ {$t('favorites')}
+			</button>
+			<button
+				class="nav"
+				class:active={filter.kind === 'foryou'}
+				onclick={() => setFilter({ kind: 'foryou' })}
+			>
+				✨ {$t('for_you')}
 			</button>
 		</nav>
 
@@ -700,6 +723,22 @@
 			<div class="content">
 				{@html a.content_html || a.summary || ''}
 			</div>
+			{#if similarList.length}
+				<div class="similar">
+					<h3>✨ {$t('similar')}</h3>
+					{#each similarList as s (s.id)}
+						<button class="simrow" onclick={() => openArticleObj(s)}>
+							{#if thumbUrl(s)}
+								<img class="simthumb" src={thumbUrl(s)} alt="" loading="lazy" onerror={hideImg} />
+							{/if}
+							<span class="simbody">
+								<span class="ellipsis2">{title(s)}</span>
+								<span class="cmeta muted">{sourceName(s.source_id) || ''}</span>
+							</span>
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</article>
 	{/if}
 </div>
@@ -1004,6 +1043,46 @@
 		line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
+	}
+	.similar {
+		margin-top: 1.5rem;
+		border-top: 1px solid var(--border);
+		padding-top: 1rem;
+	}
+	.similar h3 {
+		margin: 0 0 0.5rem;
+		font-size: 0.85rem;
+	}
+	.simrow {
+		display: flex;
+		gap: 0.6rem;
+		align-items: center;
+		width: 100%;
+		text-align: left;
+		border: none;
+		background: none;
+		padding: 0.4rem 0;
+	}
+	.simthumb {
+		width: 48px;
+		height: 48px;
+		object-fit: cover;
+		border-radius: 6px;
+		flex: none;
+	}
+	.simbody {
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.ellipsis2 {
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		font-weight: 600;
+		font-size: 0.85rem;
 	}
 	.folder-row {
 		display: flex;

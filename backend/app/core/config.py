@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     rate_limit_public_per_min: int = Field(default=120)
     rate_limit_auth_per_min: int = Field(default=20)
 
+    # AI service (embeddings / summaries). Fails open when unreachable.
+    ai_url: str = Field(default="http://ai:8001")
+    ai_enabled: bool = Field(default=True)
+    embedding_dim: int = Field(default=384)
+    embed_max_per_tick: int = Field(default=50)
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

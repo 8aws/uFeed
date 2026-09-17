@@ -6,6 +6,7 @@ from app.api.routes import (
     articles,
     auth,
     folders,
+    foryou,
     insights,
     keys,
     me,
@@ -24,6 +25,7 @@ api_router.include_router(sources.router)
 api_router.include_router(articles.router)
 api_router.include_router(trending.router)
 api_router.include_router(insights.router)
+api_router.include_router(foryou.router)
 
 # Public API (/api/v1/...)
 api_router.include_router(public.router)

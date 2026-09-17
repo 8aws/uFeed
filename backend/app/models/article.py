@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     DateTime,
     ForeignKey,
@@ -46,3 +47,4 @@ class Article(Base):
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)

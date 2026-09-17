@@ -1,0 +1,25 @@
+[project]
+name = "ufeed-ai"
+version = "0.1.0"
+description = "uFeed AI service — embeddings/summaries behind a stable HTTP API"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+]
+
+# OpenVINO backend for the NAS (Intel iGPU/NPU). Not installed by default so the
+# image builds anywhere; enable on the NAS:
+#   pip install ".[openvino]"
+[project.optional-dependencies]
+openvino = [
+    "openvino>=2024.4",
+    "optimum-intel>=1.20",
+    "transformers>=4.44",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

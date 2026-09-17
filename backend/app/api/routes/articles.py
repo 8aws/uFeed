@@ -13,6 +13,7 @@ from app.schemas.article import (
     ReadEventRequest,
 )
 from app.schemas.common import OkResponse, Page
+from app.services import ai as ai_service
 from app.services import articles as article_service
 from app.services.articles import ArticleRow
 
@@ -61,6 +62,18 @@ async def get_article(article_id: uuid.UUID, user: CurrentUser, db: DbSession) -
     if row is None:
         raise AppError(404, "not_found", "Article not found.")
     return _to_out(row)
+
+
+@router.get("/{article_id}/similar", response_model=list[ArticleOut])
+async def similar(
+    article_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    limit: int = Query(default=8, ge=1, le=30),
+) -> list[ArticleOut]:
+    arts = await ai_service.similar_articles(db, user.id, article_id, limit=limit)
+    rows = await article_service.rows_for_ids(db, user.id, [a.id for a in arts])
+    return [_to_out(r) for r in rows]
 
 
 async def _set_state(user, db, article_id, **kwargs) -> OkResponse:

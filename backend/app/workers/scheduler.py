@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.source import Source
+from app.services.ai import embed_pending
 from app.services.ingest import refresh_source
 
 log = logging.getLogger("ufeed.ingest")
@@ -36,8 +37,6 @@ async def run_tick() -> int:
     processed = 0
     async with SessionLocal() as db:
         sources = await select_due_sources(db, now, settings.ingest_batch)
-        if not sources:
-            return 0
         async with httpx.AsyncClient() as client:
             for source in sources:
                 try:
@@ -47,4 +46,12 @@ async def run_tick() -> int:
                     await db.rollback()
                     log.exception("ingest failed for %s", source.feed_url)
                 processed += 1
+        # Embed newly-ingested articles (best-effort; no-op if AI is down).
+        try:
+            embedded = await embed_pending(db)
+            if embedded:
+                log.info("embedded %d articles", embedded)
+        except Exception:  # noqa: BLE001
+            await db.rollback()
+            log.exception("embedding pass failed")
     return processed

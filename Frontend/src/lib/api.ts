@@ -140,7 +140,9 @@ export const api = {
 	trending: (window_hours = 48, limit = 8) =>
 		request<TrendingItem[]>(`/trending?window_hours=${window_hours}&limit=${limit}`),
 	insights: (window_hours = 48, limit = 12) =>
-		request<Insights>(`/insights?window_hours=${window_hours}&limit=${limit}`)
+		request<Insights>(`/insights?window_hours=${window_hours}&limit=${limit}`),
+	forYou: (limit = 30) => request<Article[]>(`/foryou?limit=${limit}`),
+	similar: (id: string, limit = 6) => request<Article[]>(`/articles/${id}/similar?limit=${limit}`)
 };
 
 /** OPML export needs the auth header, so fetch as a blob and trigger a download. */
