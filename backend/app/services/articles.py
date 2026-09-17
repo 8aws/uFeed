@@ -44,6 +44,38 @@ class TrendingRow:
     score: float
 
 
+@dataclass(slots=True)
+class RankedRow:
+    row: ArticleRow
+    readers: int
+    quality: float
+    saves: int
+    favorites: int
+    opens: int
+    score: float
+
+
+@dataclass(slots=True)
+class Insights:
+    trending_now: list[RankedRow]
+    top: list[RankedRow]
+    most_saved: list[RankedRow]
+    deep_reads: list[RankedRow]
+    hidden_gems: list[RankedRow]
+
+    def all_article_ids(self) -> set[uuid.UUID]:
+        ids: set[uuid.UUID] = set()
+        for lst in (
+            self.trending_now,
+            self.top,
+            self.most_saved,
+            self.deep_reads,
+            self.hidden_gems,
+        ):
+            ids.update(r.row.article.id for r in lst)
+        return ids
+
+
 def _fts_vector():
     return func.to_tsvector(
         "simple",
@@ -256,6 +288,167 @@ async def record_read_event(
     )
     await db.commit()
     return True
+
+
+_ALLOWED_ENGAGE = {"open", "share", "skip"}
+
+
+async def record_engagement(
+    db: AsyncSession, user_id: uuid.UUID, article_id: uuid.UUID, kind: str
+) -> bool:
+    """Record a non-reading engagement event (open original / share / skip)."""
+    if kind not in _ALLOWED_ENGAGE:
+        return False
+    if not await _user_owns_article(db, user_id, article_id):
+        return False
+    db.add(ReadEvent(article_id=article_id, user_id=user_id, kind=kind))
+    await db.commit()
+    return True
+
+
+async def _articles_with_state(
+    db: AsyncSession, user_id: uuid.UUID, ids: set[uuid.UUID]
+) -> dict[uuid.UUID, ArticleRow]:
+    """Fetch articles (global, not just subscribed) + this user's state."""
+    if not ids:
+        return {}
+    stmt = (
+        select(Article, ArticleState.is_read, ArticleState.is_saved, ArticleState.is_favorite)
+        .outerjoin(
+            ArticleState,
+            and_(ArticleState.article_id == Article.id, ArticleState.user_id == user_id),
+        )
+        .where(Article.id.in_(ids))
+    )
+    out: dict[uuid.UUID, ArticleRow] = {}
+    for a, r, s, f in (await db.execute(stmt)).all():
+        out[a.id] = ArticleRow(a, bool(r), bool(s), bool(f))
+    return out
+
+
+async def insights(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    window_hours: int = 48,
+    half_life_hours: float = 10.0,
+    limit: int = 12,
+) -> Insights:
+    """Compute several content rankings from anonymised engagement."""
+    since = datetime.now(UTC) - timedelta(hours=window_hours)
+
+    # Reading metrics per article (length-normalised dwell + recency-decayed velocity).
+    expected_ms = func.greatest(func.coalesce(Article.word_count, 0), 50) / 220.0 * 60000.0
+    norm_dwell = func.least(1.0, ReadEvent.dwell_ms / expected_ms)
+    age_hours = func.extract("epoch", func.now() - ReadEvent.created_at) / 3600.0
+    weighted = func.sum(func.power(0.5, age_hours / half_life_hours))
+    read_stmt = (
+        select(
+            ReadEvent.article_id.label("aid"),
+            func.count(func.distinct(ReadEvent.user_id)).label("readers"),
+            func.avg(ReadEvent.completion).label("avg_completion"),
+            func.avg(norm_dwell).label("avg_norm_dwell"),
+            weighted.label("weighted"),
+        )
+        .join(Article, Article.id == ReadEvent.article_id)
+        .where(ReadEvent.kind == "read", ReadEvent.created_at >= since)
+        .group_by(ReadEvent.article_id)
+    )
+    reads = {r.aid: r for r in (await db.execute(read_stmt)).all()}
+    if not reads:
+        return Insights([], [], [], [], [])
+
+    # open/share/skip counts.
+    eng_stmt = (
+        select(ReadEvent.article_id, ReadEvent.kind, func.count().label("n"))
+        .where(ReadEvent.kind.in_(["open", "share", "skip"]), ReadEvent.created_at >= since)
+        .group_by(ReadEvent.article_id, ReadEvent.kind)
+    )
+    opens: dict[uuid.UUID, int] = {}
+    shares: dict[uuid.UUID, int] = {}
+    skips: dict[uuid.UUID, int] = {}
+    for aid, kind, n in (await db.execute(eng_stmt)).all():
+        {"open": opens, "share": shares, "skip": skips}[kind][aid] = n
+
+    # Saves / favorites (all-time) for the candidate articles.
+    ids = set(reads)
+    state_stmt = (
+        select(
+            ArticleState.article_id,
+            func.count().filter(ArticleState.is_saved.is_(True)).label("saves"),
+            func.count().filter(ArticleState.is_favorite.is_(True)).label("favorites"),
+        )
+        .where(ArticleState.article_id.in_(ids))
+        .group_by(ArticleState.article_id)
+    )
+    saves: dict[uuid.UUID, int] = {}
+    favs: dict[uuid.UUID, int] = {}
+    for aid, s, f in (await db.execute(state_stmt)).all():
+        saves[aid] = s
+        favs[aid] = f
+
+    art_rows = await _articles_with_state(db, user_id, ids)
+
+    metrics = []
+    for aid, r in reads.items():
+        if aid not in art_rows:
+            continue
+        quality = 0.5 * float(r.avg_completion or 0) + 0.5 * float(r.avg_norm_dwell or 0)
+        m = {
+            "aid": aid,
+            "readers": int(r.readers or 0),
+            "quality": quality,
+            "weighted": float(r.weighted or 0),
+            "saves": saves.get(aid, 0),
+            "favorites": favs.get(aid, 0),
+            "opens": opens.get(aid, 0),
+            "shares": shares.get(aid, 0),
+            "skips": skips.get(aid, 0),
+        }
+        metrics.append(m)
+
+    def ranked(scored: list[tuple[dict, float]]) -> list[RankedRow]:
+        scored = [x for x in scored if x[1] > 0]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        rows = []
+        for m, score in scored[:limit]:
+            rows.append(
+                RankedRow(
+                    row=art_rows[m["aid"]],
+                    readers=m["readers"],
+                    quality=round(m["quality"], 3),
+                    saves=m["saves"],
+                    favorites=m["favorites"],
+                    opens=m["opens"],
+                    score=round(score, 3),
+                )
+            )
+        return rows
+
+    top = ranked([(m, m["readers"] * (0.5 + m["quality"]) - 0.5 * m["skips"]) for m in metrics])
+    trending_now = ranked([(m, m["weighted"] * (0.5 + m["quality"])) for m in metrics])
+    most_saved = ranked(
+        [(m, m["saves"] * 2 + m["favorites"] * 3 + m["opens"] + m["shares"] * 2) for m in metrics]
+    )
+    deep_reads = ranked([(m, m["quality"] if m["readers"] >= 2 else 0.0) for m in metrics])
+    hidden_gems = ranked(
+        [
+            (
+                m,
+                (
+                    m["quality"] * (1 + m["saves"] + 2 * m["favorites"])
+                    if (
+                        m["readers"] <= 3
+                        and m["quality"] >= 0.5
+                        and (m["saves"] + m["favorites"]) > 0
+                    )
+                    else 0.0
+                ),
+            )
+            for m in metrics
+        ]
+    )
+    return Insights(trending_now, top, most_saved, deep_reads, hidden_gems)
 
 
 async def trending(

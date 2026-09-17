@@ -20,6 +20,11 @@ class SubscribeRequest(BaseModel):
     folder_id: uuid.UUID | None = None
 
 
+class SubscriptionUpdate(BaseModel):
+    folder_id: uuid.UUID | None = None
+    custom_title: str | None = None
+
+
 class SubscriptionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

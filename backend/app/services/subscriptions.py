@@ -105,6 +105,34 @@ async def subscribe(
     return sub, True
 
 
+async def update_subscription(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    subscription_id: uuid.UUID,
+    *,
+    fields: set[str],
+    folder_id: uuid.UUID | None = None,
+    custom_title: str | None = None,
+) -> Subscription | None:
+    """Apply only the provided fields (fields = the keys actually sent)."""
+    sub = (
+        await db.execute(
+            select(Subscription).where(
+                Subscription.id == subscription_id, Subscription.user_id == user_id
+            )
+        )
+    ).scalar_one_or_none()
+    if sub is None:
+        return None
+    if "folder_id" in fields:
+        sub.folder_id = folder_id
+    if "custom_title" in fields:
+        sub.custom_title = custom_title
+    await db.commit()
+    await db.refresh(sub)
+    return sub
+
+
 async def unsubscribe(db: AsyncSession, user_id: uuid.UUID, subscription_id: uuid.UUID) -> bool:
     sub = (
         await db.execute(

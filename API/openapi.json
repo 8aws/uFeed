@@ -597,6 +597,62 @@
       }
     },
     "/api/sources/{subscription_id}": {
+      "patch": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Update Source",
+        "operationId": "update_source_api_sources__subscription_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Subscription Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "sources"
@@ -1316,6 +1372,64 @@
         }
       }
     },
+    "/api/articles/{article_id}/engage": {
+      "post": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Engage",
+        "operationId": "engage_api_articles__article_id__engage_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EngageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/mark-all-read": {
       "post": {
         "tags": [
@@ -1411,6 +1525,68 @@
                     "$ref": "#/components/schemas/TrendingItem"
                   },
                   "title": "Response Get Trending Api Trending Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/insights": {
+      "get": {
+        "tags": [
+          "insights"
+        ],
+        "summary": "Get Insights",
+        "operationId": "get_insights_api_insights_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "window_hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 720,
+              "minimum": 1,
+              "default": 48,
+              "title": "Window Hours"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "default": 12,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Insights"
                 }
               }
             }
@@ -2065,6 +2241,19 @@
         ],
         "title": "DiscoveredFeed"
       },
+      "EngageRequest": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "EngageRequest"
+      },
       "FolderCreate": {
         "properties": {
           "name": {
@@ -2146,6 +2335,54 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Insights": {
+        "properties": {
+          "trending_now": {
+            "items": {
+              "$ref": "#/components/schemas/RankedArticle"
+            },
+            "type": "array",
+            "title": "Trending Now"
+          },
+          "top": {
+            "items": {
+              "$ref": "#/components/schemas/RankedArticle"
+            },
+            "type": "array",
+            "title": "Top"
+          },
+          "most_saved": {
+            "items": {
+              "$ref": "#/components/schemas/RankedArticle"
+            },
+            "type": "array",
+            "title": "Most Saved"
+          },
+          "deep_reads": {
+            "items": {
+              "$ref": "#/components/schemas/RankedArticle"
+            },
+            "type": "array",
+            "title": "Deep Reads"
+          },
+          "hidden_gems": {
+            "items": {
+              "$ref": "#/components/schemas/RankedArticle"
+            },
+            "type": "array",
+            "title": "Hidden Gems"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trending_now",
+          "top",
+          "most_saved",
+          "deep_reads",
+          "hidden_gems"
+        ],
+        "title": "Insights"
       },
       "LoginRequest": {
         "properties": {
@@ -2251,6 +2488,48 @@
           "items"
         ],
         "title": "Page[ArticleOut]"
+      },
+      "RankedArticle": {
+        "properties": {
+          "article": {
+            "$ref": "#/components/schemas/ArticleOut"
+          },
+          "readers": {
+            "type": "integer",
+            "title": "Readers"
+          },
+          "quality": {
+            "type": "number",
+            "title": "Quality"
+          },
+          "saves": {
+            "type": "integer",
+            "title": "Saves"
+          },
+          "favorites": {
+            "type": "integer",
+            "title": "Favorites"
+          },
+          "opens": {
+            "type": "integer",
+            "title": "Opens"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article",
+          "readers",
+          "quality",
+          "saves",
+          "favorites",
+          "opens",
+          "score"
+        ],
+        "title": "RankedArticle"
       },
       "ReadEventRequest": {
         "properties": {
@@ -2439,6 +2718,35 @@
           "source"
         ],
         "title": "SubscriptionOut"
+      },
+      "SubscriptionUpdate": {
+        "properties": {
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "custom_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Custom Title"
+          }
+        },
+        "type": "object",
+        "title": "SubscriptionUpdate"
       },
       "Tokens": {
         "properties": {

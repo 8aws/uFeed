@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 import feedparser
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -239,6 +239,68 @@ async def store_articles(db: AsyncSession, source: Source, parsed: ParsedFeed) -
     return result.rowcount or 0
 
 
+# --- og:image fallback -------------------------------------------------------
+
+_OG_RE = re.compile(
+    r'<meta[^>]+(?:property|name)=["\'](?:og:image|twitter:image)(?::src)?["\']'
+    r'[^>]+content=["\']([^"\']+)["\']',
+    re.IGNORECASE,
+)
+_OG_RE_REV = re.compile(
+    r'<meta[^>]+content=["\']([^"\']+)["\']'
+    r'[^>]+(?:property|name)=["\'](?:og:image|twitter:image)(?::src)?["\']',
+    re.IGNORECASE,
+)
+
+
+async def fetch_og_image(client: httpx.AsyncClient, url: str) -> str | None:
+    try:
+        resp = await client.get(
+            url,
+            headers={"User-Agent": settings.user_agent},
+            follow_redirects=True,
+            timeout=settings.http_timeout_s,
+        )
+        if resp.status_code >= 400:
+            return None
+        html = resp.text[:200_000]
+    except httpx.HTTPError:
+        return None
+    for rx in (_OG_RE, _OG_RE_REV):
+        m = rx.search(html)
+        if m:
+            return m.group(1)
+    return None
+
+
+async def backfill_images(db: AsyncSession, client: httpx.AsyncClient, source: Source) -> int:
+    """Recover og:image for freshly ingested articles that lack one."""
+    if settings.og_image_max_per_source <= 0:
+        return 0
+    cutoff = datetime.now(UTC) - timedelta(minutes=10)
+    rows = (
+        await db.execute(
+            select(Article.id, Article.url)
+            .where(
+                Article.source_id == source.id,
+                Article.image_url.is_(None),
+                Article.url.isnot(None),
+                Article.fetched_at >= cutoff,
+            )
+            .limit(settings.og_image_max_per_source)
+        )
+    ).all()
+    found = 0
+    for aid, url in rows:
+        og = await fetch_og_image(client, url)
+        if og:
+            await db.execute(update(Article).where(Article.id == aid).values(image_url=og))
+            found += 1
+    if found:
+        await db.commit()
+    return found
+
+
 # --- Scheduling / backoff ----------------------------------------------------
 
 
@@ -272,6 +334,7 @@ async def refresh_source(
     if result.status == "ok" and result.content is not None:
         parsed = parse_feed(result.content)
         await store_articles(db, source, parsed)
+        await backfill_images(db, client, source)
         if not source.title and parsed.title:
             source.title = parsed.title
         if not source.site_url and parsed.site_url:

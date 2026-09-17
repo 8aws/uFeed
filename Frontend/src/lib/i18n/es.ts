@@ -49,5 +49,14 @@ export const es: Dict = {
 	search_placeholder: 'Buscar título, fuente, contenido…',
 	view_list: 'Lista',
 	view_cards: 'Tarjetas',
-	view_masonry: 'Masonry'
+	view_masonry: 'Masonry',
+	trending_now: 'Tendencia ahora',
+	top: 'Top',
+	most_saved: 'Más guardados',
+	deep_reads: 'Lecturas profundas',
+	hidden_gems: 'Joyas ocultas',
+	new_folder: 'Nueva carpeta',
+	no_folder: 'Sin carpeta',
+	share: 'Compartir',
+	link_copied: 'Enlace copiado'
 };

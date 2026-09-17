@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     ingest_max_interval_s: int = Field(default=21_600)  # backoff cap (6h)
     http_timeout_s: float = Field(default=20.0)
     user_agent: str = Field(default="uFeed/0.1 (+https://github.com/8aws/uFeed)")
+    # Fetch each new article page to recover og:image when the feed omits it.
+    og_image_max_per_source: int = Field(default=6)
 
     # Rate limiting (fixed window per minute; 0 disables)
     rate_limit_public_per_min: int = Field(default=120)

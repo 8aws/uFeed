@@ -42,3 +42,25 @@ class TrendingItem(BaseModel):
     avg_completion: float
     avg_dwell_ms: int
     score: float
+
+
+class EngageRequest(BaseModel):
+    kind: str  # "open" | "share" | "skip"
+
+
+class RankedArticle(BaseModel):
+    article: ArticleOut
+    readers: int
+    quality: float  # 0..1, blends completion and length-normalised dwell
+    saves: int
+    favorites: int
+    opens: int
+    score: float
+
+
+class Insights(BaseModel):
+    trending_now: list[RankedArticle]  # recency-decayed velocity
+    top: list[RankedArticle]  # most readers in the window
+    most_saved: list[RankedArticle]  # saves + favorites
+    deep_reads: list[RankedArticle]  # highest reading quality
+    hidden_gems: list[RankedArticle]  # high quality, few readers

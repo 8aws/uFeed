@@ -67,6 +67,24 @@ export interface TrendingItem {
 	score: number;
 }
 
+export interface RankedArticle {
+	article: Article;
+	readers: number;
+	quality: number;
+	saves: number;
+	favorites: number;
+	opens: number;
+	score: number;
+}
+
+export interface Insights {
+	trending_now: RankedArticle[];
+	top: RankedArticle[];
+	most_saved: RankedArticle[];
+	deep_reads: RankedArticle[];
+	hidden_gems: RankedArticle[];
+}
+
 export interface Page<T> {
 	items: T[];
 	next_cursor: string | null;

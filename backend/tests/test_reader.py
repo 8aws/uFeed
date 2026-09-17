@@ -141,6 +141,27 @@ async def test_read_state_isolated_between_users(
     assert article_id in [x["id"] for x in b_unread]
 
 
+async def test_assign_subscription_to_folder(api: AsyncClient, db_session: AsyncSession) -> None:
+    headers = await _register(api)
+    src = await _seed_source(db_session, [("A", "a")])
+    sub = await _subscribe(api, headers, src.feed_url)
+    folder = (await api.post("/api/folders", headers=headers, json={"name": "Tech"})).json()
+
+    moved = await api.patch(
+        f"/api/sources/{sub['id']}", headers=headers, json={"folder_id": folder["id"]}
+    )
+    assert moved.status_code == 200
+    assert moved.json()["folder_id"] == folder["id"]
+
+    # Filtering by that folder now returns the feed's article.
+    listed = (await api.get(f"/api/articles?folder={folder['id']}", headers=headers)).json()
+    assert len(listed["items"]) == 1
+
+    # Move back to root (folder_id explicitly null).
+    back = await api.patch(f"/api/sources/{sub['id']}", headers=headers, json={"folder_id": None})
+    assert back.json()["folder_id"] is None
+
+
 async def test_cannot_access_unsubscribed_article(
     api: AsyncClient, db_session: AsyncSession
 ) -> None:

@@ -93,6 +93,52 @@ async def test_read_events_feed_trending(api: AsyncClient, db_session: AsyncSess
     assert top["score"] >= trending[-1]["score"]
 
 
+async def test_insights_rankings(api: AsyncClient, db_session: AsyncSession) -> None:
+    src = await _seed(db_session, n=2)
+    a = await _register(api)
+    b = await _register(api)
+    await _subscribe(api, a, src.feed_url)
+    await _subscribe(api, b, src.feed_url)
+
+    items = (await api.get("/api/articles", headers=a)).json()["items"]
+    hot, cold = items[0]["id"], items[1]["id"]
+
+    # Two readers read `hot` deeply; one skims `cold`.
+    for h in (a, b):
+        await api.post(
+            f"/api/articles/{hot}/read-event",
+            headers=h,
+            json={"dwell_ms": 60000, "completion": 1.0},
+        )
+    await api.post(
+        f"/api/articles/{cold}/read-event", headers=a, json={"dwell_ms": 500, "completion": 0.05}
+    )
+    # Engagement signals on `hot`.
+    await api.post(f"/api/articles/{hot}/engage", headers=a, json={"kind": "open"})
+    await api.post(f"/api/articles/{hot}/save", headers=a)
+    await api.post(f"/api/articles/{hot}/favorite", headers=b)
+
+    ins = (await api.get("/api/insights?window_hours=48", headers=a)).json()
+    assert {"trending_now", "top", "most_saved", "deep_reads", "hidden_gems"} <= ins.keys()
+    assert ins["top"][0]["article"]["id"] == hot
+    assert ins["top"][0]["readers"] == 2
+    assert ins["trending_now"][0]["article"]["id"] == hot
+    assert hot in [x["article"]["id"] for x in ins["most_saved"]]
+    assert ins["deep_reads"][0]["article"]["id"] == hot
+
+
+async def test_engage_requires_subscription(api: AsyncClient, db_session: AsyncSession) -> None:
+    src = await _seed(db_session, n=1)
+    headers = await _register(api)  # not subscribed
+    from sqlalchemy import select
+
+    aid = (
+        await db_session.execute(select(Article.id).where(Article.source_id == src.id))
+    ).scalar_one()
+    r = await api.post(f"/api/articles/{aid}/engage", headers=headers, json={"kind": "open"})
+    assert r.status_code == 404
+
+
 async def test_read_event_requires_subscription(api: AsyncClient, db_session: AsyncSession) -> None:
     src = await _seed(db_session, n=1)
     headers = await _register(api)  # not subscribed

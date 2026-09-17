@@ -6,7 +6,12 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import AppError
-from app.schemas.article import ArticleOut, MarkAllReadRequest, ReadEventRequest
+from app.schemas.article import (
+    ArticleOut,
+    EngageRequest,
+    MarkAllReadRequest,
+    ReadEventRequest,
+)
 from app.schemas.common import OkResponse, Page
 from app.services import articles as article_service
 from app.services.articles import ArticleRow
@@ -103,6 +108,16 @@ async def read_event(
     )
     if not ok:
         raise AppError(404, "not_found", "Article not found.")
+    return OkResponse()
+
+
+@router.post("/{article_id}/engage", response_model=OkResponse)
+async def engage(
+    article_id: uuid.UUID, body: EngageRequest, user: CurrentUser, db: DbSession
+) -> OkResponse:
+    ok = await article_service.record_engagement(db, user.id, article_id, body.kind)
+    if not ok:
+        raise AppError(404, "not_found", "Article not found or invalid event.")
     return OkResponse()
 
 

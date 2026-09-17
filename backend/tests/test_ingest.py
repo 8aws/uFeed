@@ -131,7 +131,8 @@ async def test_refresh_source_ok_then_not_modified(db_session: AsyncSession) -> 
         r2 = await refresh_source(db_session, client, source)
         assert r2.status == "not_modified"
         assert await _count(db_session, source.id) == 2
-    assert calls["n"] == 2
+    # >=2: the first OK also triggers best-effort og:image backfill fetches.
+    assert calls["n"] >= 2
 
 
 async def test_refresh_source_error_backs_off(db_session: AsyncSession) -> None:

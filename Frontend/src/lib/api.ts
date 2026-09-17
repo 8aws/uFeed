@@ -6,6 +6,7 @@ import type {
 	AuthResponse,
 	DiscoveredFeed,
 	Folder,
+	Insights,
 	Locale,
 	Page,
 	Subscription,
@@ -106,6 +107,8 @@ export const api = {
 	listSources: () => request<Subscription[]>('/sources'),
 	subscribe: (url: string, folder_id?: string | null) =>
 		request<Subscription>('/sources', { method: 'POST', body: { url, folder_id } }),
+	updateSubscription: (id: string, body: { folder_id?: string | null; custom_title?: string }) =>
+		request<Subscription>(`/sources/${id}`, { method: 'PATCH', body }),
 	unsubscribe: (id: string) => request<unknown>(`/sources/${id}`, { method: 'DELETE' }),
 	discover: (url: string) =>
 		request<DiscoveredFeed[]>('/discover', { method: 'POST', body: { url } }),
@@ -131,8 +134,12 @@ export const api = {
 			method: 'POST',
 			body: { dwell_ms, completion }
 		}),
+	engage: (id: string, kind: 'open' | 'share' | 'skip') =>
+		request<unknown>(`/articles/${id}/engage`, { method: 'POST', body: { kind } }),
 	trending: (window_hours = 48, limit = 8) =>
-		request<TrendingItem[]>(`/trending?window_hours=${window_hours}&limit=${limit}`)
+		request<TrendingItem[]>(`/trending?window_hours=${window_hours}&limit=${limit}`),
+	insights: (window_hours = 48, limit = 12) =>
+		request<Insights>(`/insights?window_hours=${window_hours}&limit=${limit}`)
 };
 
 /** OPML export needs the auth header, so fetch as a blob and trigger a download. */

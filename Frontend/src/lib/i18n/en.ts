@@ -47,7 +47,16 @@ export const en = {
 	search_placeholder: 'Search title, source, content…',
 	view_list: 'List',
 	view_cards: 'Cards',
-	view_masonry: 'Masonry'
+	view_masonry: 'Masonry',
+	trending_now: 'Trending now',
+	top: 'Top',
+	most_saved: 'Most saved',
+	deep_reads: 'Deep reads',
+	hidden_gems: 'Hidden gems',
+	new_folder: 'New folder',
+	no_folder: 'No folder',
+	share: 'Share',
+	link_copied: 'Link copied'
 };
 
 export type Dict = typeof en;

@@ -5,7 +5,7 @@
 	import { clearTokens, user } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
 	import { relativeTime, readingTime, stripHtml } from '$lib/format';
-	import type { Article, DiscoveredFeed, Folder, Subscription, TrendingItem } from '$lib/types';
+	import type { Article, DiscoveredFeed, Folder, Insights, Subscription } from '$lib/types';
 
 	type View = 'list' | 'cards' | 'masonry';
 
@@ -35,9 +35,24 @@
 	let loading = $state(false);
 	let selected = $state(0);
 	let openArticle = $state<Article | null>(null);
-	let trending = $state<TrendingItem[]>([]);
+	let insights = $state<Insights | null>(null);
+	let ranking = $state<keyof Insights>('trending_now');
+	let carouselEl = $state<HTMLElement | null>(null);
 	let readerEl = $state<HTMLElement | null>(null);
 	let readingStart = 0;
+
+	const RANKINGS: (keyof Insights)[] = [
+		'trending_now',
+		'top',
+		'most_saved',
+		'deep_reads',
+		'hidden_gems'
+	];
+	const currentList = $derived(insights ? insights[ranking] : []);
+	const grouped = $derived(
+		folders.map((f) => ({ folder: f, subs: subs.filter((s) => s.folder_id === f.id) }))
+	);
+	const ungrouped = $derived(subs.filter((s) => !s.folder_id));
 	let query = $state('');
 	let view = $state<View>(initialView());
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -142,17 +157,55 @@
 		}
 	}
 
-	async function loadTrending() {
+	async function loadInsights() {
 		try {
-			trending = await api.trending(48, 8);
+			insights = await api.insights(48, 12);
 		} catch {
-			trending = [];
+			insights = null;
 		}
+	}
+
+	function scrollCarousel(dir: 1 | -1) {
+		carouselEl?.scrollBy({ left: dir * Math.max(300, carouselEl.clientWidth * 0.8), behavior: 'smooth' });
+	}
+
+	async function newFolder() {
+		const name = prompt($t('new_folder'));
+		if (name && name.trim()) {
+			await api.createFolder(name.trim());
+			await loadSidebar();
+		}
+	}
+
+	async function assignFolder(sub: Subscription, folderId: string) {
+		await api.updateSubscription(sub.id, { folder_id: folderId || null });
+		await loadSidebar();
+	}
+
+	function folderUnread(subsIn: Subscription[]): number {
+		return subsIn.reduce((n, s) => n + s.unread_count, 0);
+	}
+
+	async function shareArticle(a: Article) {
+		if (a.url) {
+			try {
+				await navigator.clipboard.writeText(a.url);
+			} catch {
+				/* ignore */
+			}
+			api.engage(a.id, 'share').catch(() => {});
+		}
+	}
+
+	function openOriginal(a: Article) {
+		api.engage(a.id, 'open').catch(() => {});
 	}
 
 	async function markRead(a: Article, read: boolean) {
 		a.is_read = read;
 		articles = [...articles];
+		// Marking read from the list without opening is a weak "skip" signal.
+		if (read && openArticle?.id !== a.id) api.engage(a.id, 'skip').catch(() => {});
 		try {
 			await api.setRead(a.id, read);
 			await refreshUnreadFor(a.source_id);
@@ -270,10 +323,23 @@
 		return folders.find((f) => f.id === id)?.name ?? '';
 	}
 
+	function sourceFavicon(id: string): string | null {
+		return subs.find((x) => x.source.id === id)?.source.favicon_url ?? null;
+	}
+
+	function thumbUrl(a: Article): string | null {
+		return a.image_url || sourceFavicon(a.source_id);
+	}
+
+	function hideImg(e: Event) {
+		const el = e.currentTarget;
+		if (el instanceof HTMLElement) el.style.display = 'none';
+	}
+
 	onMount(async () => {
 		await loadSidebar();
 		await loadArticles(true);
-		loadTrending();
+		loadInsights();
 	});
 
 	onDestroy(() => flushReadEvent());
@@ -326,9 +392,37 @@
 			</button>
 		</nav>
 
+		{#snippet feedRow(s: Subscription)}
+			<li class:active={filter.kind === 'source' && filter.id === s.source.id}>
+				<button class="feed" onclick={() => setFilter({ kind: 'source', id: s.source.id })}>
+					{#if s.source.favicon_url}
+						<img class="favicon" src={s.source.favicon_url} alt="" loading="lazy" onerror={hideImg} />
+					{:else}
+						<span class="favicon dot"></span>
+					{/if}
+					<span class="ellipsis">{s.custom_title || s.source.title || s.source.feed_url}</span>
+					{#if s.unread_count}<span class="badge">{s.unread_count}</span>{/if}
+				</button>
+				<select
+					class="movesel"
+					title={$t('folders')}
+					onchange={(e) => assignFolder(s, (e.currentTarget as HTMLSelectElement).value)}
+				>
+					<option value="" selected={!s.folder_id}>{$t('no_folder')}</option>
+					{#each folders as f (f.id)}
+						<option value={f.id} selected={s.folder_id === f.id}>{f.name}</option>
+					{/each}
+				</select>
+				<button class="x" title={$t('unsubscribe')} onclick={() => unsubscribe(s)}>×</button>
+			</li>
+		{/snippet}
+
 		<div class="section">
 			<span>{$t('feeds')}</span>
-			<button class="mini" onclick={() => (showAdd = !showAdd)}>＋</button>
+			<span class="section-actions">
+				<button class="mini" title={$t('new_folder')} onclick={newFolder}>📁</button>
+				<button class="mini" title={$t('add_feed')} onclick={() => (showAdd = !showAdd)}>＋</button>
+			</span>
 		</div>
 
 		{#if showAdd}
@@ -347,21 +441,22 @@
 			</div>
 		{/if}
 
+		{#each grouped as g (g.folder.id)}
+			<button
+				class="feed folder"
+				class:active={filter.kind === 'folder' && filter.id === g.folder.id}
+				onclick={() => setFilter({ kind: 'folder', id: g.folder.id })}
+			>
+				<span class="ellipsis">📁 {g.folder.name}</span>
+				{#if folderUnread(g.subs)}<span class="badge">{folderUnread(g.subs)}</span>{/if}
+			</button>
+			<ul class="feeds indent">
+				{#each g.subs as s (s.id)}{@render feedRow(s)}{/each}
+			</ul>
+		{/each}
+
 		<ul class="feeds">
-			{#each subs as s (s.id)}
-				<li class:active={filter.kind === 'source' && filter.id === s.source.id}>
-					<button class="feed" onclick={() => setFilter({ kind: 'source', id: s.source.id })}>
-						{#if s.source.favicon_url}
-							<img class="favicon" src={s.source.favicon_url} alt="" loading="lazy" />
-						{:else}
-							<span class="favicon dot"></span>
-						{/if}
-						<span class="ellipsis">{s.custom_title || s.source.title || s.source.feed_url}</span>
-						{#if s.unread_count}<span class="badge">{s.unread_count}</span>{/if}
-					</button>
-					<button class="x" title={$t('unsubscribe')} onclick={() => unsubscribe(s)}>×</button>
-				</li>
-			{/each}
+			{#each ungrouped as s (s.id)}{@render feedRow(s)}{/each}
 		</ul>
 
 		<div class="spacer"></div>
@@ -386,20 +481,42 @@
 			</div>
 		</header>
 
-		{#if trending.length > 0}
+		{#if insights}
 			<section class="trending">
-				<h3>🔥 {$t('trending')}</h3>
-				<div class="cards">
-					{#each trending as ti (ti.article.id)}
-						<button class="card" onclick={() => openArticleObj(ti.article)}>
-							<span class="ctitle">{ti.article.title || ti.article.url}</span>
-							<span class="cmeta muted">
-								{sourceName(ti.article.source_id) || ''} · {ti.readers}
-								{$t('readers')}
-							</span>
+				<div class="rank-tabs">
+					{#each RANKINGS as r (r)}
+						<button class="rtab" class:active={ranking === r} onclick={() => (ranking = r)}>
+							{$t(r)}
 						</button>
 					{/each}
 				</div>
+				{#if currentList.length > 0}
+					<div class="carousel-wrap">
+						<button class="arrow" onclick={() => scrollCarousel(-1)} aria-label="prev">‹</button>
+						<div class="carousel" bind:this={carouselEl}>
+							{#each currentList as it (it.article.id)}
+								<button class="tcard" onclick={() => openArticleObj(it.article)}>
+									{#if thumbUrl(it.article)}
+										<img
+											class="tthumb"
+											src={thumbUrl(it.article)}
+											alt=""
+											loading="lazy"
+											onerror={hideImg}
+										/>
+									{/if}
+									<div class="tbody">
+										<span class="ctitle">{it.article.title || it.article.url}</span>
+										<span class="cmeta muted">
+											{sourceName(it.article.source_id) || ''} · {it.readers} {$t('readers')}
+										</span>
+									</div>
+								</button>
+							{/each}
+						</div>
+						<button class="arrow" onclick={() => scrollCarousel(1)} aria-label="next">›</button>
+					</div>
+				{/if}
 			</section>
 		{/if}
 
@@ -446,8 +563,8 @@
 						onclick={() => open(i)}
 						onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(i))}
 					>
-						{#if a.image_url}
-							<img class="thumb" src={a.image_url} alt="" loading="lazy" />
+						{#if thumbUrl(a)}
+							<img class="thumb" src={thumbUrl(a)} alt="" loading="lazy" onerror={hideImg} />
 						{/if}
 						<div class="acard-body">
 							<div class="atitle">{title(a)}</div>
@@ -484,7 +601,18 @@
 					<button class:active={a.is_favorite} onclick={() => toggleFavorite(a)}>
 						{a.is_favorite ? '★' : '☆'} {a.is_favorite ? $t('unfavorite') : $t('favorite')}
 					</button>
-					{#if a.url}<a class="btn" href={a.url} target="_blank" rel="noopener">{$t('open_original')}</a>{/if}
+					{#if a.url}<button onclick={() => shareArticle(a)}>{$t('share')}</button>{/if}
+					{#if a.url}
+						<a
+							class="btn"
+							href={a.url}
+							target="_blank"
+							rel="noopener"
+							onclick={() => openOriginal(a)}
+						>
+							{$t('open_original')}
+						</a>
+					{/if}
 				</div>
 			</div>
 			<h1>{title(a)}</h1>
@@ -719,25 +847,6 @@
 		padding: 0.75rem 0.25rem;
 		border-bottom: 1px solid var(--border);
 	}
-	.trending h3 {
-		margin: 0 0 0.5rem;
-		font-size: 0.75rem;
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		color: var(--muted);
-	}
-	.cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-		gap: 0.5rem;
-	}
-	.card {
-		text-align: left;
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		padding: 0.5rem;
-	}
 	.ctitle {
 		font-weight: 600;
 		font-size: 0.85rem;
@@ -749,6 +858,93 @@
 	}
 	.cmeta {
 		font-size: 0.72rem;
+	}
+	.rank-tabs {
+		display: flex;
+		gap: 0.25rem;
+		flex-wrap: wrap;
+		margin-bottom: 0.5rem;
+	}
+	.rtab {
+		border: none;
+		background: none;
+		color: var(--muted);
+		padding: 0.2rem 0.5rem;
+		border-radius: 999px;
+		font-size: 0.8rem;
+	}
+	.rtab.active {
+		background: var(--accent-soft);
+		color: var(--accent);
+	}
+	.carousel-wrap {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+	.carousel {
+		display: flex;
+		gap: 0.5rem;
+		overflow-x: auto;
+		scroll-behavior: smooth;
+		scrollbar-width: thin;
+		padding-bottom: 0.25rem;
+	}
+	.arrow {
+		flex: none;
+		border-radius: 50%;
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		line-height: 1;
+	}
+	.tcard {
+		flex: 0 0 240px;
+		display: flex;
+		gap: 0.5rem;
+		padding: 0.4rem;
+		text-align: left;
+		background: var(--surface);
+		border: 1px solid var(--border);
+	}
+	.tthumb {
+		width: 56px;
+		height: 56px;
+		object-fit: cover;
+		border-radius: 6px;
+		flex: none;
+	}
+	.tbody {
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+	.section-actions {
+		display: inline-flex;
+		gap: 0.25rem;
+	}
+	.feed.folder {
+		font-weight: 600;
+		margin-top: 0.25rem;
+	}
+	.feeds.indent .feed {
+		padding-left: 1.1rem;
+	}
+	.movesel {
+		width: auto;
+		max-width: 0;
+		opacity: 0;
+		padding: 0;
+		border: none;
+		font-size: 0.72rem;
+		transition: max-width 0.15s;
+	}
+	.feeds li:hover .movesel {
+		max-width: 90px;
+		opacity: 1;
+		border: 1px solid var(--border);
+		padding: 0.1rem 0.2rem;
 	}
 	.tags {
 		display: flex;

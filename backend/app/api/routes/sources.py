@@ -10,7 +10,12 @@ from app.api.deps import CurrentUser, DbSession
 from app.api.errors import AppError
 from app.schemas.common import OkResponse
 from app.schemas.discover import DiscoveredFeed, DiscoverRequest, OpmlImportResult
-from app.schemas.source import SourceOut, SubscribeRequest, SubscriptionOut
+from app.schemas.source import (
+    SourceOut,
+    SubscribeRequest,
+    SubscriptionOut,
+    SubscriptionUpdate,
+)
 from app.services import discovery as discovery_service
 from app.services import folders as folder_service
 from app.services import ingest as ingest_service
@@ -55,6 +60,28 @@ async def subscribe(body: SubscribeRequest, user: CurrentUser, db: DbSession) ->
             assert row is not None
         except Exception:  # noqa: BLE001 - never fail a subscribe on a bad feed
             pass
+    return _to_out(row)
+
+
+@router.patch("/sources/{subscription_id}", response_model=SubscriptionOut)
+async def update_source(
+    subscription_id: uuid.UUID, body: SubscriptionUpdate, user: CurrentUser, db: DbSession
+) -> SubscriptionOut:
+    if body.folder_id is not None:
+        if await folder_service.get_folder(db, user.id, body.folder_id) is None:
+            raise AppError(404, "not_found", "Folder not found.")
+    sub = await sub_service.update_subscription(
+        db,
+        user.id,
+        subscription_id,
+        fields=set(body.model_fields_set),
+        folder_id=body.folder_id,
+        custom_title=body.custom_title,
+    )
+    if sub is None:
+        raise AppError(404, "not_found", "Subscription not found.")
+    row = await sub_service.get_subscription_row(db, user.id, sub.id)
+    assert row is not None
     return _to_out(row)
 
 
