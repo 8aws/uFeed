@@ -42,7 +42,12 @@ export const en = {
 	export_opml: 'Export OPML',
 	account: 'Account',
 	shortcuts: 'Keys: j/k move · o open · m read · s save · f favorite',
-	refresh: 'Refresh'
+	refresh: 'Refresh',
+	search: 'Search',
+	search_placeholder: 'Search title, source, content…',
+	view_list: 'List',
+	view_cards: 'Cards',
+	view_masonry: 'Masonry'
 };
 
 export type Dict = typeof en;

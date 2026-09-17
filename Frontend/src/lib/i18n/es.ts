@@ -44,5 +44,10 @@ export const es: Dict = {
 	export_opml: 'Exportar OPML',
 	account: 'Cuenta',
 	shortcuts: 'Teclas: j/k mover · o abrir · m leído · s guardar · f favorito',
-	refresh: 'Actualizar'
+	refresh: 'Actualizar',
+	search: 'Buscar',
+	search_placeholder: 'Buscar título, fuente, contenido…',
+	view_list: 'Lista',
+	view_cards: 'Tarjetas',
+	view_masonry: 'Masonry'
 };

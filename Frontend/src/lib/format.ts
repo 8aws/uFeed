@@ -16,6 +16,19 @@ export function relativeTime(iso: string | null, locale: Locale): string {
 	return new Date(iso).toLocaleDateString(locale);
 }
 
+/** Strip HTML tags to plain text (for card summaries). */
+export function stripHtml(html: string | null): string {
+	if (!html) return '';
+	return html
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/&nbsp;/g, ' ')
+		.replace(/&amp;/g, '&')
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
 /** Estimated reading time from a word count (~220 wpm). */
 export function readingTime(words: number | null, locale: Locale): string {
 	if (!words || words < 1) return '';

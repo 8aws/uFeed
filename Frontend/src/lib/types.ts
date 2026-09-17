@@ -49,6 +49,7 @@ export interface Article {
 	author: string | null;
 	summary: string | null;
 	content_html: string | null;
+	image_url: string | null;
 	lang: string | null;
 	word_count: number | null;
 	tags: string[];

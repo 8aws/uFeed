@@ -2,10 +2,20 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
-	import { clearTokens } from '$lib/auth';
+	import { clearTokens, user } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
-	import { relativeTime, readingTime } from '$lib/format';
+	import { relativeTime, readingTime, stripHtml } from '$lib/format';
 	import type { Article, DiscoveredFeed, Folder, Subscription, TrendingItem } from '$lib/types';
+
+	type View = 'list' | 'cards' | 'masonry';
+
+	function initialView(): View {
+		if (typeof localStorage !== 'undefined') {
+			const v = localStorage.getItem('view');
+			if (v === 'list' || v === 'cards' || v === 'masonry') return v;
+		}
+		return 'list';
+	}
 
 	type Filter =
 		| { kind: 'all' }
@@ -28,6 +38,23 @@
 	let trending = $state<TrendingItem[]>([]);
 	let readerEl = $state<HTMLElement | null>(null);
 	let readingStart = 0;
+	let query = $state('');
+	let view = $state<View>(initialView());
+	let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function setView(v: View) {
+		view = v;
+		try {
+			localStorage.setItem('view', v);
+		} catch {
+			/* ignore */
+		}
+	}
+
+	function onSearchInput() {
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(() => loadArticles(true), 300);
+	}
 
 	// Add-feed UI.
 	let showAdd = $state(false);
@@ -45,6 +72,7 @@
 		if (filter.kind === 'favorites') p.favorite = 'true';
 		if (filter.kind === 'source') p.source = filter.id;
 		if (filter.kind === 'folder') p.folder = filter.id;
+		if (query.trim()) p.q = query.trim();
 		if (!reset && cursor) p.cursor = cursor;
 		return p;
 	}
@@ -253,12 +281,23 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="shell">
+<div class="shell" class:reading={openArticle}>
 	<aside class="sidebar">
 		<div class="brand">
-			<strong>{$t('app_name')}</strong>
+			<div class="brand-name">
+				<strong>{$t('app_name')}</strong>
+				{#if $user}<span class="who ellipsis">{$user.email}</span>{/if}
+			</div>
 			<a href="/settings" title={$t('settings')} aria-label={$t('settings')}>⚙</a>
 		</div>
+
+		<input
+			class="search"
+			type="search"
+			placeholder={$t('search_placeholder')}
+			bind:value={query}
+			oninput={onSearchInput}
+		/>
 
 		<nav>
 			<button class="nav" class:active={filter.kind === 'all'} onclick={() => setFilter({ kind: 'all' })}>
@@ -337,6 +376,11 @@
 				{:else}{$t(filter.kind)}{/if}
 			</h2>
 			<div class="actions">
+				<div class="viewsel" role="group" aria-label="view">
+					<button class:active={view === 'list'} onclick={() => setView('list')} title={$t('view_list')}>☰</button>
+					<button class:active={view === 'cards'} onclick={() => setView('cards')} title={$t('view_cards')}>▭</button>
+					<button class:active={view === 'masonry'} onclick={() => setView('masonry')} title={$t('view_masonry')}>▦</button>
+				</div>
 				<button onclick={() => loadArticles(true)} title={$t('refresh')}>↻</button>
 				<button onclick={markAllRead}>{$t('mark_all_read')}</button>
 			</div>
@@ -363,29 +407,62 @@
 			<p class="empty muted">{$t('no_articles')}</p>
 		{/if}
 
-		<ul>
-			{#each articles as a, i (a.id)}
-				<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
-				<li
-					data-idx={i}
-					role="button"
-					tabindex="0"
-					class:selected={i === selected}
-					class:read={a.is_read}
-					onclick={() => open(i)}
-					onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(i))}
-				>
-					<div class="row">
-						<span class="atitle">{title(a)}</span>
-						<span class="time muted">{relativeTime(a.published_at, $locale)}</span>
-					</div>
-					<div class="meta muted">
-						<span class="ellipsis">{sourceName(a.source_id)}</span>
-						{#if a.is_saved}<span class="star">★</span>{/if}
-					</div>
-				</li>
-			{/each}
-		</ul>
+		{#if view === 'list'}
+			<ul>
+				{#each articles as a, i (a.id)}
+					<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+					<li
+						data-idx={i}
+						role="button"
+						tabindex="0"
+						class:selected={i === selected}
+						class:read={a.is_read}
+						onclick={() => open(i)}
+						onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(i))}
+					>
+						<div class="row">
+							<span class="atitle">{title(a)}</span>
+							<span class="time muted">{relativeTime(a.published_at, $locale)}</span>
+						</div>
+						<div class="meta muted">
+							<span class="ellipsis">{sourceName(a.source_id)}</span>
+							{#if a.is_saved}<span class="star">★</span>{/if}
+							{#if a.is_favorite}<span class="star">♥</span>{/if}
+						</div>
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			<div class="grid" class:masonry={view === 'masonry'}>
+				{#each articles as a, i (a.id)}
+					<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+					<article
+						data-idx={i}
+						role="button"
+						tabindex="0"
+						class="acard"
+						class:selected={i === selected}
+						class:read={a.is_read}
+						onclick={() => open(i)}
+						onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(i))}
+					>
+						{#if a.image_url}
+							<img class="thumb" src={a.image_url} alt="" loading="lazy" />
+						{/if}
+						<div class="acard-body">
+							<div class="atitle">{title(a)}</div>
+							<div class="meta muted">
+								<span class="ellipsis">{sourceName(a.source_id)}</span>
+								<span>· {relativeTime(a.published_at, $locale)}</span>
+								{#if a.is_saved}<span class="star">★</span>{/if}
+								{#if a.is_favorite}<span class="star">♥</span>{/if}
+							</div>
+							<p class="excerpt">{stripHtml(a.summary || a.content_html)}</p>
+						</div>
+					</article>
+				{/each}
+			</div>
+		{/if}
 
 		{#if loading}<p class="muted center">{$t('loading')}</p>{/if}
 		{#if hasMore}<div use:sentinel></div>{/if}
@@ -434,6 +511,96 @@
 		display: grid;
 		grid-template-columns: 260px minmax(320px, 1fr) minmax(0, 1.4fr);
 		height: 100vh;
+		overflow: hidden;
+	}
+	.shell:not(.reading) {
+		grid-template-columns: 260px 1fr;
+	}
+	.brand-name {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+	.who {
+		font-size: 0.72rem;
+		color: var(--muted);
+		max-width: 180px;
+	}
+	.search {
+		margin: 0.25rem 0;
+	}
+	.viewsel {
+		display: inline-flex;
+	}
+	.viewsel button {
+		border-radius: 0;
+		padding: 0.4rem 0.55rem;
+	}
+	.viewsel button:first-child {
+		border-radius: var(--radius) 0 0 var(--radius);
+	}
+	.viewsel button:last-child {
+		border-radius: 0 var(--radius) var(--radius) 0;
+		border-left: none;
+	}
+	.viewsel button:nth-child(2) {
+		border-left: none;
+	}
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+		gap: 0.75rem;
+		padding: 0.5rem 0.25rem;
+	}
+	.grid.masonry {
+		display: block;
+		column-width: 340px;
+		column-gap: 0.75rem;
+	}
+	.acard {
+		display: flex;
+		gap: 0.75rem;
+		padding: 0.6rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--surface);
+		cursor: pointer;
+		text-align: left;
+		width: 100%;
+		border-left: 3px solid transparent;
+	}
+	.grid.masonry .acard {
+		break-inside: avoid;
+		margin-bottom: 0.75rem;
+	}
+	.acard.selected {
+		border-left-color: var(--accent);
+	}
+	.acard.read .atitle {
+		color: var(--muted);
+		font-weight: 400;
+	}
+	.thumb {
+		width: 96px;
+		height: 96px;
+		object-fit: cover;
+		border-radius: 6px;
+		flex: none;
+	}
+	.acard-body {
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+	.excerpt {
+		margin: 0.15rem 0 0;
+		font-size: 0.85rem;
+		color: var(--muted);
+		display: -webkit-box;
+		-webkit-line-clamp: 4;
+		line-clamp: 4;
+		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
 	.sidebar {

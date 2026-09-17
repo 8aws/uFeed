@@ -28,6 +28,7 @@ class ParsedArticle:
     summary: str | None
     lang: str | None
     published_at: datetime | None
+    image_url: str | None = None
     word_count: int | None = None
     tags: list[str] = field(default_factory=list)
 
@@ -77,6 +78,25 @@ def _entry_content_html(entry: dict) -> str | None:
 
 
 _TAG_RE = re.compile(r"<[^>]+>")
+_IMG_RE = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']', re.IGNORECASE)
+
+
+def _entry_image(entry: dict, content_html: str | None) -> str | None:
+    for media in entry.get("media_content") or []:
+        if isinstance(media, dict) and media.get("url"):
+            return media["url"]
+    for thumb in entry.get("media_thumbnail") or []:
+        if isinstance(thumb, dict) and thumb.get("url"):
+            return thumb["url"]
+    for link in entry.get("links") or []:
+        if link.get("rel") == "enclosure" and str(link.get("type", "")).startswith("image"):
+            if link.get("href"):
+                return link["href"]
+    if content_html:
+        m = _IMG_RE.search(content_html)
+        if m:
+            return m.group(1)
+    return None
 
 
 def _word_count(html: str | None) -> int | None:
@@ -128,6 +148,7 @@ def parse_feed(content: bytes, feed_lang_fallback: str | None = None) -> ParsedF
                 summary=entry.get("summary"),
                 lang=entry.get("language") or feed_lang,
                 published_at=published,
+                image_url=_entry_image(entry, content_html),
                 word_count=_word_count(content_html),
                 tags=_entry_tags(entry),
             )
@@ -202,6 +223,7 @@ async def store_articles(db: AsyncSession, source: Source, parsed: ParsedFeed) -
             "author": a.author,
             "content_html": a.content_html,
             "summary": a.summary,
+            "image_url": a.image_url,
             "lang": a.lang,
             "word_count": a.word_count,
             "tags": a.tags,

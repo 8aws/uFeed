@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.article import Article
 from app.models.article_state import ArticleState
 from app.models.read_event import ReadEvent
+from app.models.source import Source
 from app.models.subscription import Subscription
 
 # Sort key: prefer published_at, fall back to fetched_at (always present).
@@ -107,7 +108,13 @@ async def list_articles(
     if favorite is True:
         stmt = stmt.where(ArticleState.is_favorite.is_(True))
     if q:
-        stmt = stmt.where(_fts_vector().op("@@")(func.plainto_tsquery("simple", q)))
+        # Match article title/content (full-text) or the source name.
+        stmt = stmt.join(Source, Source.id == Article.source_id).where(
+            or_(
+                _fts_vector().op("@@")(func.plainto_tsquery("simple", q)),
+                Source.title.ilike(f"%{q}%"),
+            )
+        )
 
     if cursor:
         decoded = decode_cursor(cursor)

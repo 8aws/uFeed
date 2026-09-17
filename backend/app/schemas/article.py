@@ -16,6 +16,7 @@ class ArticleOut(BaseModel):
     author: str | None = None
     summary: str | None = None
     content_html: str | None = None
+    image_url: str | None = None
     lang: str | None = None
     word_count: int | None = None
     tags: list[str] = []

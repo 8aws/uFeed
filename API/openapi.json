@@ -1922,6 +1922,17 @@
             ],
             "title": "Content Html"
           },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
           "lang": {
             "anyOf": [
               {

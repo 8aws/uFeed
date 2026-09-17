@@ -38,6 +38,7 @@ class Article(Base):
     author: Mapped[str | None] = mapped_column(String(500), nullable=True)
     content_html: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     lang: Mapped[str | None] = mapped_column(String(5), nullable=True)
     word_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, nullable=False)
