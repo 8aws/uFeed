@@ -90,8 +90,11 @@ runtime for you; you only need the host driver + device nodes.
 2. **Host (NPU, optional):** install Intel's `linux-npu-driver` (.debs matched to
    your kernel's `intel_vpu`), confirm `ls /dev/accel/accel0`, then uncomment the
    `/dev/accel/accel0` line in `compose.openvino.yml`.
-3. Set `AI_BACKEND=openvino` in `.env` (optionally `OPENVINO_DEVICE=GPU` to force
-   the iGPU, or `AUTO`/`NPU`/`CPU`).
+3. Set `AI_BACKEND=openvino` and `OPENVINO_DEVICE=GPU` in `.env`. Use the **iGPU**
+   for embeddings (~12× CPU, measured ~2700 emb/s on Wildcat Lake). Do **not**
+   use the NPU here: it requires static shapes and sentence embeddings are
+   dynamic (variable token length), so MiniLM won't run on it — the NPU is for
+   static-shape models (e.g. YOLO/Frigate).
 4. Rebuild including the OpenVINO overlay (the `--build` matters — it pulls the
    Intel runtime into the image):
    ```bash
