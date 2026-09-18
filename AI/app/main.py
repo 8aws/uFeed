@@ -49,9 +49,42 @@ class SummarizeBatchResponse(BaseModel):
     summaries: list[str]
 
 
+def _openvino_devices() -> dict:
+    """Report what the OpenVINO runtime actually sees inside this container.
+
+    `device` is only the *requested* target (AUTO/GPU/NPU/CPU); this shows the
+    devices the runtime discovered, so you can tell whether the iGPU/NPU are
+    reachable from the container or it silently fell back to CPU. Host drivers
+    are not enough — the container needs the Intel user-space runtime and the
+    device nodes (/dev/dri for the iGPU, /dev/accel for the NPU).
+    """
+    if BACKEND != "openvino":
+        return {}
+    try:
+        import openvino as ov  # type: ignore
+
+        core = ov.Core()
+        names = list(core.available_devices)
+        full = {}
+        for name in names:
+            try:
+                full[name] = core.get_property(name, "FULL_DEVICE_NAME")
+            except Exception:
+                full[name] = None
+        return {"available_devices": names, "device_names": full}
+    except Exception as exc:  # pragma: no cover - diagnostic only
+        return {"available_devices_error": str(exc)}
+
+
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "backend": BACKEND, "dim": DIM, "device": DEVICE}
+    return {
+        "status": "ok",
+        "backend": BACKEND,
+        "dim": DIM,
+        "device": DEVICE,
+        **_openvino_devices(),
+    }
 
 
 @app.post("/embed", response_model=EmbedResponse)

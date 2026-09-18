@@ -55,12 +55,20 @@ docker compose -f docker-compose.yml -f compose.prod.yml up -d --build
   the proxy over plain HTTP internally.
 
 ## Later: OpenVINO on iGPU/NPU (optional)
-1. Install `intel-opencl-icd` (iGPU); for NPU install Intel's NPU driver and
-   uncomment `/dev/accel` in `compose.openvino.yml`.
+**The host's Intel drivers do NOT reach the container.** Two separate things:
+the Intel **user-space runtime inside the image** (the OpenVINO build installs
+the iGPU runtime for you) and the **device nodes passed in**.
+1. Host iGPU: `intel-opencl-icd`, confirm `ls /dev/dri/renderD128`. NPU: install
+   Intel's `linux-npu-driver`, confirm `/dev/accel/accel0`, then uncomment that
+   line in `compose.openvino.yml`.
 2. Set `AI_BACKEND=openvino` in `.env`.
 3. `docker compose -f docker-compose.yml -f compose.prod.yml -f compose.openvino.yml up -d --build`
-4. Verify: `curl -s http://localhost:8001/health` (from inside the box network)
-   or `docker compose exec backend curl -s http://ai:8001/health` → `"backend":"openvino"`.
+   (the `--build` is required — it bakes the Intel runtime into the AI image).
+4. Verify what the runtime **actually** discovered:
+   `docker compose exec backend curl -s http://ai:8001/health`
+   → expect `"available_devices":["CPU","GPU"(,"NPU")]`. Only `CPU` means the
+   container can't reach the iGPU (missing `--build` on the openvino overlay, or
+   a group/GID permission issue — see `docs/DEPLOY.md` step 5).
 
 ## Updates & backups
 - Update: `git pull && docker compose -f docker-compose.yml -f compose.prod.yml up -d --build`

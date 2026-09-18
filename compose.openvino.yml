@@ -15,9 +15,17 @@ services:
       AI_MODEL: ${AI_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
       OPENVINO_DEVICE: ${OPENVINO_DEVICE:-AUTO}
     devices:
-      - /dev/dri:/dev/dri
-      # Uncomment on Core Ultra with an NPU driver:
-      # - /dev/accel:/dev/accel
+      - /dev/dri:/dev/dri                    # iGPU
+      # NPU (Core Ultra): uncomment once Intel's NPU driver is installed on the
+      # host and the node exists (ls /dev/accel/accel0). Passing a missing node
+      # makes the container fail to start, so keep it commented until verified.
+      # - /dev/accel/accel0:/dev/accel/accel0
     group_add:
+      # Container must be in the host groups that own the device nodes. The names
+      # 'video'/'render' resolve to the CONTAINER's GIDs, which may not match the
+      # host's — if you get permission errors on /dev/dri or /dev/accel, replace
+      # these with the host's NUMERIC gids, e.g.:
+      #   getent group render  -> render:x:993:...   -> add "993"
+      #   stat -c '%g' /dev/dri/renderD128           -> that gid
       - video
       - render

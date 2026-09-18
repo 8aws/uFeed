@@ -64,19 +64,46 @@ Open the site and use **Create account**. (Registration is open by default; see
 
 ## 5. Enable OpenVINO (optional, later)
 
-Once the box is running with `hashing`, switch the AI to the Intel iGPU/NPU:
+Once the box is running with `hashing`, switch the AI to the Intel iGPU/NPU.
 
-1. Install the Intel compute runtime (`intel-opencl-icd`); confirm `/dev/dri`.
-   For the NPU, install Intel's NPU driver, confirm `/dev/accel`, and uncomment
-   `/dev/accel` in `compose.openvino.yml`.
-2. Set `AI_BACKEND=openvino` in `.env`.
-3. Recreate including the OpenVINO overlay:
+**Key point:** the host having Intel drivers is not enough — the *container* is a
+separate userland. Two things must line up: (a) the Intel **user-space runtime**
+inside the AI image, and (b) the **device nodes** passed into the container.
+The OpenVINO image build (`compose.openvino.yml`) installs the iGPU user-space
+runtime for you; you only need the host driver + device nodes.
+
+1. **Host (iGPU):** install the kernel/compute runtime and confirm the node:
+   ```bash
+   sudo apt-get install -y intel-opencl-icd   # or Intel's compute-runtime debs
+   ls -l /dev/dri/renderD128                   # must exist
+   ```
+2. **Host (NPU, optional):** install Intel's `linux-npu-driver` (.debs matched to
+   your kernel's `intel_vpu`), confirm `ls /dev/accel/accel0`, then uncomment the
+   `/dev/accel/accel0` line in `compose.openvino.yml`.
+3. Set `AI_BACKEND=openvino` in `.env` (optionally `OPENVINO_DEVICE=GPU` to force
+   the iGPU, or `AUTO`/`NPU`/`CPU`).
+4. Rebuild including the OpenVINO overlay (the `--build` matters — it pulls the
+   Intel runtime into the image):
    ```bash
    docker compose -f docker-compose.yml -f compose.prod.yml -f compose.openvino.yml up -d --build
    ```
-4. Verify: `curl http://localhost:8001/health` shows `"backend":"openvino"`.
-   Re-embedding/summarising happens gradually on the worker ticks
-   (`OPENVINO_DEVICE` can be `AUTO`, `CPU`, `GPU` or `NPU`).
+5. **Verify what the runtime actually sees** (not just what was requested):
+   ```bash
+   docker compose exec backend curl -s http://ai:8001/health
+   ```
+   You want `"backend":"openvino"` and `available_devices` listing `GPU`
+   (and `NPU` if enabled), e.g.
+   `{"backend":"openvino","available_devices":["CPU","GPU"],"device_names":{...}}`.
+   If it shows only `CPU`, the container can't reach the iGPU — check that
+   `--build` ran against `compose.openvino.yml`, that `/dev/dri` is passed, and
+   the group/GID note below.
+6. **Permissions:** if `available_devices` omits `GPU` despite the node being
+   passed, the container likely isn't in the host's `render` group. Find the
+   host GID and add it in `compose.openvino.yml` under `group_add`:
+   ```bash
+   stat -c '%g' /dev/dri/renderD128   # e.g. 993 -> add "993" to group_add
+   ```
+   Re-embedding/summarising then happens gradually on the worker ticks.
 
 ## 6. Backups
 
