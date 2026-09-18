@@ -1,26 +1,24 @@
 # Deploying uFeed on the Beelink (production)
 
 Target: a Beelink mini-PC with an Intel **Core Ultra** (iGPU + NPU), running
-Linux + Docker. uFeed runs as a small Docker Compose stack; the AI service uses
-**OpenVINO** on the iGPU/NPU. Everything is reached through the Caddy reverse
-proxy over HTTPS.
+Linux + Docker. uFeed runs as a small Docker Compose stack.
+
+TLS/domain are handled by **Cosmos on the QNAP** (external reverse proxy): uFeed
+serves plain **HTTP** on a port of the Beelink, and Cosmos publishes the public
+hostname + certificate and forwards to `http://<beelink-ip>:<port>`.
+
+Two-step AI: start with the portable `hashing` backend (no drivers) to get
+running fast, then switch to **OpenVINO** on the iGPU/NPU when ready.
 
 ## 0. Prerequisites (on the Beelink)
 
-1. **Docker Engine + Compose plugin**
-   ```bash
-   curl -fsSL https://get.docker.com | sh
-   sudo usermod -aG docker "$USER"   # log out/in afterwards
-   ```
-2. **Intel GPU / NPU runtime** (only needed for `AI_BACKEND=openvino`):
-   - iGPU: install `intel-opencl-icd` (compute runtime). Confirm `/dev/dri`
-     exists (`ls /dev/dri`).
-   - NPU (Core Ultra): install Intel's NPU driver; confirm `/dev/accel` exists,
-     then uncomment the `/dev/accel` device in `compose.prod.yml`.
-   - If you skip this, set `AI_BACKEND=hashing` — everything works, just without
-     semantic-quality embeddings/summaries.
-3. A **DNS record** pointing your hostname (e.g. `feeds.example.com`) at the box,
-   with ports **80 and 443** reachable (Caddy needs 80/443 for HTTPS).
+**Docker Engine + Compose plugin**
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker "$USER"   # log out/in afterwards
+```
+
+(Intel GPU/NPU drivers are only needed later, for OpenVINO — see step 5.)
 
 ## 1. Get the code and configure
 
@@ -28,33 +26,59 @@ proxy over HTTPS.
 git clone https://github.com/8aws/uFeed.git
 cd uFeed
 cp .env.prod.example .env
-# Edit .env: set POSTGRES_PASSWORD, JWT_SECRET (openssl rand -base64 36),
-# UFEED_DOMAIN and the matching DATABASE_URL* passwords.
+# Edit .env: POSTGRES_PASSWORD, JWT_SECRET (openssl rand -base64 36), the
+# matching DATABASE_URL* passwords, and UFEED_HTTP_PORT (e.g. 8080).
+# Keep UFEED_DOMAIN unset and AI_BACKEND=hashing for the first run.
 ```
 
-## 2. Launch
+## 2. Launch (HTTP, behind Cosmos)
 
 ```bash
 docker compose -f docker-compose.yml -f compose.prod.yml up -d --build
 ```
 
 - The backend runs Alembic migrations automatically on start.
-- Caddy obtains a Let's Encrypt certificate for `UFEED_DOMAIN` on first run.
-- The worker begins polling feeds; the AI service embeds/summarises in the
-  background.
+- uFeed serves HTTP on `UFEED_HTTP_PORT` (e.g. 8080) — no certificate here.
+- The worker begins polling feeds; the AI service embeds/summarises.
 
-Check it:
+Check it on the box:
 ```bash
-curl -s https://feeds.example.com/health
+curl -s http://localhost:8080/health
 docker compose logs -f backend worker ai
 ```
 
-## 3. First user
+## 3. Expose it through Cosmos (QNAP)
 
-Open `https://feeds.example.com` and use **Create account**. (Registration is
-open by default; see "User administration" below to restrict it — planned.)
+In Cosmos, create a proxy / URL for your hostname (e.g. `feeds.example.com`):
 
-## 4. Backups
+- **Target**: `http://<beelink-lan-ip>:8080`
+- Enable **HTTPS / Let's Encrypt** for the hostname in Cosmos (it terminates TLS).
+- Make sure the Beelink's `UFEED_HTTP_PORT` is reachable from the QNAP on the LAN.
+
+Then browse `https://feeds.example.com`.
+
+## 4. First user
+
+Open the site and use **Create account**. (Registration is open by default; see
+"Pending" to restrict it.)
+
+## 5. Enable OpenVINO (optional, later)
+
+Once the box is running with `hashing`, switch the AI to the Intel iGPU/NPU:
+
+1. Install the Intel compute runtime (`intel-opencl-icd`); confirm `/dev/dri`.
+   For the NPU, install Intel's NPU driver, confirm `/dev/accel`, and uncomment
+   `/dev/accel` in `compose.openvino.yml`.
+2. Set `AI_BACKEND=openvino` in `.env`.
+3. Recreate including the OpenVINO overlay:
+   ```bash
+   docker compose -f docker-compose.yml -f compose.prod.yml -f compose.openvino.yml up -d --build
+   ```
+4. Verify: `curl http://localhost:8001/health` shows `"backend":"openvino"`.
+   Re-embedding/summarising happens gradually on the worker ticks
+   (`OPENVINO_DEVICE` can be `AUTO`, `CPU`, `GPU` or `NPU`).
+
+## 6. Backups
 
 `pg_dump` to `./backups/` (keeps the last 14):
 ```bash
@@ -66,20 +90,21 @@ Schedule it daily with cron:
 ```
 Restore: `./scripts/restore.sh backups/ufeed-YYYYmmdd-HHMMSS.sql.gz`
 
-## 5. Updating
+## 7. Updating
 
 ```bash
 git pull
 docker compose -f docker-compose.yml -f compose.prod.yml up -d --build
+# add -f compose.openvino.yml if you enabled OpenVINO
 ```
 Migrations run automatically. Zero-config; the SPA is served fresh (the service
 worker is network-first for navigations).
 
 ## Notes / architecture
 
-- Only the **proxy** publishes ports (80/443). Postgres and the backend are
-  bound to `127.0.0.1` in the base compose and otherwise reachable only on the
-  internal Docker network.
+- Only the **proxy** publishes a port (`UFEED_HTTP_PORT`). Postgres and the
+  backend bind to `127.0.0.1` and are otherwise reachable only on the internal
+  Docker network. Consider firewalling `UFEED_HTTP_PORT` to the QNAP's LAN IP.
 - Rate limiting (Redis) protects the public API and auth; security headers are
   set by Caddy.
 - To verify OpenVINO picked the device: `docker compose logs ai` and

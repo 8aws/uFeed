@@ -94,8 +94,10 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     ports:
-      - "80:80"
-      - "443:443"
+      # Behind an external TLS proxy (e.g. Cosmos on the QNAP), leave
+      # UFEED_DOMAIN unset and point it at http://<beelink-ip>:${UFEED_HTTP_PORT}.
+      - "${UFEED_HTTP_PORT:-80}:80"
+      - "${UFEED_HTTPS_PORT:-443}:443"
 
 volumes:
   pgdata:
