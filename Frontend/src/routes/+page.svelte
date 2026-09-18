@@ -14,9 +14,9 @@
 			const v = localStorage.getItem('view');
 			if (v === 'list' || v === 'cardlist' || v === 'cards' || v === 'masonry') return v;
 		}
-		// No explicit choice yet: phones default to the two-column masonry grid
-		// (Feedly-style), desktop to the compact list.
-		if (typeof window !== 'undefined' && window.innerWidth <= 900) return 'masonry';
+		// No explicit choice yet: phones default to the single-column card list
+		// (image + title + excerpt), desktop to the compact list.
+		if (typeof window !== 'undefined' && window.innerWidth <= 900) return 'cardlist';
 		return 'list';
 	}
 
@@ -1507,6 +1507,35 @@
 			inset: 0;
 			background: var(--bg);
 			z-index: 25;
+			padding: 1rem 1rem 3rem;
+			/* No sideways scroll: content is clipped to the viewport so vertical
+			   scrolling can't wobble the page left-right ("flan"). */
+			overflow-x: hidden;
+			overscroll-behavior: contain;
+		}
+		/* Action bar must not exceed the right edge: wrap onto more rows and use
+		   compact buttons instead of spilling off-screen. */
+		.reader-head {
+			flex-wrap: wrap;
+			gap: 0.4rem;
+		}
+		.reader-actions {
+			flex-wrap: wrap;
+		}
+		.reader-actions button,
+		.reader-actions .btn {
+			padding: 0.4rem 0.6rem;
+			font-size: 0.85rem;
+		}
+		/* Long words, wide media, tables and code blocks stay within the column
+		   so nothing forces the layout wider than the screen. */
+		.reader .content :global(*) {
+			max-width: 100%;
+		}
+		.reader .content :global(pre),
+		.reader .content :global(table) {
+			overflow-x: auto;
+			display: block;
 		}
 	}
 </style>
