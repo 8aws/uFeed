@@ -14,6 +14,9 @@
 			const v = localStorage.getItem('view');
 			if (v === 'list' || v === 'cardlist' || v === 'cards' || v === 'masonry') return v;
 		}
+		// No explicit choice yet: phones default to the two-column masonry grid
+		// (Feedly-style), desktop to the compact list.
+		if (typeof window !== 'undefined' && window.innerWidth <= 900) return 'masonry';
 		return 'list';
 	}
 
