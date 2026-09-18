@@ -1,0 +1,29 @@
+# Production overrides for uFeed on the Beelink (Intel iGPU/NPU).
+# Usage:
+#   cp .env.prod.example .env   # then edit secrets + UFEED_DOMAIN
+#   docker compose -f docker-compose.yml -f compose.prod.yml up -d --build
+services:
+  backend:
+    # No --reload in production; a few workers for the API.
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4"
+
+  ai:
+    build:
+      context: ./AI
+      args:
+        # Pulls OpenVINO + optimum-intel + transformers for on-device inference.
+        AI_EXTRAS: "[openvino]"
+    environment:
+      AI_BACKEND: openvino
+      AI_MODEL: ${AI_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      OPENVINO_DEVICE: ${OPENVINO_DEVICE:-AUTO}
+    # Expose the Intel GPU (and NPU if present) to the container.
+    devices:
+      - /dev/dri:/dev/dri
+      # Uncomment on Core Ultra with an NPU driver:
+      # - /dev/accel:/dev/accel
+    group_add:
+      - video
+      - render

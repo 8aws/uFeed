@@ -14,6 +14,15 @@ Fase de planificación. El diseño y la hoja de ruta están en `docs/`.
 - [`docs/PLAN.md`](docs/PLAN.md) — arquitectura y hoja de ruta por fases.
 - [`docs/AI_BRIEF.md`](docs/AI_BRIEF.md) — brief maestro para desarrollo
   paralelo con varias IA (contratos comunes + prompts por frente de trabajo).
+- [`docs/DEPLOY.md`](docs/DEPLOY.md) — despliegue en producción (Beelink,
+  Docker Compose, OpenVINO iGPU/NPU, HTTPS, backups).
+
+## Producción (resumen)
+
+```bash
+cp .env.prod.example .env   # editar secretos + UFEED_DOMAIN
+docker compose -f docker-compose.yml -f compose.prod.yml up -d --build
+```
 
 ## Estructura
 
