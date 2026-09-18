@@ -13,10 +13,12 @@ dependencies = [
 # OpenVINO backend for the NAS (Intel iGPU/NPU). Not installed by default so the
 # image builds anywhere; enable on the NAS:
 #   pip install ".[openvino]"
+# Wildcat Lake / Core Series 3 needs OpenVINO 2026.2+ (older releases lack the
+# GPU/NPU plugin support for the new device IDs). See AI/intel-debs/README.md.
 [project.optional-dependencies]
 openvino = [
-    "openvino>=2024.4",
-    "optimum-intel>=1.20",
+    "openvino>=2026.2",
+    "optimum-intel>=1.25",
     "transformers>=4.44",
 ]
 

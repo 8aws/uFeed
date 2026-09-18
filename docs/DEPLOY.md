@@ -72,9 +72,19 @@ inside the AI image, and (b) the **device nodes** passed into the container.
 The OpenVINO image build (`compose.openvino.yml`) installs the iGPU user-space
 runtime for you; you only need the host driver + device nodes.
 
-1. **Host (iGPU):** install the kernel/compute runtime and confirm the node:
+> **Wildcat Lake / Core Series 3 (this box):** brand-new silicon. The Intel
+> runtime in apt (host *and* container) is too old to recognise its device IDs —
+> that is why OpenVINO sees only CPU while the host kernel already drives it.
+> Use the matched Intel releases: OpenVINO **2026.2**, compute-runtime (GPU)
+> **26.22.38646.6**, Level Zero **1.28.2**, NPU driver **1.35.0+**. Put the
+> container `.deb`s in `AI/intel-debs/` (see its README); the image installs them
+> instead of the apt baseline. Check the current matrix at
+> https://docs.openvino.ai/systemrequirements .
+
+1. **Host (iGPU):** install a compute runtime new enough for the chip and
+   confirm the node (for Wildcat Lake use Intel's latest `.deb`s from
+   `intel/compute-runtime`, not distro apt):
    ```bash
-   sudo apt-get install -y intel-opencl-icd   # or Intel's compute-runtime debs
    ls -l /dev/dri/renderD128                   # must exist
    ```
 2. **Host (NPU, optional):** install Intel's `linux-npu-driver` (.debs matched to
