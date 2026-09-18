@@ -14,8 +14,9 @@ services:
       timeout: 5s
       retries: 10
     ports:
-      # Bound to localhost only; the app reaches Postgres over the compose network.
-      - "127.0.0.1:5432:5432"
+      # Localhost-only, for debugging. The app reaches Postgres over the compose
+      # network; set DB_HOST_PORT to avoid collisions (or it can be dropped).
+      - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
 
   cache:
     image: redis:7-alpine
@@ -45,8 +46,8 @@ services:
     volumes:
       - ./backend:/app
     ports:
-      # Localhost only in dev; in prod all traffic goes through the proxy (80/443).
-      - "127.0.0.1:8000:8000"
+      # Localhost-only, for debugging; prod traffic goes through the proxy.
+      - "127.0.0.1:${BACKEND_HOST_PORT:-8000}:8000"
 
   worker:
     build: ./backend
