@@ -25,6 +25,7 @@ def _to_out(row: ArticleRow) -> ArticleOut:
     out.is_read = row.is_read
     out.is_saved = row.is_saved
     out.is_favorite = row.is_favorite
+    out.dup_count = row.dup_count
     return out
 
 
@@ -40,6 +41,7 @@ async def list_articles(
     q: str | None = None,
     cursor: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
+    collapse: bool = True,
 ) -> Page[ArticleOut]:
     page = await article_service.list_articles(
         db,
@@ -52,6 +54,7 @@ async def list_articles(
         q=q,
         cursor=cursor,
         limit=limit,
+        collapse=collapse,
     )
     return Page(items=[_to_out(r) for r in page.rows], next_cursor=page.next_cursor)
 

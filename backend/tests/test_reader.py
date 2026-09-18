@@ -162,6 +162,32 @@ async def test_assign_subscription_to_folder(api: AsyncClient, db_session: Async
     assert back.json()["folder_id"] is None
 
 
+async def test_collapse_duplicates(api: AsyncClient, db_session: AsyncSession) -> None:
+    headers = await _register(api)
+    src = Source(feed_url=f"https://ex.com/{uuid.uuid4().hex}.xml", title="Dup")
+    db_session.add(src)
+    await db_session.flush()
+    seed = Article(
+        source_id=src.id, guid="s", title="Seed", published_at=datetime(2025, 1, 2, tzinfo=UTC)
+    )
+    dupe = Article(
+        source_id=src.id, guid="d", title="Dupe", published_at=datetime(2025, 1, 1, tzinfo=UTC)
+    )
+    db_session.add_all([seed, dupe])
+    await db_session.flush()
+    seed.dup_group_id = seed.id
+    dupe.dup_group_id = seed.id  # same group -> a duplicate of the seed
+    await db_session.commit()
+    await _subscribe(api, headers, src.feed_url)
+
+    collapsed = (await api.get("/api/articles", headers=headers)).json()["items"]
+    assert [a["id"] for a in collapsed] == [str(seed.id)]
+    assert collapsed[0]["dup_count"] == 2
+
+    everything = (await api.get("/api/articles?collapse=false", headers=headers)).json()["items"]
+    assert {a["id"] for a in everything} == {str(seed.id), str(dupe.id)}
+
+
 async def test_cannot_access_unsubscribed_article(
     api: AsyncClient, db_session: AsyncSession
 ) -> None:

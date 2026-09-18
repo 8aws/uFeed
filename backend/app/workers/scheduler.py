@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.source import Source
-from app.services.ai import embed_pending, summarize_pending
+from app.services.ai import dedup_pending, embed_pending, summarize_pending
 from app.services.ingest import refresh_source
 
 log = logging.getLogger("ufeed.ingest")
@@ -61,4 +61,11 @@ async def run_tick() -> int:
         except Exception:  # noqa: BLE001
             await db.rollback()
             log.exception("summary pass failed")
+        try:
+            deduped = await dedup_pending(db)
+            if deduped:
+                log.info("deduped %d articles", deduped)
+        except Exception:  # noqa: BLE001
+            await db.rollback()
+            log.exception("dedup pass failed")
     return processed

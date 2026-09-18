@@ -27,19 +27,25 @@ sw.addEventListener('fetch', (event) => {
 	// Never cache API traffic; always hit the network.
 	if (url.pathname.startsWith('/api')) return;
 
+	// Navigations: network-first so a new deploy is picked up immediately;
+	// fall back to the cached app shell only when offline.
+	if (req.mode === 'navigate') {
+		event.respondWith(fetch(req).catch(() => caches.match('/') as Promise<Response>));
+		return;
+	}
+
+	// Static assets (hashed, immutable): cache-first.
 	event.respondWith(
 		caches.match(req).then(
 			(cached) =>
 				cached ??
-				fetch(req)
-					.then((resp) => {
-						if (resp.ok && url.origin === location.origin) {
-							const copy = resp.clone();
-							caches.open(CACHE).then((cache) => cache.put(req, copy));
-						}
-						return resp;
-					})
-					.catch(() => caches.match('/'))
+				fetch(req).then((resp) => {
+					if (resp.ok && url.origin === location.origin) {
+						const copy = resp.clone();
+						caches.open(CACHE).then((cache) => cache.put(req, copy));
+					}
+					return resp;
+				})
 		) as Promise<Response>
 	);
 });

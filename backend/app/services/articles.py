@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
-from sqlalchemy import and_, func, or_, select, tuple_
+from sqlalchemy import and_, case, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models.article import Article
 from app.models.article_state import ArticleState
@@ -27,6 +28,7 @@ class ArticleRow:
     is_read: bool
     is_saved: bool
     is_favorite: bool = False
+    dup_count: int = 1
 
 
 @dataclass(slots=True)
@@ -122,8 +124,26 @@ async def list_articles(
     q: str | None = None,
     cursor: str | None = None,
     limit: int = 50,
+    collapse: bool = True,
 ) -> ArticlePage:
-    stmt = _base_query(user_id)
+    # Count of articles sharing this one's dedup group (1 when ungrouped).
+    dup_alias = aliased(Article)
+    dup_count_expr = case(
+        (
+            Article.dup_group_id.isnot(None),
+            select(func.count())
+            .select_from(dup_alias)
+            .where(dup_alias.dup_group_id == Article.dup_group_id)
+            .scalar_subquery(),
+        ),
+        else_=1,
+    )
+    stmt = _base_query(user_id).add_columns(dup_count_expr)
+
+    # Collapse near-duplicates: show only the group seed (id == group) or
+    # articles not yet grouped.
+    if collapse:
+        stmt = stmt.where(or_(Article.dup_group_id.is_(None), Article.dup_group_id == Article.id))
 
     if source is not None:
         stmt = stmt.where(Article.source_id == source)
@@ -163,7 +183,9 @@ async def list_articles(
     stmt = stmt.order_by(_SORT_TS.desc(), Article.id.desc()).limit(limit + 1)
 
     result = (await db.execute(stmt)).all()
-    rows = [ArticleRow(a, bool(r), bool(s), bool(f)) for a, r, s, f in result[:limit]]
+    rows = [
+        ArticleRow(a, bool(r), bool(s), bool(f), int(dc or 1)) for a, r, s, f, dc in result[:limit]
+    ]
 
     next_cursor = None
     if len(result) > limit:

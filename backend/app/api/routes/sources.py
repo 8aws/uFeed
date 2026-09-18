@@ -11,6 +11,7 @@ from app.api.errors import AppError
 from app.schemas.common import OkResponse
 from app.schemas.discover import DiscoveredFeed, DiscoverRequest, OpmlImportResult
 from app.schemas.source import (
+    RefreshResult,
     SourceOut,
     SubscribeRequest,
     SubscriptionOut,
@@ -40,6 +41,27 @@ def _to_out(row: SubscriptionRow) -> SubscriptionOut:
 async def list_sources(user: CurrentUser, db: DbSession) -> list[SubscriptionOut]:
     rows = await sub_service.list_subscriptions(db, user.id)
     return [_to_out(r) for r in rows]
+
+
+@router.post("/refresh", response_model=RefreshResult)
+async def refresh(
+    user: CurrentUser,
+    db: DbSession,
+    source: uuid.UUID | None = None,
+) -> RefreshResult:
+    """Fetch the user's feeds now (or one source) and report what was found."""
+    if source is not None:
+        if not await sub_service.source_ids_for(db, user.id, source):
+            raise AppError(404, "not_found", "Subscription not found.")
+        source_ids = [source]
+    else:
+        source_ids = await sub_service.source_ids_for(db, user.id)
+    summary = await ingest_service.refresh_sources(source_ids)
+    return RefreshResult(
+        checked=summary.checked,
+        new_articles=summary.new_articles,
+        errors=summary.errors,
+    )
 
 
 @router.post("/sources", response_model=SubscriptionOut, status_code=201)

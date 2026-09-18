@@ -103,6 +103,62 @@ async def embed_pending(db: AsyncSession, limit: int | None = None) -> int:
     return len(rows)
 
 
+async def dedup_pending(db: AsyncSession, limit: int | None = None) -> int:
+    """Assign a dup_group_id to embedded articles that lack one.
+
+    A new article joins an existing group when it shares a URL with a grouped
+    article, or its nearest grouped neighbour is within dedup_threshold cosine
+    distance. Otherwise it seeds its own group (group id == its own id). Runs
+    oldest-first so the earliest article becomes the group seed.
+    """
+    limit = limit or settings.dedup_max_per_tick
+    rows = (
+        (
+            await db.execute(
+                select(Article)
+                .where(Article.dup_group_id.is_(None), Article.embedding.isnot(None))
+                .order_by(Article.fetched_at.asc())
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not rows:
+        return 0
+    for a in rows:
+        group: uuid.UUID | None = None
+        if a.url:
+            group = (
+                await db.execute(
+                    select(Article.dup_group_id)
+                    .where(
+                        Article.url == a.url,
+                        Article.dup_group_id.isnot(None),
+                        Article.id != a.id,
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+        if group is None:
+            nn = (
+                await db.execute(
+                    select(
+                        Article.dup_group_id,
+                        Article.embedding.cosine_distance(a.embedding).label("d"),
+                    )
+                    .where(Article.dup_group_id.isnot(None), Article.id != a.id)
+                    .order_by("d")
+                    .limit(1)
+                )
+            ).first()
+            if nn is not None and nn.d is not None and nn.d <= settings.dedup_threshold:
+                group = nn.dup_group_id
+        a.dup_group_id = group or a.id
+    await db.commit()
+    return len(rows)
+
+
 async def similar_articles(
     db: AsyncSession, user_id: uuid.UUID, article_id: uuid.UUID, limit: int = 8
 ) -> list[Article]:

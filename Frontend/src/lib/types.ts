@@ -59,6 +59,7 @@ export interface Article {
 	is_read: boolean;
 	is_saved: boolean;
 	is_favorite: boolean;
+	dup_count: number;
 }
 
 export interface TrendingItem {

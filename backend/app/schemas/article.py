@@ -25,6 +25,7 @@ class ArticleOut(BaseModel):
     is_read: bool = False
     is_saved: bool = False
     is_favorite: bool = False
+    dup_count: int = 1
 
 
 class MarkAllReadRequest(BaseModel):

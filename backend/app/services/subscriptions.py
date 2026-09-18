@@ -67,6 +67,16 @@ async def get_subscription_row(
     return SubscriptionRow(sub, src, cnt or 0)
 
 
+async def source_ids_for(
+    db: AsyncSession, user_id: uuid.UUID, source_id: uuid.UUID | None = None
+) -> list[uuid.UUID]:
+    """The source ids the user is subscribed to (optionally just one)."""
+    stmt = select(Subscription.source_id).where(Subscription.user_id == user_id)
+    if source_id is not None:
+        stmt = stmt.where(Subscription.source_id == source_id)
+    return list((await db.execute(stmt)).scalars().all())
+
+
 async def subscribe(
     db: AsyncSession,
     user_id: uuid.UUID,

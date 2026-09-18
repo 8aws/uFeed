@@ -111,6 +111,11 @@ export const api = {
 	updateSubscription: (id: string, body: { folder_id?: string | null; custom_title?: string }) =>
 		request<Subscription>(`/sources/${id}`, { method: 'PATCH', body }),
 	unsubscribe: (id: string) => request<unknown>(`/sources/${id}`, { method: 'DELETE' }),
+	refresh: (source?: string) =>
+		request<{ checked: number; new_articles: number; errors: number }>(
+			`/refresh${source ? `?source=${source}` : ''}`,
+			{ method: 'POST' }
+		),
 	discover: (url: string) =>
 		request<DiscoveredFeed[]>('/discover', { method: 'POST', body: { url } }),
 

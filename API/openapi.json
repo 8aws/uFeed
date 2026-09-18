@@ -596,6 +596,62 @@
         ]
       }
     },
+    "/api/refresh": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Refresh",
+        "description": "Fetch the user's feeds now (or one source) and report what was found.",
+        "operationId": "refresh_api_refresh_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sources/{subscription_id}": {
       "patch": {
         "tags": [
@@ -957,6 +1013,16 @@
               "minimum": 1,
               "default": 50,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "collapse",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Collapse"
             }
           }
         ],
@@ -2294,6 +2360,11 @@
             "type": "boolean",
             "title": "Is Favorite",
             "default": false
+          },
+          "dup_count": {
+            "type": "integer",
+            "title": "Dup Count",
+            "default": 1
           }
         },
         "type": "object",
@@ -2688,6 +2759,29 @@
           "refresh_token"
         ],
         "title": "RefreshRequest"
+      },
+      "RefreshResult": {
+        "properties": {
+          "checked": {
+            "type": "integer",
+            "title": "Checked"
+          },
+          "new_articles": {
+            "type": "integer",
+            "title": "New Articles"
+          },
+          "errors": {
+            "type": "integer",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "checked",
+          "new_articles",
+          "errors"
+        ],
+        "title": "RefreshResult"
       },
       "RegisterRequest": {
         "properties": {

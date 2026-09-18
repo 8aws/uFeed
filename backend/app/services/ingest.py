@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
+import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from time import struct_time
@@ -14,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.db.session import SessionLocal
 from app.models.article import Article
 from app.models.source import Source
 
@@ -49,6 +52,7 @@ class FetchResult:
     etag: str | None = None
     last_modified: str | None = None
     error: str | None = None
+    new_articles: int = 0
 
 
 # --- Parsing -----------------------------------------------------------------
@@ -333,7 +337,7 @@ async def refresh_source(
 
     if result.status == "ok" and result.content is not None:
         parsed = parse_feed(result.content)
-        await store_articles(db, source, parsed)
+        result.new_articles = await store_articles(db, source, parsed)
         await backfill_images(db, client, source)
         if not source.title and parsed.title:
             source.title = parsed.title
@@ -350,3 +354,40 @@ async def refresh_source(
     source.next_fetch_at = compute_next_fetch(source.fetch_interval_s, 0, now=now)
     await db.commit()
     return result
+
+
+@dataclass(slots=True)
+class RefreshSummary:
+    checked: int = 0
+    new_articles: int = 0
+    errors: int = 0
+
+
+async def refresh_sources(source_ids: list[uuid.UUID], concurrency: int = 6) -> RefreshSummary:
+    """On-demand refresh of several sources concurrently (each in its own
+    session). Used by the manual "refresh" button."""
+    summary = RefreshSummary()
+    if not source_ids:
+        return summary
+    sem = asyncio.Semaphore(concurrency)
+
+    async with httpx.AsyncClient() as client:
+
+        async def one(sid: uuid.UUID) -> None:
+            async with sem, SessionLocal() as session:
+                src = await session.get(Source, sid)
+                if src is None:
+                    return
+                try:
+                    result = await refresh_source(session, client, src)
+                except Exception:  # noqa: BLE001 - a bad feed shouldn't fail the batch
+                    summary.errors += 1
+                    return
+                summary.checked += 1
+                if result.status == "error":
+                    summary.errors += 1
+                else:
+                    summary.new_articles += result.new_articles
+
+        await asyncio.gather(*(one(sid) for sid in source_ids))
+    return summary

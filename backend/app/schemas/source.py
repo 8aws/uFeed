@@ -25,6 +25,12 @@ class SubscriptionUpdate(BaseModel):
     custom_title: str | None = None
 
 
+class RefreshResult(BaseModel):
+    checked: int
+    new_articles: int
+    errors: int
+
+
 class SubscriptionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

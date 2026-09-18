@@ -42,6 +42,8 @@
 	let readerEl = $state<HTMLElement | null>(null);
 	let readingStart = 0;
 	let similarList = $state<Article[]>([]);
+	let refreshing = $state(false);
+	let refreshMsg = $state('');
 
 	const RANKINGS: (keyof Insights)[] = [
 		'trending_now',
@@ -212,6 +214,25 @@
 		} catch {
 			a.is_favorite = !a.is_favorite;
 			articles = [...articles];
+		}
+	}
+
+	async function refresh() {
+		if (refreshing) return;
+		refreshing = true;
+		refreshMsg = $t('searching');
+		try {
+			const src = filter.kind === 'source' ? filter.id : undefined;
+			const res = await api.refresh(src);
+			await Promise.all([loadArticles(true), loadSidebar()]);
+			loadInsights();
+			refreshMsg =
+				res.new_articles > 0 ? `+${res.new_articles} ${$t('new_items')}` : $t('no_new');
+		} catch {
+			refreshMsg = '⚠';
+		} finally {
+			refreshing = false;
+			setTimeout(() => (refreshMsg = ''), 5000);
 		}
 	}
 
@@ -555,6 +576,7 @@
 				{:else}{$t(filter.kind)}{/if}
 			</h2>
 			<div class="actions">
+				{#if refreshMsg}<span class="refresh-msg muted">{refreshMsg}</span>{/if}
 				<div class="viewsel" role="group" aria-label="view">
 					<button class:active={view === 'list'} onclick={() => setView('list')} title={$t('view_list')}>☰</button>
 					<button class:active={view === 'cardlist'} onclick={() => setView('cardlist')} title={$t('view_cardlist')}>▤</button>
@@ -566,7 +588,12 @@
 					onclick={toggleTrending}
 					title="{$t('trending_bar')} — {showTrending ? $t('hide') : $t('show')}"
 				>🔥</button>
-				<button onclick={() => loadArticles(true)} title={$t('refresh')}>↻</button>
+				<button
+					onclick={refresh}
+					disabled={refreshing}
+					class:spin={refreshing}
+					title={$t('refresh')}
+				>↻</button>
 				<button onclick={markAllRead}>{$t('mark_all_read')}</button>
 			</div>
 		</header>
@@ -636,6 +663,7 @@
 						</div>
 						<div class="meta muted">
 							<span class="ellipsis">{sourceName(a.source_id)}</span>
+							{#if a.dup_count > 1}<span class="dup" title={$t('duplicates')}>+{a.dup_count - 1}</span>{/if}
 							{#if a.is_saved}<span class="star">★</span>{/if}
 							{#if a.is_favorite}<span class="star">♥</span>{/if}
 						</div>
@@ -664,6 +692,7 @@
 							<div class="meta muted">
 								<span class="ellipsis">{sourceName(a.source_id)}</span>
 								<span>· {relativeTime(a.published_at, $locale)}</span>
+								{#if a.dup_count > 1}<span class="dup" title={$t('duplicates')}>+{a.dup_count - 1}</span>{/if}
 								{#if a.is_saved}<span class="star">★</span>{/if}
 								{#if a.is_favorite}<span class="star">♥</span>{/if}
 							</div>
@@ -1175,6 +1204,26 @@
 	.actions {
 		display: flex;
 		gap: 0.4rem;
+		align-items: center;
+	}
+	.refresh-msg {
+		font-size: 0.8rem;
+		white-space: nowrap;
+	}
+	.spin {
+		animation: spin 0.8s linear infinite;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	.dup {
+		background: var(--border);
+		color: var(--muted);
+		border-radius: 999px;
+		padding: 0 0.35rem;
+		font-size: 0.72rem;
 	}
 	.list ul {
 		list-style: none;
