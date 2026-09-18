@@ -43,6 +43,7 @@ export const en = {
 	account: 'Account',
 	shortcuts: 'Keys: j/k move · o open · m read · s save · f favorite',
 	refresh: 'Refresh',
+	menu: 'Menu',
 	search: 'Search',
 	search_placeholder: 'Search title, source, content…',
 	view_list: 'List',

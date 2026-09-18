@@ -61,6 +61,8 @@
 	let searchMode = $state<'text' | 'ai'>('text');
 	let view = $state<View>(initialView());
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
+	// Mobile-only: the sidebar becomes an off-canvas drawer.
+	let sidebarOpen = $state(false);
 
 	function loadCollapsed(): Set<string> {
 		try {
@@ -170,6 +172,7 @@
 	function setFilter(f: Filter) {
 		filter = f;
 		openArticle = null;
+		sidebarOpen = false; // close the mobile drawer after picking a feed/folder
 		loadArticles(true);
 	}
 
@@ -438,7 +441,11 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="shell" class:reading={openArticle}>
-	<aside class="sidebar">
+	{#if sidebarOpen}
+		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+		<div class="backdrop" onclick={() => (sidebarOpen = false)}></div>
+	{/if}
+	<aside class="sidebar" class:open={sidebarOpen}>
 		<div class="brand">
 			<div class="brand-left">
 				<img class="brand-logo" src="/logo.png" alt="" width="28" height="28" />
@@ -595,6 +602,12 @@
 
 	<main class="list">
 		<header>
+			<button
+				class="hamburger"
+				onclick={() => (sidebarOpen = !sidebarOpen)}
+				aria-label={$t('menu')}
+				title={$t('menu')}
+			>☰</button>
 			<h2>
 				{#if filter.kind === 'source'}{sourceName(filter.id)}
 				{:else if filter.kind === 'folder'}{folderName(filter.id)}
@@ -1252,6 +1265,24 @@
 	.list header h2 {
 		margin: 0;
 		font-size: 1rem;
+		flex: 1;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		min-width: 0;
+	}
+	.hamburger {
+		display: none; /* desktop: sidebar is always visible */
+		flex: none;
+		padding: 0.4rem 0.55rem;
+		font-size: 1.1rem;
+		line-height: 1;
+	}
+	.backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.4);
+		z-index: 19;
 	}
 	.actions {
 		display: flex;
@@ -1397,17 +1428,82 @@
 	}
 
 	@media (max-width: 900px) {
-		.shell {
+		/* Single column. These selectors must beat `.shell:not(.reading)` and
+		   `.shell.reading` (higher specificity), or the layout keeps a 260px
+		   track for the hidden sidebar and squeezes the list into ~260px. */
+		.shell,
+		.shell:not(.reading),
+		.shell.reading {
 			grid-template-columns: 1fr;
 		}
+		/* Sidebar becomes an off-canvas drawer instead of display:none, so its
+		   nav/search/folders stay reachable via the hamburger. */
 		.sidebar {
+			position: fixed;
+			top: 0;
+			left: 0;
+			bottom: 0;
+			width: min(84vw, 320px);
+			z-index: 20;
+			transform: translateX(-100%);
+			transition: transform 0.2s ease;
+			box-shadow: 0 0 24px rgba(0, 0, 0, 0.25);
+		}
+		.sidebar.open {
+			transform: translateX(0);
+		}
+		.hamburger {
+			display: inline-flex;
+			align-items: center;
+		}
+		.list {
+			border-right: none;
+		}
+		.list header {
+			gap: 0.4rem 0.5rem;
+			flex-wrap: wrap;
+			padding: 0.5rem 0;
+		}
+		/* Toolbar drops to its own full-width row and scrolls horizontally,
+		   so the title stays on one line and the buttons never squish. */
+		.actions {
+			order: 3;
+			width: 100%;
+			overflow-x: auto;
+			-webkit-overflow-scrolling: touch;
+			scrollbar-width: none;
+		}
+		.actions::-webkit-scrollbar {
 			display: none;
+		}
+		.actions button {
+			flex: none;
+		}
+		/* Two-column card grids on phones (Feedly-style), single-column list. */
+		.grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.5rem;
+			padding: 0.5rem 0;
+		}
+		.grid.masonry {
+			column-width: auto;
+			column-count: 2;
+			column-gap: 0.5rem;
+		}
+		.grid.cardlist {
+			display: flex;
+		}
+		/* Card-list rows: image left, text right — cap the thumb so the text
+		   column is wide (fixes the one-word-per-line wrapping). */
+		.grid.cardlist .thumb {
+			width: 84px;
+			height: 84px;
 		}
 		.reader {
 			position: fixed;
 			inset: 0;
 			background: var(--bg);
-			z-index: 10;
+			z-index: 25;
 		}
 	}
 </style>
