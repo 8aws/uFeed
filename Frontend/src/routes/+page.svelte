@@ -58,6 +58,7 @@
 	);
 	const ungrouped = $derived(subs.filter((s) => !s.folder_id));
 	let query = $state('');
+	let searchMode = $state<'text' | 'ai'>('text');
 	let view = $state<View>(initialView());
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -133,7 +134,10 @@
 		if (filter.kind === 'favorites') p.favorite = 'true';
 		if (filter.kind === 'source') p.source = filter.id;
 		if (filter.kind === 'folder') p.folder = filter.id;
-		if (query.trim()) p.q = query.trim();
+		if (query.trim()) {
+			p.q = query.trim();
+			if (searchMode === 'ai') p.semantic = 'true';
+		}
 		if (!reset && cursor) p.cursor = cursor;
 		return p;
 	}
@@ -436,9 +440,12 @@
 <div class="shell" class:reading={openArticle}>
 	<aside class="sidebar">
 		<div class="brand">
-			<div class="brand-name">
-				<strong>{$t('app_name')}</strong>
-				{#if $user}<span class="who ellipsis">{$user.display_name || $user.email}</span>{/if}
+			<div class="brand-left">
+				<img class="brand-logo" src="/logo.png" alt="" width="28" height="28" />
+				<div class="brand-name">
+					<strong>{$t('app_name')}</strong>
+					{#if $user}<span class="who ellipsis">{$user.display_name || $user.email}</span>{/if}
+				</div>
 			</div>
 			<a href="/settings" title={$t('settings')} aria-label={$t('settings')}>⚙</a>
 		</div>
@@ -450,6 +457,24 @@
 			bind:value={query}
 			oninput={onSearchInput}
 		/>
+		{#if query.trim()}
+			<div class="searchmode">
+				<button
+					class:active={searchMode === 'text'}
+					onclick={() => {
+						searchMode = 'text';
+						loadArticles(true);
+					}}>{$t('search_text')}</button
+				>
+				<button
+					class:active={searchMode === 'ai'}
+					onclick={() => {
+						searchMode = 'ai';
+						loadArticles(true);
+					}}>✨ {$t('search_ai')}</button
+				>
+			</div>
+		{/if}
 
 		<nav>
 			<button class="nav" class:active={filter.kind === 'all'} onclick={() => setFilter({ kind: 'all' })}>
@@ -788,6 +813,16 @@
 	.shell:not(.reading) {
 		grid-template-columns: 260px 1fr;
 	}
+	.brand-left {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-width: 0;
+	}
+	.brand-logo {
+		border-radius: 6px;
+		flex: none;
+	}
 	.brand-name {
 		display: flex;
 		flex-direction: column;
@@ -800,6 +835,23 @@
 	}
 	.search {
 		margin: 0.25rem 0;
+	}
+	.searchmode {
+		display: flex;
+		gap: 0.25rem;
+		margin-bottom: 0.25rem;
+	}
+	.searchmode button {
+		flex: 1;
+		padding: 0.2rem 0.4rem;
+		font-size: 0.78rem;
+		border: 1px solid var(--border);
+		background: none;
+	}
+	.searchmode button.active {
+		background: var(--accent-soft);
+		color: var(--accent);
+		border-color: var(--accent);
 	}
 	.viewsel {
 		display: inline-flex;

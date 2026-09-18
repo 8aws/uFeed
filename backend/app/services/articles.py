@@ -17,6 +17,7 @@ from app.models.article_state import ArticleState
 from app.models.read_event import ReadEvent
 from app.models.source import Source
 from app.models.subscription import Subscription
+from app.services.ai import embed_texts
 
 # Sort key: prefer published_at, fall back to fetched_at (always present).
 _SORT_TS = func.coalesce(Article.published_at, Article.fetched_at)
@@ -122,6 +123,7 @@ async def list_articles(
     saved: bool | None = None,
     favorite: bool | None = None,
     q: str | None = None,
+    semantic: bool = False,
     cursor: str | None = None,
     limit: int = 50,
     collapse: bool = True,
@@ -159,6 +161,23 @@ async def list_articles(
         stmt = stmt.where(or_(ArticleState.is_saved.is_(None), ArticleState.is_saved.is_(False)))
     if favorite is True:
         stmt = stmt.where(ArticleState.is_favorite.is_(True))
+
+    # Semantic search: rank by embedding distance to the query vector. Falls
+    # back to full-text below if the AI service is unavailable.
+    if q and semantic:
+        qvec = await embed_texts([q])
+        if qvec:
+            stmt = (
+                stmt.where(Article.embedding.isnot(None))
+                .order_by(Article.embedding.cosine_distance(qvec[0]))
+                .limit(limit)
+            )
+            result = (await db.execute(stmt)).all()
+            rows = [
+                ArticleRow(a, bool(r), bool(s), bool(f), int(dc or 1)) for a, r, s, f, dc in result
+            ]
+            return ArticlePage(rows=rows, next_cursor=None)
+
     if q:
         # Match article title/content (full-text) or the source name.
         stmt = stmt.join(Source, Source.id == Article.source_id).where(

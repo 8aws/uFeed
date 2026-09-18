@@ -58,6 +58,8 @@ export const es: Dict = {
 	similar: 'Similares',
 	summary_label: 'Resumen',
 	searching: 'Buscando…',
+	search_text: 'Texto',
+	search_ai: 'IA',
 	new_items: 'nuevos',
 	no_new: 'Sin novedades',
 	duplicates: 'duplicados',

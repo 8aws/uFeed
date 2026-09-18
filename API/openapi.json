@@ -988,6 +988,16 @@
             }
           },
           {
+            "name": "semantic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Semantic"
+            }
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,

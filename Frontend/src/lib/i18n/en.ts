@@ -56,6 +56,8 @@ export const en = {
 	similar: 'Similar',
 	summary_label: 'Summary',
 	searching: 'Searching…',
+	search_text: 'Text',
+	search_ai: 'AI',
 	new_items: 'new',
 	no_new: 'No new items',
 	duplicates: 'duplicates',

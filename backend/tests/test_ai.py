@@ -86,6 +86,25 @@ async def test_similar_articles(api: AsyncClient, db_session: AsyncSession) -> N
     assert order.index(str(py_b)) < order.index(str(rust_c))
 
 
+async def test_semantic_search(api: AsyncClient, db_session: AsyncSession, monkeypatch) -> None:
+    headers, _ = await _register(api)
+    src, ids = await _seed_with_vectors(db_session)
+    await api.post("/api/sources", headers=headers, json={"url": src.feed_url})
+    py_a, py_b, rust_c = ids
+
+    async def fake_embed(texts):  # query embeds to the "python" vector (e0)
+        return [_unit(0)]
+
+    monkeypatch.setattr("app.services.articles.embed_texts", fake_embed)
+
+    resp = await api.get("/api/articles?q=anything&semantic=true", headers=headers)
+    assert resp.status_code == 200
+    order = [a["id"] for a in resp.json()["items"]]
+    # The python-vector articles rank above the rust one.
+    assert order.index(str(py_a)) < order.index(str(rust_c))
+    assert order.index(str(py_b)) < order.index(str(rust_c))
+
+
 async def test_for_you_matches_taste(api: AsyncClient, db_session: AsyncSession) -> None:
     headers, _ = await _register(api)
     src, ids = await _seed_with_vectors(db_session)

@@ -35,7 +35,10 @@
 
 <div class="wrap">
 	<form class="card" onsubmit={submit}>
-		<h1>{$t('app_name')}</h1>
+		<div class="brand">
+			<img src="/logo.png" alt="" width="48" height="48" />
+			<h1>{$t('app_name')}</h1>
+		</div>
 		<label>
 			{$t('email')}
 			<input type="email" bind:value={email} required autocomplete="email" />
@@ -91,6 +94,15 @@
 	h1 {
 		margin: 0;
 		text-align: center;
+	}
+	.brand {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.6rem;
+	}
+	.brand img {
+		border-radius: 10px;
 	}
 	label {
 		display: flex;
