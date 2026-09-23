@@ -379,7 +379,7 @@ async def insights(
     db: AsyncSession,
     user_id: uuid.UUID,
     *,
-    window_hours: int = 48,
+    window_hours: int = 720,  # 30 days, so the trending bar isn't empty early on
     half_life_hours: float = 10.0,
     limit: int = 12,
 ) -> Insights:
@@ -504,7 +504,7 @@ async def trending(
     db: AsyncSession,
     user_id: uuid.UUID,
     *,
-    window_hours: int = 48,
+    window_hours: int = 720,  # 30 days, so the trending bar isn't empty early on
     limit: int = 8,
 ) -> list[TrendingRow]:
     """Most-read articles across all users in a time window (anonymised)."""
