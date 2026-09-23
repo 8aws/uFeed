@@ -97,14 +97,64 @@ import re
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")
+_WORD_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
+_SENT_RE = re.compile(r"(?<=[.!?])\s+")
+
+# Small EN+ES stopword set so scoring favours content words, not glue words.
+_STOPWORDS = frozenset(
+    """
+    the a an and or but if then else of to in on for with at by from as is are was were be been being it its
+    this that these those we you they he she i me my our your their them his her not no nor so than too very
+    el la los las un una unos unas y o u pero si de del al a en con sin por para como que se su sus lo le les
+    es son era eran ser sido estar este esta estos estas ese esa eso esos esas mas más muy ya también sobre entre
+    """.split()
+)
 
 
 def _summarize(text: str, max_sentences: int) -> str:
+    """Whole-document extractive summary.
+
+    Reads the entire text (not just the opening): scores every sentence by the
+    normalised frequency of its content words across the whole article and
+    returns the highest-scoring ones in their original order. Portable and
+    dependency-free; the OpenVINO backend can swap in an abstractive model
+    behind the same API.
+    """
     plain = _WS_RE.sub(" ", _TAG_RE.sub(" ", text or "")).strip()
-    # Portable extractive summary: the first N sentences. The OpenVINO backend
-    # (NAS) can replace this with an abstractive model behind the same API.
-    sentences = re.split(r"(?<=[.!?])\s+", plain)
-    return " ".join(sentences[: max(1, max_sentences)]).strip()
+    if not plain:
+        return ""
+    sentences = [s.strip() for s in _SENT_RE.split(plain) if s.strip()]
+    n = max(1, max_sentences)
+    if len(sentences) <= n:
+        return " ".join(sentences)
+
+    freq: dict[str, float] = {}
+    for w in _WORD_RE.findall(plain.lower()):
+        if len(w) <= 2 or w in _STOPWORDS:
+            continue
+        freq[w] = freq.get(w, 0.0) + 1.0
+    if not freq:
+        return " ".join(sentences[:n])
+    peak = max(freq.values())
+    for w in freq:
+        freq[w] /= peak
+
+    scored: list[tuple[float, int, str]] = []
+    for idx, sent in enumerate(sentences):
+        words = [w for w in _WORD_RE.findall(sent.lower()) if len(w) > 2 and w not in _STOPWORDS]
+        if not words:
+            continue
+        # Sum of term weights, length-normalised so long sentences don't win by
+        # default, plus a small fading bonus for early sentences (context).
+        score = sum(freq.get(w, 0.0) for w in words) / (len(words) ** 0.5)
+        score *= 1.0 + max(0.0, 0.15 - idx * 0.01)
+        scored.append((score, idx, sent))
+
+    if not scored:
+        return " ".join(sentences[:n])
+    picked = sorted(scored, key=lambda x: x[0], reverse=True)[:n]
+    picked.sort(key=lambda x: x[1])  # restore original reading order
+    return " ".join(s for _, _, s in picked)
 
 
 @app.post("/summarize", response_model=SummarizeResponse)

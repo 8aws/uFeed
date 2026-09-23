@@ -6,6 +6,8 @@
 	import { locale, t } from '$lib/i18n';
 	import { toolbarLabels } from '$lib/prefs';
 	import { relativeTime, readingTime, stripHtml } from '$lib/format';
+	import Onboarding from '$lib/components/Onboarding.svelte';
+	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import type { Article, DiscoveredFeed, Folder, Insights, Subscription } from '$lib/types';
 
 	type View = 'list' | 'cardlist' | 'cards' | 'masonry';
@@ -535,16 +537,43 @@
 		if (el instanceof HTMLElement) el.style.display = 'none';
 	}
 
+	let showOnboarding = $state(false);
+	function onboarded(): boolean {
+		try {
+			return localStorage.getItem('onboarded') === '1';
+		} catch {
+			return false;
+		}
+	}
+	function finishOnboarding() {
+		try {
+			localStorage.setItem('onboarded', '1');
+		} catch {
+			/* ignore */
+		}
+		showOnboarding = false;
+		loadSidebar();
+		loadArticles(true);
+		loadInsights();
+	}
+
 	onMount(async () => {
 		await loadSidebar();
 		await loadArticles(true);
 		loadInsights();
+		// First run: no feeds yet and never onboarded → show the starter flow.
+		if (!onboarded() && subs.length === 0) showOnboarding = true;
 	});
 
 	onDestroy(() => flushReadEvent());
 </script>
 
 <svelte:window onkeydown={onKey} />
+
+<InstallPrompt />
+{#if showOnboarding}
+	<Onboarding oncomplete={finishOnboarding} />
+{/if}
 
 <div class="shell" class:reading={openArticle}>
 	{#if sidebarOpen}
