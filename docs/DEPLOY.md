@@ -132,10 +132,26 @@ Restore: `./scripts/restore.sh backups/ufeed-YYYYmmdd-HHMMSS.sql.gz`
 
 ## 7. Updating
 
+If the box can reach the repo:
 ```bash
 git pull
 docker compose -f docker-compose.yml -f compose.prod.yml up -d --build
 # add -f compose.openvino.yml if you enabled OpenVINO
+```
+
+**Production Beelink uses Mac→rsync instead** (private repo, box does not pull).
+Proven flow — clone/pull on the Mac, then sync preserving local state:
+```bash
+rsync -a --delete \
+  --exclude='.git' --exclude='.env' --exclude='backups' --exclude='AI/intel-debs/*.deb' \
+  /path/to/uFeed/ user@<beelink>:/vol2/ufeed/
+```
+Then on the box **re-apply the box-specific `compose.openvino.yml` edits** (not
+in git): numeric `group_add` gids (e.g. `"44"` video, `"105"` render) and the
+uncommented `/dev/accel/accel0` line. Rebuild only what changed and recreate:
+```bash
+DC="docker compose -f docker-compose.yml -f compose.prod.yml -f compose.openvino.yml"
+$DC build frontend backend && $DC up -d   # NOT 'ai' — keep the working iGPU image
 ```
 Migrations run automatically. Zero-config; the SPA is served fresh (the service
 worker is network-first for navigations).

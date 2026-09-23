@@ -406,6 +406,70 @@
 		return { destroy: () => io.disconnect() };
 	}
 
+	// Long-press a post (touch or mouse) to toggle read without opening it.
+	// The following click is suppressed (capture phase) so `open()` doesn't fire.
+	function longpress(node: HTMLElement, cb: () => void) {
+		let handler = cb;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		let fired = false;
+		let sx = 0;
+		let sy = 0;
+		const DELAY = 500;
+		const MOVE = 10;
+		const start = (e: PointerEvent) => {
+			if (e.pointerType === 'mouse' && e.button !== 0) return;
+			fired = false;
+			sx = e.clientX;
+			sy = e.clientY;
+			timer = setTimeout(() => {
+				fired = true;
+				timer = undefined;
+				try {
+					navigator.vibrate?.(15);
+				} catch {
+					/* ignore */
+				}
+				handler();
+			}, DELAY);
+		};
+		const cancel = () => {
+			if (timer) {
+				clearTimeout(timer);
+				timer = undefined;
+			}
+		};
+		const move = (e: PointerEvent) => {
+			if (timer && (Math.abs(e.clientX - sx) > MOVE || Math.abs(e.clientY - sy) > MOVE)) cancel();
+		};
+		const onclick = (e: MouseEvent) => {
+			if (fired) {
+				e.stopPropagation();
+				e.preventDefault();
+				fired = false;
+			}
+		};
+		node.addEventListener('pointerdown', start);
+		node.addEventListener('pointermove', move);
+		node.addEventListener('pointerup', cancel);
+		node.addEventListener('pointercancel', cancel);
+		node.addEventListener('pointerleave', cancel);
+		node.addEventListener('click', onclick, true);
+		return {
+			update(next: () => void) {
+				handler = next;
+			},
+			destroy() {
+				cancel();
+				node.removeEventListener('pointerdown', start);
+				node.removeEventListener('pointermove', move);
+				node.removeEventListener('pointerup', cancel);
+				node.removeEventListener('pointercancel', cancel);
+				node.removeEventListener('pointerleave', cancel);
+				node.removeEventListener('click', onclick, true);
+			}
+		};
+	}
+
 	function title(a: Article): string {
 		return a.title || a.url || '(untitled)';
 	}
@@ -697,6 +761,8 @@
 						class:read={a.is_read}
 						onclick={() => open(i)}
 						onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(i))}
+						oncontextmenu={(e) => e.preventDefault()}
+						use:longpress={() => markRead(a, !a.is_read)}
 					>
 						<div class="row">
 							<span class="atitle">{title(a)}</span>
@@ -724,6 +790,8 @@
 						class:read={a.is_read}
 						onclick={() => open(i)}
 						onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(i))}
+						oncontextmenu={(e) => e.preventDefault()}
+						use:longpress={() => markRead(a, !a.is_read)}
 					>
 						{#if thumbUrl(a)}
 							<img class="thumb" src={thumbUrl(a)} alt="" loading="lazy" onerror={hideImg} />
@@ -912,6 +980,11 @@
 		text-align: left;
 		width: 100%;
 		border-left: 3px solid transparent;
+		/* Long-press to mark read: don't select text or pop the callout. */
+		user-select: none;
+		-webkit-user-select: none;
+		-webkit-touch-callout: none;
+		touch-action: manipulation;
 	}
 	.grid.masonry .acard {
 		break-inside: avoid;
@@ -1321,6 +1394,11 @@
 		border-bottom: 1px solid var(--border);
 		cursor: pointer;
 		border-left: 3px solid transparent;
+		/* Long-press to mark read: don't select text or pop the callout. */
+		user-select: none;
+		-webkit-user-select: none;
+		-webkit-touch-callout: none;
+		touch-action: manipulation;
 	}
 	.list li.selected {
 		background: var(--accent-soft);
