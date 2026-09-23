@@ -142,9 +142,9 @@ export const api = {
 		}),
 	engage: (id: string, kind: 'open' | 'share' | 'skip') =>
 		request<unknown>(`/articles/${id}/engage`, { method: 'POST', body: { kind } }),
-	trending: (window_hours = 48, limit = 8) =>
+	trending: (window_hours = 720, limit = 8) =>
 		request<TrendingItem[]>(`/trending?window_hours=${window_hours}&limit=${limit}`),
-	insights: (window_hours = 48, limit = 12) =>
+	insights: (window_hours = 720, limit = 12) =>
 		request<Insights>(`/insights?window_hours=${window_hours}&limit=${limit}`),
 	forYou: (limit = 30) => request<Article[]>(`/foryou?limit=${limit}`),
 	similar: (id: string, limit = 6) => request<Article[]>(`/articles/${id}/similar?limit=${limit}`)

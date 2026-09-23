@@ -248,7 +248,7 @@
 
 	async function loadInsights() {
 		try {
-			insights = await api.insights(48, 12);
+			insights = await api.insights(720, 12);
 		} catch {
 			insights = null;
 		}

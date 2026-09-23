@@ -27,7 +27,7 @@ def _rank(r: RankedRow) -> RankedArticle:
 async def get_insights(
     user: CurrentUser,
     db: DbSession,
-    window_hours: int = Query(default=48, ge=1, le=720),
+    window_hours: int = Query(default=720, ge=1, le=720),
     limit: int = Query(default=12, ge=1, le=30),
 ) -> Insights:
     ins = await article_service.insights(db, user.id, window_hours=window_hours, limit=limit)

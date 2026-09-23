@@ -14,7 +14,7 @@ router = APIRouter(prefix="/trending", tags=["trending"])
 async def get_trending(
     user: CurrentUser,
     db: DbSession,
-    window_hours: int = Query(default=48, ge=1, le=720),
+    window_hours: int = Query(default=720, ge=1, le=720),
     limit: int = Query(default=8, ge=1, le=30),
 ) -> list[TrendingItem]:
     rows = await article_service.trending(db, user.id, window_hours=window_hours, limit=limit)
