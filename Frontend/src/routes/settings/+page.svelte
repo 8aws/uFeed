@@ -3,7 +3,10 @@
 	import { api, downloadOpml, importOpml } from '$lib/api';
 	import { clearTokens, user } from '$lib/auth';
 	import { locale, setLocale, t } from '$lib/i18n';
+	import { toolbarLabels, type ToolbarLabels } from '$lib/prefs';
 	import type { Locale } from '$lib/types';
+
+	const LABEL_MODES: ToolbarLabels[] = ['auto', 'both', 'icons', 'text'];
 
 	let importMsg = $state('');
 	let fileInput: HTMLInputElement;
@@ -59,6 +62,20 @@
 		<div class="row">
 			<button class:active={$locale === 'en'} onclick={() => changeLanguage('en')}>English</button>
 			<button class:active={$locale === 'es'} onclick={() => changeLanguage('es')}>Español</button>
+		</div>
+	</section>
+
+	<section>
+		<h2>{$t('appearance')}</h2>
+		<div class="field">
+			{$t('toolbar_labels')}
+			<div class="row">
+				{#each LABEL_MODES as m (m)}
+					<button class:active={$toolbarLabels === m} onclick={() => toolbarLabels.set(m)}>
+						{$t(`labels_${m}` as 'labels_auto')}
+					</button>
+				{/each}
+			</div>
 		</div>
 	</section>
 

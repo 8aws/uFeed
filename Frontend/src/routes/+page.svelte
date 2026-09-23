@@ -4,6 +4,7 @@
 	import { api, ApiError } from '$lib/api';
 	import { clearTokens, user } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
+	import { toolbarLabels } from '$lib/prefs';
 	import { relativeTime, readingTime, stripHtml } from '$lib/format';
 	import type { Article, DiscoveredFeed, Folder, Insights, Subscription } from '$lib/types';
 
@@ -66,6 +67,11 @@
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	// Mobile-only: the sidebar becomes an off-canvas drawer.
 	let sidebarOpen = $state(false);
+	// Long-press bookkeeping: ignore the tap that ends the gesture, and delay
+	// removing a just-read post so a mis-press can be undone.
+	let lastLongPress = 0;
+	const pendingRemoval = new Map<string, ReturnType<typeof setTimeout>>();
+	const READ_REMOVE_DELAY = 2000;
 
 	function loadCollapsed(): Set<string> {
 		try {
@@ -214,6 +220,8 @@
 
 	async function open(i: number) {
 		if (i < 0 || i >= articles.length) return;
+		// Ignore the tap that ends a long-press gesture (finger still travelling).
+		if (Date.now() - lastLongPress < 800) return;
 		selected = i;
 		openArticleObj(articles[i]);
 	}
@@ -307,10 +315,23 @@
 
 	async function markRead(a: Article, read: boolean) {
 		a.is_read = read;
-		// In the Unread view, a read article leaves the list to make room for the
-		// rest (Feedly-style). Elsewhere just update it in place.
+		// Any toggle cancels a pending removal (this is the "undo" path).
+		const pending = pendingRemoval.get(a.id);
+		if (pending) {
+			clearTimeout(pending);
+			pendingRemoval.delete(a.id);
+		}
 		if (read && filter.kind === 'unread') {
-			articles = articles.filter((x) => x.id !== a.id);
+			// Keep it visible (greyed) for a moment so the list doesn't jump under
+			// the finger and a mis-press can be undone; then drop it to free space.
+			articles = [...articles];
+			const timer = setTimeout(() => {
+				pendingRemoval.delete(a.id);
+				if (a.is_read && filter.kind === 'unread') {
+					articles = articles.filter((x) => x.id !== a.id);
+				}
+			}, READ_REMOVE_DELAY);
+			pendingRemoval.set(a.id, timer);
 		} else {
 			articles = [...articles];
 		}
@@ -438,6 +459,7 @@
 			timer = setTimeout(() => {
 				fired = true;
 				timer = undefined;
+				lastLongPress = Date.now();
 				try {
 					navigator.vibrate?.(15);
 				} catch {
@@ -451,6 +473,9 @@
 				clearTimeout(timer);
 				timer = undefined;
 			}
+			// If the press already fired, mark the release moment so the tap that
+			// ends the gesture (and any immediate next tap) is ignored by open().
+			if (fired) lastLongPress = Date.now();
 		};
 		const move = (e: PointerEvent) => {
 			if (timer && (Math.abs(e.clientX - sx) > MOVE || Math.abs(e.clientY - sy) > MOVE)) cancel();
@@ -695,28 +720,34 @@
 				{:else if filter.kind === 'folder'}{folderName(filter.id)}
 				{:else}{$t(filter.kind)}{/if}
 			</h2>
-			<div class="actions">
+			<div class="actions labels-{$toolbarLabels}">
 				{#if refreshMsg}<span class="refresh-msg muted">{refreshMsg}</span>{/if}
 				<div class="viewsel" role="group" aria-label="view">
-					<button class:active={view === 'list'} onclick={() => setView('list')} title={$t('view_list')}>☰</button>
-					<button class:active={view === 'cardlist'} onclick={() => setView('cardlist')} title={$t('view_cardlist')}>▤</button>
-					<button class:active={view === 'cards'} onclick={() => setView('cards')} title={$t('view_cards')}>▭</button>
-					<button class:active={view === 'masonry'} onclick={() => setView('masonry')} title={$t('view_masonry')}>▦</button>
+					<button class:active={view === 'list'} onclick={() => setView('list')} title={$t('view_list')}>
+						<span class="ico" aria-hidden="true">☰</span><span class="lbl">{$t('view_list')}</span>
+					</button>
+					<button class:active={view === 'cardlist'} onclick={() => setView('cardlist')} title={$t('view_cardlist')}>
+						<span class="ico" aria-hidden="true">▤</span><span class="lbl">{$t('view_cardlist')}</span>
+					</button>
+					<button class:active={view === 'cards'} onclick={() => setView('cards')} title={$t('view_cards')}>
+						<span class="ico" aria-hidden="true">▭</span><span class="lbl">{$t('view_cards')}</span>
+					</button>
+					<button class:active={view === 'masonry'} onclick={() => setView('masonry')} title={$t('view_masonry')}>
+						<span class="ico" aria-hidden="true">▦</span><span class="lbl">{$t('view_masonry')}</span>
+					</button>
 				</div>
 				<button
 					class:active={showTrending}
 					onclick={toggleTrending}
 					title="{$t('trending_bar')} — {showTrending ? $t('hide') : $t('show')}"
-				>🔥</button>
-				<button
-					onclick={refresh}
-					disabled={refreshing}
-					class:spin={refreshing}
-					title={$t('refresh')}
-				>↻</button>
+				>
+					<span class="ico" aria-hidden="true">🔥</span><span class="lbl">{$t('trending_bar')}</span>
+				</button>
+				<button onclick={refresh} disabled={refreshing} title={$t('refresh')}>
+					<span class="ico" class:spin={refreshing} aria-hidden="true">↻</span><span class="lbl">{$t('refresh')}</span>
+				</button>
 				<button class="markall" onclick={markAllRead} title={$t('mark_all_read')}>
-					<span class="lbl">{$t('mark_all_read')}</span>
-					<span class="ico" aria-hidden="true">✓✓</span>
+					<span class="ico" aria-hidden="true">✓✓</span><span class="lbl">{$t('mark_all_read')}</span>
 				</button>
 			</div>
 		</header>
@@ -1368,8 +1399,18 @@
 	.htitle {
 		cursor: pointer;
 	}
-	/* Mark-all-read: text on desktop, compact icon on phones. */
-	.markall .ico {
+	/* Toolbar buttons pair an icon with a label; the `labels-*` class on
+	   .actions decides which parts show (icon+text builds visual memory so the
+	   mobile icon-only mode stays legible). */
+	.actions button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+	}
+	.actions.labels-icons .lbl {
+		display: none;
+	}
+	.actions.labels-text .ico {
 		display: none;
 	}
 	.hamburger {
@@ -1585,12 +1626,9 @@
 		.actions button {
 			flex: none;
 		}
-		/* Mark-all-read shrinks to just its icon on phones. */
-		.markall .lbl {
+		/* Auto mode: icon-only on narrow screens (labels-both/text still win). */
+		.actions.labels-auto .lbl {
 			display: none;
-		}
-		.markall .ico {
-			display: inline;
 		}
 		/* Two-column card grids on phones (Feedly-style), single-column list. */
 		.grid {
