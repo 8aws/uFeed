@@ -46,6 +46,7 @@ export const es: Dict = {
 	shortcuts: 'Teclas: j/k mover · o abrir · m leído · s guardar · f favorito',
 	refresh: 'Actualizar',
 	menu: 'Menú',
+	back_to_top: 'Volver arriba',
 	search: 'Buscar',
 	search_placeholder: 'Buscar título, fuente, contenido…',
 	view_list: 'Lista',

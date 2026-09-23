@@ -100,6 +100,11 @@
 	}
 	let showTrending = $state(initialShowTrending());
 
+	let listEl = $state<HTMLElement | null>(null);
+	function scrollListTop() {
+		listEl?.scrollTo({ top: 0, behavior: 'smooth' });
+	}
+
 	function toggleTrending() {
 		showTrending = !showTrending;
 		try {
@@ -107,6 +112,9 @@
 		} catch {
 			/* ignore */
 		}
+		// Turning it on while scrolled down would otherwise leave the bar out of
+		// view — bring the list back to the top so it's visible.
+		if (showTrending) scrollListTop();
 	}
 
 	function setView(v: View) {
@@ -299,7 +307,13 @@
 
 	async function markRead(a: Article, read: boolean) {
 		a.is_read = read;
-		articles = [...articles];
+		// In the Unread view, a read article leaves the list to make room for the
+		// rest (Feedly-style). Elsewhere just update it in place.
+		if (read && filter.kind === 'unread') {
+			articles = articles.filter((x) => x.id !== a.id);
+		} else {
+			articles = [...articles];
+		}
 		// Marking read from the list without opening is a weak "skip" signal.
 		if (read && openArticle?.id !== a.id) api.engage(a.id, 'skip').catch(() => {});
 		try {
@@ -667,7 +681,7 @@
 		<button class="nav" onclick={logout}>{$t('logout')}</button>
 	</aside>
 
-	<main class="list">
+	<main class="list" bind:this={listEl}>
 		<header>
 			<button
 				class="hamburger"
@@ -675,7 +689,8 @@
 				aria-label={$t('menu')}
 				title={$t('menu')}
 			>☰</button>
-			<h2>
+			<!-- svelte-ignore a11y_no_noninteractive_element_interactions, a11y_click_events_have_key_events -->
+			<h2 class="htitle" onclick={scrollListTop} title={$t('back_to_top')}>
 				{#if filter.kind === 'source'}{sourceName(filter.id)}
 				{:else if filter.kind === 'folder'}{folderName(filter.id)}
 				{:else}{$t(filter.kind)}{/if}
@@ -699,7 +714,10 @@
 					class:spin={refreshing}
 					title={$t('refresh')}
 				>↻</button>
-				<button onclick={markAllRead}>{$t('mark_all_read')}</button>
+				<button class="markall" onclick={markAllRead} title={$t('mark_all_read')}>
+					<span class="lbl">{$t('mark_all_read')}</span>
+					<span class="ico" aria-hidden="true">✓✓</span>
+				</button>
 			</div>
 		</header>
 
@@ -1347,6 +1365,13 @@
 		text-overflow: ellipsis;
 		min-width: 0;
 	}
+	.htitle {
+		cursor: pointer;
+	}
+	/* Mark-all-read: text on desktop, compact icon on phones. */
+	.markall .ico {
+		display: none;
+	}
 	.hamburger {
 		display: none; /* desktop: sidebar is always visible */
 		flex: none;
@@ -1559,6 +1584,13 @@
 		}
 		.actions button {
 			flex: none;
+		}
+		/* Mark-all-read shrinks to just its icon on phones. */
+		.markall .lbl {
+			display: none;
+		}
+		.markall .ico {
+			display: inline;
 		}
 		/* Two-column card grids on phones (Feedly-style), single-column list. */
 		.grid {

@@ -44,6 +44,7 @@ export const en = {
 	shortcuts: 'Keys: j/k move · o open · m read · s save · f favorite',
 	refresh: 'Refresh',
 	menu: 'Menu',
+	back_to_top: 'Back to top',
 	search: 'Search',
 	search_placeholder: 'Search title, source, content…',
 	view_list: 'List',
