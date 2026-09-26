@@ -9,6 +9,7 @@ export interface User {
 	locale: Locale;
 	role: Role;
 	is_active: boolean;
+	must_change_password: boolean;
 	created_at: string;
 }
 
@@ -130,6 +131,7 @@ export interface SiteConfig {
 export interface AdminSettings {
 	registration_open: boolean;
 	default_role: Role;
+	retention_days: number;
 	roles: Role[];
 	refresh_cooldown_s: Record<Role, number>;
 }
@@ -142,4 +144,35 @@ export interface AdminUser {
 	is_active: boolean;
 	created_at: string;
 	feeds: number;
+}
+
+export interface BackupStatus {
+	at: string;
+	ok: boolean;
+	error: string | null;
+	file: string | null;
+	size_bytes: number;
+	local_count: number;
+	keep: number;
+	mirror: {
+		enabled: boolean;
+		dir?: string;
+		ok?: boolean;
+		error?: string | null;
+		count?: number;
+		keep?: number;
+	};
+}
+
+export interface Maintenance {
+	retention_days: number;
+	last_purge: {
+		at: string;
+		days: number;
+		deleted_articles: number;
+		deleted_events: number;
+	} | null;
+	db_size_bytes: number;
+	articles: number;
+	backups: BackupStatus | null;
 }

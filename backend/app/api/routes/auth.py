@@ -6,12 +6,7 @@ from fastapi import APIRouter, Depends
 from app.api.deps import DbSession, rate_limit_auth
 from app.api.errors import AppError
 from app.core.config import settings
-from app.core.security import (
-    create_access_token,
-    create_refresh_token,
-    decode_token,
-    user_id_from_sub,
-)
+from app.core.security import decode_token, token_version_ok, user_id_from_sub
 from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
@@ -27,11 +22,7 @@ router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(rate_lim
 
 
 def _tokens_for(user: User) -> Tokens:
-    sub = str(user.id)
-    return Tokens(
-        access_token=create_access_token(sub),
-        refresh_token=create_refresh_token(sub),
-    )
+    return auth_service.tokens_for(user)
 
 
 @router.post("/register", response_model=AuthResponse, status_code=201)
@@ -70,4 +61,6 @@ async def refresh(body: RefreshRequest, db: DbSession) -> Tokens:
     user = await db.get(User, user_id) if user_id else None
     if user is None or not user.is_active:
         raise AppError(401, "invalid_token", "User not found or inactive.")
+    if not token_version_ok(payload, user.token_version):
+        raise AppError(401, "invalid_token", "Session expired; please sign in again.")
     return _tokens_for(user)

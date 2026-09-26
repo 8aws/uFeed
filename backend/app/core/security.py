@@ -38,23 +38,29 @@ def verify_password(password: str, password_hash: str) -> bool:
 # --- JWT ---------------------------------------------------------------------
 
 
-def _create_token(sub: str, token_type: TokenType, expires: timedelta) -> str:
+def _create_token(sub: str, token_type: TokenType, expires: timedelta, version: int = 0) -> str:
     now = datetime.now(UTC)
     payload: dict[str, Any] = {
         "sub": sub,
         "type": token_type,
+        "tv": version,
         "iat": int(now.timestamp()),
         "exp": int((now + expires).timestamp()),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
-def create_access_token(sub: str) -> str:
-    return _create_token(sub, "access", timedelta(minutes=settings.jwt_access_ttl_min))
+def create_access_token(sub: str, version: int = 0) -> str:
+    return _create_token(sub, "access", timedelta(minutes=settings.jwt_access_ttl_min), version)
 
 
-def create_refresh_token(sub: str) -> str:
-    return _create_token(sub, "refresh", timedelta(days=settings.jwt_refresh_ttl_days))
+def create_refresh_token(sub: str, version: int = 0) -> str:
+    return _create_token(sub, "refresh", timedelta(days=settings.jwt_refresh_ttl_days), version)
+
+
+def token_version_ok(payload: dict[str, Any], current: int) -> bool:
+    """Tokens issued before a password change/reset carry an older version."""
+    return int(payload.get("tv", 0)) == current
 
 
 def decode_token(token: str) -> dict[str, Any]:

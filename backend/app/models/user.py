@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin
@@ -19,3 +19,7 @@ class User(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # Plan/role: free | general | vip | editor | admin (see app.core.roles).
     role: Mapped[str] = mapped_column(String(16), default="free", nullable=False)
+    # Bumped on password change/reset or deactivation; tokens carry it ("tv")
+    # so older sessions stop working.
+    token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

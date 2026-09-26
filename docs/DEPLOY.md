@@ -120,15 +120,33 @@ runtime for you; you only need the host driver + device nodes.
 
 ## 6. Backups
 
-`pg_dump` to `./backups/` (keeps the last 14):
+`scripts/backup.sh` dumps Postgres to `./backups/` (verified with `gzip -t`,
+keeps `BACKUP_KEEP`, default 14) and, if `BACKUP_MIRROR_DIR` is set in `.env`,
+copies each dump off the box — e.g. a QNAP share mounted on this host — keeping
+`BACKUP_MIRROR_KEEP` (default 30) there. Every step against the share is
+time-boxed so a stale mount can't hang cron. It writes `backups/status.json`,
+shown in **Settings → Administration → Backups** (with a warning if the last
+backup is older than a day or the off-box copy failed).
+
 ```bash
-./scripts/backup.sh
+./scripts/backup.sh          # exit 0 ok, 1 dump failed, 2 dump ok but mirror failed
 ```
 Schedule it daily with cron:
 ```bash
-(crontab -l 2>/dev/null; echo "30 4 * * * cd $PWD && ./scripts/backup.sh") | crontab -
+(crontab -l 2>/dev/null; echo "30 4 * * * cd $PWD && ./scripts/backup.sh >> backups/backup.log 2>&1") | crontab -
 ```
-Restore: `./scripts/restore.sh backups/ufeed-YYYYmmdd-HHMMSS.sql.gz`
+Restore (local or mirrored file): `./scripts/restore.sh <path>/ufeed-YYYYmmdd-HHMMSS.sql.gz`
+
+**Retention.** The worker purges old articles nightly (02:15 UTC) using the
+window set in Administration (default 90 days, 0 = keep forever). Saved and
+favourite articles, and the newest 50 of each feed, are always kept.
+
+**Locked out?** If nobody can sign in (e.g. the only admin forgot the password):
+```bash
+docker compose -f docker-compose.yml -f compose.prod.yml exec backend \
+  python -m app.scripts.reset_password you@example.com --admin
+```
+It prints a temporary password; you'll be asked to change it after signing in.
 
 ## 7. Updating
 

@@ -742,6 +742,11 @@
 	</aside>
 
 	<main class="list" bind:this={listEl}>
+		{#if $user?.must_change_password}
+			<a class="tempbanner" href="/settings#password">
+				🔑 {$t('temp_password_banner')} <strong>{$t('change_it_now')} →</strong>
+			</a>
+		{/if}
 		<header>
 			<button
 				class="hamburger"
@@ -1433,6 +1438,17 @@
 	}
 	.htitle {
 		cursor: pointer;
+	}
+	.tempbanner {
+		display: block;
+		margin: 0.5rem 0.25rem 0;
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--radius);
+		background: var(--accent-soft);
+		border: 1px solid var(--accent);
+		font-size: 0.85rem;
+		color: inherit;
+		text-decoration: none;
 	}
 	/* Toolbar buttons pair an icon with a label; the `labels-*` class on
 	   .actions decides which parts show (icon+text builds visual memory so the

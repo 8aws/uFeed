@@ -19,6 +19,8 @@ from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.article import Article
 from app.models.source import Source
+from app.services import retention as retention_service
+from app.services import site as site_service
 
 
 @dataclass(slots=True)
@@ -201,6 +203,10 @@ async def fetch_feed(client: httpx.AsyncClient, source: Source) -> FetchResult:
 # --- Persistence -------------------------------------------------------------
 
 
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
 async def store_articles(db: AsyncSession, source: Source, parsed: ParsedFeed) -> int:
     """Insert new articles, skipping duplicates by (source_id, guid).
 
@@ -215,6 +221,13 @@ async def store_articles(db: AsyncSession, source: Source, parsed: ParsedFeed) -
     )
     known = set(existing.scalars().all())
     new = [a for guid, a in incoming.items() if guid not in known]
+    # Don't (re-)ingest dated entries older than the retention window, or purged
+    # items still listed by the feed would come back as "new".
+    cutoff = retention_service.cutoff_for(
+        int((await site_service.get_settings(db))["retention_days"])
+    )
+    if cutoff is not None:
+        new = [a for a in new if a.published_at is None or _aware(a.published_at) >= cutoff]
     if not new:
         return 0
 

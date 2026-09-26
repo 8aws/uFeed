@@ -12,6 +12,7 @@ import type {
 	Folder,
 	Insights,
 	Locale,
+	Maintenance,
 	Page,
 	Role,
 	SiteConfig,
@@ -108,6 +109,9 @@ export const api = {
 	me: () => request<User>('/me'),
 	updateMe: (body: { locale?: Locale; display_name?: string | null }) =>
 		request<User>('/me', { method: 'PATCH', body }),
+	// Returns fresh tokens: other sessions are signed out.
+	changePassword: (current_password: string, new_password: string) =>
+		request<Tokens>('/me/password', { method: 'POST', body: { current_password, new_password } }),
 
 	// API keys (for the public /api/v1 read-only API)
 	listKeys: () => request<ApiKey[]>('/keys'),
@@ -119,11 +123,21 @@ export const api = {
 	// site + admin
 	site: () => request<SiteConfig>('/site', { auth: false }),
 	adminSettings: () => request<AdminSettings>('/admin/settings'),
-	updateAdminSettings: (body: { registration_open?: boolean; default_role?: Role }) =>
+	updateAdminSettings: (body: {
+		registration_open?: boolean;
+		default_role?: Role;
+		retention_days?: number;
+	}) =>
 		request<AdminSettings>('/admin/settings', { method: 'PATCH', body }),
 	adminUsers: () => request<AdminUser[]>('/admin/users'),
 	updateAdminUser: (id: string, body: { role?: Role; is_active?: boolean }) =>
 		request<AdminUser>(`/admin/users/${id}`, { method: 'PATCH', body }),
+	adminResetPassword: (id: string) =>
+		request<{ temporary_password: string }>(`/admin/users/${id}/reset-password`, {
+			method: 'POST'
+		}),
+	adminMaintenance: () => request<Maintenance>('/admin/maintenance'),
+	runRetention: () => request<Maintenance>('/admin/retention/run', { method: 'POST' }),
 
 	// folders
 	listFolders: () => request<Folder[]>('/folders'),

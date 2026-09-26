@@ -14,6 +14,8 @@ from app.models.user import User
 DEFAULTS: dict[str, Any] = {
     "registration_open": True,
     "default_role": DEFAULT_SIGNUP_ROLE,
+    # Days of articles to keep (0 = forever); saved/favourites are always kept.
+    "retention_days": 90,
 }
 
 
@@ -41,3 +43,19 @@ async def update_settings(db: AsyncSession, values: dict[str, Any]) -> dict[str,
 
 async def user_count(db: AsyncSession) -> int:
     return int((await db.execute(select(func.count()).select_from(User))).scalar_one())
+
+
+async def get_internal(db: AsyncSession, key: str) -> Any:
+    """Read a system-maintained value (e.g. last purge result)."""
+    row = await db.get(AppSetting, key)
+    return row.value if row else None
+
+
+async def set_internal(db: AsyncSession, key: str, value: Any) -> None:
+    """Write a system-maintained value that admins can't edit directly."""
+    row = await db.get(AppSetting, key)
+    if row is None:
+        db.add(AppSetting(key=key, value=value))
+    else:
+        row.value = value
+    await db.commit()

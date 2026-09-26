@@ -22,6 +22,8 @@ EXPECTED_PATHS = {
     "/api/site",
     "/api/admin/settings",
     "/api/admin/users",
+    "/api/admin/maintenance",
+    "/api/me/password",
 }
 
 

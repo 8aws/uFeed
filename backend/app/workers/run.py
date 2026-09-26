@@ -6,6 +6,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.core.config import settings
+from app.services.retention import run_retention
 from app.workers.scheduler import run_tick
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -21,6 +22,8 @@ async def main() -> None:
         max_instances=1,
         coalesce=True,
     )
+    # Daily retention purge (UTC), before the 04:30 local backup.
+    scheduler.add_job(run_retention, "cron", hour=2, minute=15, max_instances=1, coalesce=True)
     scheduler.start()
     log.info("ingestion worker started (tick=%ss)", settings.ingest_tick_s)
 

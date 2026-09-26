@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     embed_max_per_tick: int = Field(default=50)
     summarize_max_per_tick: int = Field(default=20)
     ai_summary_sentences: int = Field(default=4)
+    # Where backups/status.json is readable (mounted read-only in production).
+    backups_dir: str = Field(default="/backups")
     # Near-duplicate grouping: lower cosine distance = stricter. Tune up (~0.2)
     # with real semantic embeddings on the NAS; ~0.1 suits the hashing backend.
     dedup_threshold: float = Field(default=0.12)

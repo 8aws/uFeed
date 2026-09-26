@@ -9,3 +9,6 @@ services:
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4"
+    volumes:
+      # Read-only view of backup status (backups/status.json) for the admin panel.
+      - ./backups:/backups:ro

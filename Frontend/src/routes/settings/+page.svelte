@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { api, downloadOpml, importOpml } from '$lib/api';
-	import { clearTokens, user } from '$lib/auth';
+	import { api, ApiError, downloadOpml, importOpml } from '$lib/api';
+	import { clearTokens, setTokens, user } from '$lib/auth';
 	import { locale, setLocale, t } from '$lib/i18n';
 	import { toolbarLabels, type ToolbarLabels } from '$lib/prefs';
 	import { relativeTime } from '$lib/format';
@@ -107,6 +107,34 @@
 
 	async function addAll(s: CatalogSection) {
 		for (const f of catFeeds(s)) if (!isSub(f)) await addFeed(s, f);
+	}
+
+	// --- Password ---
+	let curPw = $state('');
+	let newPw = $state('');
+	let newPw2 = $state('');
+	let pwMsg = $state('');
+	let pwOk = $state(false);
+	let pwBusy = $state(false);
+
+	async function changePassword(e: SubmitEvent) {
+		e.preventDefault();
+		pwOk = false;
+		if (newPw.length < 8) return void (pwMsg = $t('password_too_short'));
+		if (newPw !== newPw2) return void (pwMsg = $t('password_mismatch'));
+		pwBusy = true;
+		try {
+			const tokens = await api.changePassword(curPw, newPw);
+			setTokens(tokens.access_token, tokens.refresh_token); // keep this session
+			user.set(await api.me());
+			curPw = newPw = newPw2 = '';
+			pwOk = true;
+			pwMsg = $t('password_changed');
+		} catch (err) {
+			pwMsg = err instanceof ApiError && err.code === 'wrong_password' ? $t('wrong_password') : '⚠';
+		} finally {
+			pwBusy = false;
+		}
 	}
 
 	// --- API keys (read-only access for external apps such as OneDay) ---
@@ -336,6 +364,43 @@
 		{/if}
 	</section>
 
+	<section id="password">
+		<h2>{$t('password')}</h2>
+		{#if $user?.must_change_password}
+			<p class="warn">{$t('temp_password_banner')}</p>
+		{/if}
+		<form class="pwform" onsubmit={changePassword}>
+			<input type="email" autocomplete="username" value={$user?.email ?? ''} hidden />
+			<input
+				type="password"
+				bind:value={curPw}
+				placeholder={$t('current_password')}
+				autocomplete="current-password"
+				required
+			/>
+			<input
+				type="password"
+				bind:value={newPw}
+				placeholder={$t('new_password')}
+				autocomplete="new-password"
+				minlength="8"
+				required
+			/>
+			<input
+				type="password"
+				bind:value={newPw2}
+				placeholder={$t('confirm_password')}
+				autocomplete="new-password"
+				minlength="8"
+				required
+			/>
+			<div class="row">
+				<button class="primary" type="submit" disabled={pwBusy}>{$t('change_password')}</button>
+				{#if pwMsg}<span class={pwOk ? 'okmsg' : 'errmsg'}>{pwMsg}</span>{/if}
+			</div>
+		</form>
+	</section>
+
 	<section>
 		<h2>{$t('account')}</h2>
 		<label class="field">
@@ -469,6 +534,28 @@
 		border-color: var(--accent);
 		color: var(--accent);
 		background: var(--accent-soft);
+	}
+	.pwform {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		max-width: 360px;
+	}
+	.warn {
+		margin: 0 0 0.6rem;
+		padding: 0.5rem 0.7rem;
+		border-radius: 8px;
+		background: var(--accent-soft);
+		border: 1px solid var(--accent);
+		font-size: 0.85rem;
+	}
+	.okmsg {
+		color: var(--accent);
+		font-size: 0.85rem;
+	}
+	.errmsg {
+		color: var(--danger);
+		font-size: 0.85rem;
 	}
 	.adminlink {
 		align-self: flex-start;

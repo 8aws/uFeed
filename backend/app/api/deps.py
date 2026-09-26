@@ -11,7 +11,7 @@ from app.api.errors import AppError
 from app.core.config import settings
 from app.core.i18n import resolve_locale
 from app.core.ratelimit import check_rate
-from app.core.security import decode_token, user_id_from_sub
+from app.core.security import decode_token, token_version_ok, user_id_from_sub
 from app.db.session import get_db
 from app.models.api_key import ApiKey
 from app.models.user import User
@@ -50,6 +50,8 @@ async def get_current_user(
     user = await db.get(User, user_id)
     if user is None or not user.is_active:
         raise _unauthorized("User not found or inactive.")
+    if not token_version_ok(payload, user.token_version):
+        raise _unauthorized("Session expired; please sign in again.")
     return user
 
 
