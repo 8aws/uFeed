@@ -1,4 +1,5 @@
 from app.models.api_key import ApiKey
+from app.models.app_setting import AppSetting
 from app.models.article import Article
 from app.models.article_state import ArticleState
 from app.models.folder import Folder
@@ -9,6 +10,7 @@ from app.models.user import User
 
 __all__ = [
     "ApiKey",
+    "AppSetting",
     "Article",
     "ArticleState",
     "Folder",

@@ -29,3 +29,22 @@ async def check_rate(bucket: str, limit: int, window_s: int = 60) -> bool:
         return count <= limit
     except Exception:  # noqa: BLE001 - never let the limiter break the API
         return True
+
+
+async def cooldown(bucket: str, seconds: int) -> int:
+    """Allow one action per `seconds` for this bucket.
+
+    Returns 0 if the action may proceed (and starts the cooldown), otherwise
+    the seconds left to wait. Fails open like `check_rate`.
+    """
+    if seconds <= 0:
+        return 0
+    key = f"cd:{bucket}"
+    try:
+        client = get_redis()
+        if await client.set(key, "1", ex=seconds, nx=True):
+            return 0
+        ttl = await client.ttl(key)
+        return max(int(ttl), 1)
+    except Exception:  # noqa: BLE001 - never let the limiter break the API
+        return 0

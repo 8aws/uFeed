@@ -17,3 +17,5 @@ class User(Base, TimestampMixin):
     display_name: Mapped[str | None] = mapped_column(String(60), nullable=True)
     locale: Mapped[str] = mapped_column(String(5), default="en", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Plan/role: free | general | vip | editor | admin (see app.core.roles).
+    role: Mapped[str] = mapped_column(String(16), default="free", nullable=False)

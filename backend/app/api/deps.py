@@ -66,12 +66,44 @@ async def get_api_key(
     key = await resolve_api_key(db, x_api_key)
     if key is None:
         raise _unauthorized("Invalid API key.")
+    owner = await db.get(User, key.user_id)
+    if owner is None or not owner.is_active:
+        raise _unauthorized("Account disabled.")
     if not await check_rate(f"pub:{key.id}", settings.rate_limit_public_per_min):
         raise AppError(429, "rate_limited", "Rate limit exceeded for this API key.")
     return key
 
 
 ApiKeyPrincipal = Annotated[ApiKey, Depends(get_api_key)]
+
+
+def require_scope(scope: str):
+    """API-key dependency that also checks a scope.
+
+    Keys with no scopes are full-access for their owner (legacy/default);
+    otherwise the key must list the scope. "read" covers GETs, "state" covers
+    marking articles read/unread.
+    """
+
+    async def _dep(key: ApiKeyPrincipal) -> ApiKey:
+        if key.scopes and scope not in key.scopes:
+            raise AppError(403, "insufficient_scope", f"This API key lacks the '{scope}' scope.")
+        return key
+
+    return _dep
+
+
+ApiKeyRead = Annotated[ApiKey, Depends(require_scope("read"))]
+ApiKeyState = Annotated[ApiKey, Depends(require_scope("state"))]
+
+
+async def require_admin(user: CurrentUser) -> User:
+    if user.role != "admin":
+        raise AppError(403, "forbidden", "Administrator access required.")
+    return user
+
+
+AdminUser = Annotated[User, Depends(require_admin)]
 
 
 async def rate_limit_auth(request: Request) -> None:

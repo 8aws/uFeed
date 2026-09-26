@@ -21,6 +21,7 @@ from app.schemas.auth import (
     Tokens,
 )
 from app.services import auth as auth_service
+from app.services import site as site_service
 
 router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(rate_limit_auth)])
 
@@ -37,8 +38,15 @@ def _tokens_for(user: User) -> Tokens:
 async def register(body: RegisterRequest, db: DbSession) -> AuthResponse:
     if await auth_service.get_user_by_email(db, body.email):
         raise AppError(409, "email_taken", "That email is already registered.")
+    # The first account of an empty instance can always register and becomes
+    # the admin; after that, admins can close sign-ups and pick the default plan.
+    cfg = await site_service.get_settings(db)
+    first = await site_service.user_count(db) == 0
+    if not first and not cfg["registration_open"]:
+        raise AppError(403, "registration_closed", "Registration is currently closed.")
     locale = body.locale or settings.default_locale
-    user = await auth_service.create_user(db, body.email, body.password, locale)
+    role = "admin" if first else cfg["default_role"]
+    user = await auth_service.create_user(db, body.email, body.password, locale, role)
     return AuthResponse(user=user, tokens=_tokens_for(user))
 
 

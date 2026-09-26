@@ -16,6 +16,7 @@ class UserOut(BaseModel):
     email: EmailStr
     display_name: str | None = None
     locale: Locale
+    role: str
     is_active: bool
     created_at: datetime
 

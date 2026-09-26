@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.routes import (
+    admin,
     articles,
     auth,
     folders,
@@ -11,6 +12,7 @@ from app.api.routes import (
     keys,
     me,
     public,
+    site,
     sources,
     trending,
 )
@@ -26,6 +28,8 @@ api_router.include_router(articles.router)
 api_router.include_router(trending.router)
 api_router.include_router(insights.router)
 api_router.include_router(foryou.router)
+api_router.include_router(site.router)
+api_router.include_router(admin.router)
 
 # Public API (/api/v1/...)
 api_router.include_router(public.router)

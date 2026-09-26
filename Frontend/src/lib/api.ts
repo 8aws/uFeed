@@ -2,6 +2,8 @@ import { get } from 'svelte/store';
 import { clearTokens, getAccess, getRefresh, setTokens } from '$lib/auth';
 import { locale } from '$lib/i18n';
 import type {
+	AdminSettings,
+	AdminUser,
 	ApiKey,
 	ApiKeyCreated,
 	Article,
@@ -11,6 +13,8 @@ import type {
 	Insights,
 	Locale,
 	Page,
+	Role,
+	SiteConfig,
 	Subscription,
 	Tokens,
 	TrendingItem,
@@ -22,10 +26,13 @@ const BASE = '/api';
 export class ApiError extends Error {
 	code: string;
 	status: number;
-	constructor(status: number, code: string, message: string) {
+	/** Seconds to wait (from Retry-After), e.g. for plan refresh cooldowns. */
+	retryAfter: number | null;
+	constructor(status: number, code: string, message: string, retryAfter: number | null = null) {
 		super(message);
 		this.code = code;
 		this.status = status;
+		this.retryAfter = retryAfter;
 	}
 }
 
@@ -81,7 +88,8 @@ async function request<T>(path: string, opts: Options = {}): Promise<T> {
 		} catch {
 			/* non-JSON error body */
 		}
-		throw new ApiError(resp.status, code, message);
+		const ra = Number(resp.headers.get('Retry-After'));
+		throw new ApiError(resp.status, code, message, Number.isFinite(ra) && ra > 0 ? ra : null);
 	}
 	if (resp.status === 204) return undefined as T;
 	return (await resp.json()) as T;
@@ -103,9 +111,19 @@ export const api = {
 
 	// API keys (for the public /api/v1 read-only API)
 	listKeys: () => request<ApiKey[]>('/keys'),
-	createKey: (name: string) =>
-		request<ApiKeyCreated>('/keys', { method: 'POST', body: { name, scopes: ['read'] } }),
+	// "read" lists articles/sources; "state" lets the app mark articles read.
+	createKey: (name: string, scopes: string[] = ['read', 'state']) =>
+		request<ApiKeyCreated>('/keys', { method: 'POST', body: { name, scopes } }),
 	revokeKey: (id: string) => request<unknown>(`/keys/${id}`, { method: 'DELETE' }),
+
+	// site + admin
+	site: () => request<SiteConfig>('/site', { auth: false }),
+	adminSettings: () => request<AdminSettings>('/admin/settings'),
+	updateAdminSettings: (body: { registration_open?: boolean; default_role?: Role }) =>
+		request<AdminSettings>('/admin/settings', { method: 'PATCH', body }),
+	adminUsers: () => request<AdminUser[]>('/admin/users'),
+	updateAdminUser: (id: string, body: { role?: Role; is_active?: boolean }) =>
+		request<AdminUser>(`/admin/users/${id}`, { method: 'PATCH', body }),
 
 	// folders
 	listFolders: () => request<Folder[]>('/folders'),

@@ -8,8 +8,16 @@ from fastapi.responses import JSONResponse
 class AppError(HTTPException):
     """HTTPException carrying a machine-readable code + message."""
 
-    def __init__(self, status_code: int, code: str, message: str) -> None:
-        super().__init__(status_code=status_code, detail={"code": code, "message": message})
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        message: str,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(
+            status_code=status_code, detail={"code": code, "message": message}, headers=headers
+        )
 
 
 def not_implemented(feature: str) -> AppError:

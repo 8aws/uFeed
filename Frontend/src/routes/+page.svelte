@@ -73,7 +73,7 @@
 	// removing a just-read post so a mis-press can be undone.
 	let lastLongPress = 0;
 	const pendingRemoval = new Map<string, ReturnType<typeof setTimeout>>();
-	const READ_REMOVE_DELAY = 2000;
+	const READ_REMOVE_DELAY = 1000;
 
 	function loadCollapsed(): Set<string> {
 		try {
@@ -256,8 +256,14 @@
 			loadInsights();
 			refreshMsg =
 				res.new_articles > 0 ? `+${res.new_articles} ${$t('new_items')}` : $t('no_new');
-		} catch {
-			refreshMsg = '⚠';
+		} catch (e) {
+			// Plan cooldown: tell the user when they can refresh again.
+			if (e instanceof ApiError && e.code === 'refresh_cooldown') {
+				const mins = Math.max(1, Math.ceil((e.retryAfter ?? 60) / 60));
+				refreshMsg = `${$t('refresh_wait')} ${mins} min`;
+			} else {
+				refreshMsg = '⚠';
+			}
 		} finally {
 			refreshing = false;
 			setTimeout(() => (refreshMsg = ''), 5000);

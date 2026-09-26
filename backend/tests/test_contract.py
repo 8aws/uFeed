@@ -18,6 +18,10 @@ EXPECTED_PATHS = {
     "/api/articles/mark-all-read",
     "/api/v1/articles",
     "/api/v1/sources",
+    "/api/v1/articles/{article_id}/read",
+    "/api/site",
+    "/api/admin/settings",
+    "/api/admin/users",
 }
 
 

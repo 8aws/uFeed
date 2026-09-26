@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { api } from '$lib/api';
+	import { api, ApiError } from '$lib/api';
 	import { setTokens, user } from '$lib/auth';
 	import { locale, setLocale, t } from '$lib/i18n';
 	import type { Locale } from '$lib/types';
@@ -13,6 +14,16 @@
 	// An explicit choice here is saved to the profile (on register it's sent
 	// with the account; on login it overrides the stored preference).
 	let langTouched = false;
+	// Admins can close sign-ups; hide the register path when they do.
+	let registrationOpen = $state(true);
+	onMount(async () => {
+		try {
+			registrationOpen = (await api.site()).registration_open;
+			if (!registrationOpen) mode = 'login';
+		} catch {
+			/* keep the default */
+		}
+	});
 
 	function pickLang(value: Locale) {
 		setLocale(value);
@@ -35,8 +46,14 @@
 				setLocale(res.user.locale);
 			}
 			await goto('/');
-		} catch {
-			error = mode === 'login' ? $t('login_failed') : $t('register_failed');
+		} catch (e) {
+			if (e instanceof ApiError && e.code === 'registration_closed') {
+				registrationOpen = false;
+				mode = 'login';
+				error = $t('registration_closed');
+			} else {
+				error = mode === 'login' ? $t('login_failed') : $t('register_failed');
+			}
 		} finally {
 			busy = false;
 		}
@@ -71,19 +88,23 @@
 		<button class="primary" type="submit" disabled={busy}>
 			{mode === 'login' ? $t('login') : $t('register')}
 		</button>
-		<p class="muted switch">
-			{mode === 'login' ? $t('need_account') : $t('have_account')}
-			<button
-				type="button"
-				class="link"
-				onclick={() => {
-					mode = mode === 'login' ? 'register' : 'login';
-					error = '';
-				}}
-			>
-				{mode === 'login' ? $t('register') : $t('login')}
-			</button>
-		</p>
+		{#if registrationOpen}
+			<p class="muted switch">
+				{mode === 'login' ? $t('need_account') : $t('have_account')}
+				<button
+					type="button"
+					class="link"
+					onclick={() => {
+						mode = mode === 'login' ? 'register' : 'login';
+						error = '';
+					}}
+				>
+					{mode === 'login' ? $t('register') : $t('login')}
+				</button>
+			</p>
+		{:else}
+			<p class="muted switch">{$t('registration_closed')}</p>
+		{/if}
 	</form>
 </div>
 

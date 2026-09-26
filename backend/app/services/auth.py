@@ -12,11 +12,14 @@ async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     return result.scalar_one_or_none()
 
 
-async def create_user(db: AsyncSession, email: str, password: str, locale: str) -> User:
+async def create_user(
+    db: AsyncSession, email: str, password: str, locale: str, role: str = "free"
+) -> User:
     user = User(
         email=email.lower(),
         password_hash=hash_password(password),
         locale=locale,
+        role=role,
     )
     db.add(user)
     await db.commit()

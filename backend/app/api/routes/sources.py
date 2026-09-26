@@ -8,6 +8,8 @@ from fastapi.responses import Response
 
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import AppError
+from app.core.ratelimit import cooldown
+from app.core.roles import refresh_cooldown
 from app.schemas.common import OkResponse
 from app.schemas.discover import DiscoveredFeed, DiscoverRequest, OpmlImportResult
 from app.schemas.source import (
@@ -49,7 +51,19 @@ async def refresh(
     db: DbSession,
     source: uuid.UUID | None = None,
 ) -> RefreshResult:
-    """Fetch the user's feeds now (or one source) and report what was found."""
+    """Fetch the user's feeds now (or one source) and report what was found.
+
+    Rate-limited per plan (see app.core.roles.REFRESH_COOLDOWN_S); the worker
+    keeps polling in the background regardless.
+    """
+    wait = await cooldown(f"refresh:{user.id}", refresh_cooldown(user.role))
+    if wait:
+        raise AppError(
+            429,
+            "refresh_cooldown",
+            f"Refresh available in {wait}s.",
+            headers={"Retry-After": str(wait)},
+        )
     if source is not None:
         if not await sub_service.source_ids_for(db, user.id, source):
             raise AppError(404, "not_found", "Subscription not found.")

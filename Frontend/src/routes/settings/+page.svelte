@@ -6,7 +6,7 @@
 	import { locale, setLocale, t } from '$lib/i18n';
 	import { toolbarLabels, type ToolbarLabels } from '$lib/prefs';
 	import { relativeTime } from '$lib/format';
-	import type { ApiKey, ApiKeyCreated, Folder, Locale, Subscription } from '$lib/types';
+	import type { ApiKey, ApiKeyCreated, Folder, Locale, Role, Subscription } from '$lib/types';
 	import { CATALOG, LANG_FLAG, type CatalogFeed, type CatalogSection, type FeedLang } from '$lib/catalog';
 	import { addCatalogFeed, ensureFolder, feedKey } from '$lib/catalogActions';
 
@@ -83,10 +83,9 @@
 		try {
 			const folder = await ensureFolder(catName(s), catFolders);
 			const sub = await addCatalogFeed(f, folder?.id ?? null);
-			if (sub) {
-				catSubs = [...catSubs, sub];
-				api.refresh(sub.source.id).catch(() => {}); // fetch it right away
-			}
+			// The worker fetches new sources on its next tick; no manual refresh,
+			// which would spend the plan's refresh cooldown.
+			if (sub) catSubs = [...catSubs, sub];
 		} finally {
 			setBusy(f.url, false);
 		}
@@ -116,6 +115,19 @@
 	let created = $state<ApiKeyCreated | null>(null);
 	let copied = $state<'url' | 'key' | null>(null);
 	let serverUrl = $state('');
+	let allowState = $state(true);
+	let cooldowns = $state<Record<Role, number> | null>(null);
+
+	function scopeLabels(k: ApiKey): string {
+		const sc = k.scopes.length ? k.scopes : ['read', 'state']; // [] = full access
+		return sc.map((x) => $t(x === 'state' ? 'scope_state' : 'scope_read')).join(' · ');
+	}
+
+	function planLimit(role: Role): string {
+		const secs = cooldowns?.[role];
+		if (secs === undefined) return '';
+		return secs > 0 ? `${$t('refresh_every')} ${Math.round(secs / 60)} min` : $t('refresh_immediate');
+	}
 
 	async function loadKeys() {
 		try {
@@ -129,7 +141,7 @@
 		const name = newKeyName.trim();
 		if (!name) return;
 		try {
-			created = await api.createKey(name);
+			created = await api.createKey(name, allowState ? ['read', 'state'] : ['read']);
 			await loadKeys();
 		} catch {
 			/* ignore */
@@ -160,6 +172,7 @@
 	onMount(() => {
 		serverUrl = window.location.origin;
 		loadKeys();
+		api.site().then((c) => (cooldowns = c.refresh_cooldown_s)).catch(() => {});
 	});
 
 	async function onImport(e: Event) {
@@ -185,6 +198,9 @@
 <div class="page">
 	<a class="back" href="/">← {$t('app_name')}</a>
 	<h1>{$t('settings')}</h1>
+	{#if $user?.role === 'admin'}
+		<a class="adminlink" href="/admin">🛡 {$t('admin')} →</a>
+	{/if}
 
 	<section>
 		<h2>{$t('language')}</h2>
@@ -286,6 +302,10 @@
 				<button class="primary" onclick={createKey} disabled={!newKeyName.trim()}>{$t('generate_key')}</button>
 			</div>
 		</label>
+		<label class="check">
+			<input type="checkbox" bind:checked={allowState} />
+			{$t('key_allow_state')}
+		</label>
 		{#if created}
 			<div class="newkey">
 				<p><strong>{created.name}</strong> — {$t('key_created_once')}</p>
@@ -303,6 +323,7 @@
 					<li>
 						<div class="kinfo">
 							<strong>{k.name}</strong> <code class="mono">{k.prefix}…</code>
+							<span class="muted small">{scopeLabels(k)}</span>
 							<span class="muted small">
 								{$t('created')} {relativeTime(k.created_at, $locale)} ·
 								{k.last_used_at ? `${$t('last_used')} ${relativeTime(k.last_used_at, $locale)}` : $t('never_used')}
@@ -324,7 +345,13 @@
 				<button class="primary" onclick={saveName}>{nameSaved ? '✓' : $t('save')}</button>
 			</div>
 		</label>
-		{#if $user}<p class="muted">{$user.email}</p>{/if}
+		{#if $user}
+			<p class="muted">{$user.email}</p>
+			<p class="muted small">
+				{$t('plan')}: <strong>{$t(`role_${$user.role}` as 'role_free')}</strong>
+				{#if cooldowns}· {planLimit($user.role)}{/if}
+			</p>
+		{/if}
 		<button onclick={logout}>{$t('logout')}</button>
 	</section>
 </div>
@@ -442,6 +469,20 @@
 		border-color: var(--accent);
 		color: var(--accent);
 		background: var(--accent-soft);
+	}
+	.adminlink {
+		align-self: flex-start;
+		font-size: 0.9rem;
+		border: 1px solid var(--accent);
+		border-radius: 999px;
+		padding: 0.3rem 0.8rem;
+	}
+	.check {
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		font-size: 0.85rem;
+		margin: -0.4rem 0 0.9rem;
 	}
 	.hint {
 		margin: 0 0 0.75rem;

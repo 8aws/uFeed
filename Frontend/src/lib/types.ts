@@ -1,10 +1,13 @@
 export type Locale = 'en' | 'es';
 
+export type Role = 'free' | 'general' | 'vip' | 'editor' | 'admin';
+
 export interface User {
 	id: string;
 	email: string;
 	display_name: string | null;
 	locale: Locale;
+	role: Role;
 	is_active: boolean;
 	created_at: string;
 }
@@ -116,4 +119,27 @@ export interface ApiKey {
 /** Returned once, at creation, with the plaintext key. */
 export interface ApiKeyCreated extends ApiKey {
 	key: string;
+}
+
+/** Unauthenticated instance info. */
+export interface SiteConfig {
+	registration_open: boolean;
+	refresh_cooldown_s: Record<Role, number>;
+}
+
+export interface AdminSettings {
+	registration_open: boolean;
+	default_role: Role;
+	roles: Role[];
+	refresh_cooldown_s: Record<Role, number>;
+}
+
+export interface AdminUser {
+	id: string;
+	email: string;
+	display_name: string | null;
+	role: Role;
+	is_active: boolean;
+	created_at: string;
+	feeds: number;
 }
