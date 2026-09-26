@@ -2,6 +2,7 @@
 	import { api } from '$lib/api';
 	import { locale, t } from '$lib/i18n';
 	import { CATALOG, LANG_FLAG, type CatalogFeed, type FeedLang } from '$lib/catalog';
+	import { addCatalogFeed, ensureFolder } from '$lib/catalogActions';
 
 	let { oncomplete }: { oncomplete: () => void } = $props();
 
@@ -69,28 +70,13 @@
 		if (busy) return;
 		busy = true;
 		try {
+			const folders = await api.listFolders().catch(() => []);
 			for (const s of CATALOG) {
 				const feeds = s.feeds.filter((f) => selected.has(f.url));
 				if (!feeds.length) continue;
 				progress = sectionName(s);
-				let folderId: string | null = null;
-				try {
-					folderId = (await api.createFolder(sectionName(s))).id;
-				} catch {
-					folderId = null; // fall back to top level
-				}
-				for (const f of feeds) {
-					try {
-						const sub = await api.subscribe(f.url, folderId);
-						// Use the curated name when the feed's own title is generic
-						// (e.g. tag feeds titled "Magazine - programacion").
-						if (!sub.custom_title && sub.source.title !== f.title) {
-							await api.updateSubscription(sub.id, { custom_title: f.title }).catch(() => {});
-						}
-					} catch {
-						/* skip feeds that fail to resolve */
-					}
-				}
+				const folder = await ensureFolder(sectionName(s), folders);
+				for (const f of feeds) await addCatalogFeed(f, folder?.id ?? null);
 			}
 			// Kick off a first fetch so there's something to read immediately.
 			try {

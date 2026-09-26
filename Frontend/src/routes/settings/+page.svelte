@@ -6,7 +6,9 @@
 	import { locale, setLocale, t } from '$lib/i18n';
 	import { toolbarLabels, type ToolbarLabels } from '$lib/prefs';
 	import { relativeTime } from '$lib/format';
-	import type { ApiKey, ApiKeyCreated, Locale } from '$lib/types';
+	import type { ApiKey, ApiKeyCreated, Folder, Locale, Subscription } from '$lib/types';
+	import { CATALOG, LANG_FLAG, type CatalogFeed, type CatalogSection, type FeedLang } from '$lib/catalog';
+	import { addCatalogFeed, ensureFolder, feedKey } from '$lib/catalogActions';
 
 	const LABEL_MODES: ToolbarLabels[] = ['auto', 'both', 'icons', 'text'];
 
@@ -33,6 +35,79 @@
 		} catch {
 			/* ignore */
 		}
+	}
+
+	// --- Starter suggestions: the onboarding catalogue, editable any time ---
+	let starterOpen = $state(false);
+	let starterLoaded = false;
+	let catSubs = $state<Subscription[]>([]);
+	let catFolders: Folder[] = [];
+	let catBusy = $state<Set<string>>(new Set());
+	let catFilter = $state<'all' | FeedLang>('all');
+	const subByKey = $derived(new Map(catSubs.map((x) => [feedKey(x.source.feed_url), x])));
+
+	function catName(s: CatalogSection): string {
+		return $locale === 'es' ? s.name_es : s.name_en;
+	}
+	function catFeeds(s: CatalogSection): CatalogFeed[] {
+		const mine: FeedLang = $locale === 'es' ? 'es' : 'en';
+		return s.feeds
+			.filter((f) => catFilter === 'all' || f.lang === catFilter)
+			.sort((a, b) => Number(b.lang === mine) - Number(a.lang === mine));
+	}
+	function isSub(f: CatalogFeed): boolean {
+		return subByKey.has(feedKey(f.url));
+	}
+	function setBusy(url: string, on: boolean) {
+		const next = new Set(catBusy);
+		if (on) next.add(url);
+		else next.delete(url);
+		catBusy = next;
+	}
+
+	async function toggleStarter() {
+		starterOpen = !starterOpen;
+		if (starterOpen && !starterLoaded) {
+			starterLoaded = true;
+			try {
+				[catSubs, catFolders] = await Promise.all([api.listSources(), api.listFolders()]);
+			} catch {
+				starterLoaded = false;
+			}
+		}
+	}
+
+	async function addFeed(s: CatalogSection, f: CatalogFeed) {
+		if (catBusy.has(f.url) || isSub(f)) return;
+		setBusy(f.url, true);
+		try {
+			const folder = await ensureFolder(catName(s), catFolders);
+			const sub = await addCatalogFeed(f, folder?.id ?? null);
+			if (sub) {
+				catSubs = [...catSubs, sub];
+				api.refresh(sub.source.id).catch(() => {}); // fetch it right away
+			}
+		} finally {
+			setBusy(f.url, false);
+		}
+	}
+
+	async function removeFeed(f: CatalogFeed) {
+		const sub = subByKey.get(feedKey(f.url));
+		if (!sub || catBusy.has(f.url)) return;
+		setBusy(f.url, true);
+		try {
+			await api.unsubscribe(sub.id);
+			catSubs = catSubs.filter((x) => x.id !== sub.id);
+		} catch {
+			/* ignore */
+		} finally {
+			setBusy(f.url, false);
+		}
+	}
+
+	async function addAll(s: CatalogSection) {
+		for (const f of catFeeds(s)) if (!isSub(f)) await addFeed(s, f);
 	}
 
 	// --- API keys (read-only access for external apps such as OneDay) ---
@@ -150,6 +225,51 @@
 	</section>
 
 	<section>
+		<button class="collapse" onclick={toggleStarter} aria-expanded={starterOpen}>
+			<h2>{$t('starter_sources')}</h2>
+			<span class="chev" aria-hidden="true">{starterOpen ? '▾' : '▸'}</span>
+		</button>
+		{#if starterOpen}
+			<p class="muted hint">{$t('starter_sources_hint')}</p>
+			<div class="row langbar">
+				<button class:active={catFilter === 'all'} onclick={() => (catFilter = 'all')}>{$t('all_langs')}</button>
+				<button class:active={catFilter === 'es'} onclick={() => (catFilter = 'es')}>{LANG_FLAG.es} {$t('lang_es')}</button>
+				<button class:active={catFilter === 'en'} onclick={() => (catFilter = 'en')}>{LANG_FLAG.en} {$t('lang_en')}</button>
+			</div>
+			{#each CATALOG as s (s.id)}
+				{@const feeds = catFeeds(s)}
+				{@const count = feeds.filter(isSub).length}
+				<div class="csec">
+					<div class="csec-head">
+						<strong>{catName(s)}</strong>
+						<span class="muted small">{count}/{feeds.length}</span>
+						<button class="small-btn" onclick={() => addAll(s)} disabled={count === feeds.length}>
+							+ {$t('catalog_add_all')}
+						</button>
+					</div>
+					<ul class="cfeeds">
+						{#each feeds as f (f.url)}
+							<li>
+								<span class="flag" title={$t(f.lang === 'es' ? 'lang_es' : 'lang_en')}>{LANG_FLAG[f.lang]}</span>
+								<span class="ftitle">{f.title}</span>
+								{#if isSub(f)}
+									<button class="small-btn on" onclick={() => removeFeed(f)} disabled={catBusy.has(f.url)}>
+										✓ {$t('catalog_remove')}
+									</button>
+								{:else}
+									<button class="small-btn" onclick={() => addFeed(s, f)} disabled={catBusy.has(f.url)}>
+										{catBusy.has(f.url) ? '…' : '+ ' + $t('catalog_add')}
+									</button>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/each}
+		{/if}
+	</section>
+
+	<section>
 		<h2>{$t('api_access')}</h2>
 		<p class="muted hint">{$t('api_access_hint')}</p>
 		<div class="field">
@@ -247,6 +367,81 @@
 		margin-bottom: 0.9rem;
 		font-size: 0.85rem;
 		color: var(--muted);
+	}
+	.collapse {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		background: none;
+		border: none;
+		padding: 0;
+		text-align: left;
+		cursor: pointer;
+	}
+	.collapse h2 {
+		margin: 0;
+	}
+	section:has(.collapse[aria-expanded='true']) .collapse {
+		margin-bottom: 0.75rem;
+	}
+	.chev {
+		color: var(--muted);
+	}
+	.langbar {
+		margin-bottom: 0.75rem;
+	}
+	.langbar button {
+		border-radius: 999px;
+		padding: 0.25rem 0.7rem;
+		font-size: 0.82rem;
+	}
+	.csec {
+		border-top: 1px solid var(--border);
+		padding: 0.6rem 0;
+	}
+	.csec-head {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.35rem;
+	}
+	.csec-head .small-btn {
+		margin-left: auto;
+	}
+	.cfeeds {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+	}
+	.cfeeds li {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.88rem;
+	}
+	.flag {
+		flex: none;
+	}
+	.ftitle {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.small-btn {
+		flex: none;
+		padding: 0.25rem 0.6rem;
+		font-size: 0.8rem;
+	}
+	.small-btn.on {
+		border-color: var(--accent);
+		color: var(--accent);
+		background: var(--accent-soft);
 	}
 	.hint {
 		margin: 0 0 0.75rem;
