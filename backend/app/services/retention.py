@@ -31,8 +31,7 @@ EVENTS_MIN_DAYS = 60
 
 # A duplicate group is shown through its "seed" (id == dup_group_id). If the
 # seed was purged, promote the earliest remaining member so the rest stay visible.
-_RESEED_ORPHAN_GROUPS = text(
-    """
+_RESEED_ORPHAN_GROUPS = text("""
     WITH orphan AS (
         SELECT a.dup_group_id AS g,
                (array_agg(a.id ORDER BY a.fetched_at, a.id))[1] AS seed
@@ -42,8 +41,7 @@ _RESEED_ORPHAN_GROUPS = text(
         GROUP BY a.dup_group_id
     )
     UPDATE articles a SET dup_group_id = o.seed FROM orphan o WHERE a.dup_group_id = o.g
-    """
-)
+    """)
 
 
 def cutoff_for(days: int) -> datetime | None:
