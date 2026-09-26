@@ -221,13 +221,18 @@ async def store_articles(db: AsyncSession, source: Source, parsed: ParsedFeed) -
     )
     known = set(existing.scalars().all())
     new = [a for guid, a in incoming.items() if guid not in known]
-    # Don't (re-)ingest dated entries older than the retention window, or purged
-    # items still listed by the feed would come back as "new".
-    cutoff = retention_service.cutoff_for(
-        int((await site_service.get_settings(db))["retention_days"])
-    )
-    if cutoff is not None:
-        new = [a for a in new if a.published_at is None or _aware(a.published_at) >= cutoff]
+    # Don't (re-)ingest what the next retention purge would delete: dated entries
+    # older than the window that also fall outside the feed's newest
+    # KEEP_PER_SOURCE. Otherwise purged items still listed by a large feed would
+    # come back as "new"; small or slow feeds are still ingested in full.
+    days = int((await site_service.get_settings(db))["retention_days"])
+    cutoff = retention_service.cutoff_for(days)
+    if cutoff is not None and new:
+        dated = [_aware(a.published_at) for a in new if a.published_at is not None]
+        horizon = await retention_service.keep_horizon(db, source.id, dated)
+        if horizon is not None:
+            limit = min(cutoff, horizon)
+            new = [a for a in new if a.published_at is None or _aware(a.published_at) >= limit]
     if not new:
         return 0
 

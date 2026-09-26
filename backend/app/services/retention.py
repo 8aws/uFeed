@@ -49,6 +49,29 @@ def cutoff_for(days: int) -> datetime | None:
     return datetime.now(UTC) - timedelta(days=days) if days > 0 else None
 
 
+async def keep_horizon(
+    db: AsyncSession, source_id: Any, incoming: list[datetime]
+) -> datetime | None:
+    """Date of the KEEP_PER_SOURCE-th newest article of a feed, counting what
+    is stored plus what is about to be ingested (None if the feed is smaller).
+
+    Mirrors the purge rule so ingest never adds something the next purge would
+    delete: an entry is skipped only if it's older than the retention cutoff
+    *and* older than this horizon.
+    """
+    age = func.coalesce(Article.published_at, Article.fetched_at)
+    stored = (
+        await db.execute(
+            select(age)
+            .where(Article.source_id == source_id)
+            .order_by(age.desc())
+            .limit(KEEP_PER_SOURCE)
+        )
+    ).scalars()
+    dates = sorted([*stored, *incoming], reverse=True)
+    return dates[KEEP_PER_SOURCE - 1] if len(dates) >= KEEP_PER_SOURCE else None
+
+
 async def purge(db: AsyncSession, days: int) -> dict[str, Any]:
     cutoff = cutoff_for(days)
     if cutoff is None:

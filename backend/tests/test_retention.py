@@ -80,35 +80,48 @@ async def test_purge_reseeds_orphaned_duplicate_groups(db_session: AsyncSession)
     assert group == dup.id
 
 
-async def test_ingest_skips_entries_older_than_retention(db_session: AsyncSession) -> None:
+def _entry(guid: str, published: datetime | None) -> ParsedArticle:
+    return ParsedArticle(
+        guid=guid,
+        url=None,
+        title=guid,
+        author=None,
+        content_html=None,
+        summary=None,
+        lang=None,
+        published_at=published,
+    )
+
+
+async def _new_source(db: AsyncSession) -> Source:
     src = Source(feed_url=f"https://ret.example/{uuid.uuid4().hex}.xml")
-    db_session.add(src)
-    await db_session.commit()
+    db.add(src)
+    await db.commit()
+    return src
+
+
+async def test_ingest_skips_what_purge_would_delete(db_session: AsyncSession) -> None:
+    # A large feed: 50 recent entries + 5 very old ones beyond the newest 50.
+    src = await _new_source(db_session)
     now = datetime.now(UTC)
+    entries = [_entry(f"r{i}", now - timedelta(days=i)) for i in range(50)]
+    entries += [_entry(f"old{i}", now - timedelta(days=400 + i)) for i in range(5)]
+    entries.append(_entry("undated", None))
+    feed = ParsedFeed(title="t", site_url=None, lang=None, articles=entries)
+    assert await store_articles(db_session, src, feed) == 51  # the 5 old ones skipped
 
-    def entry(guid: str, published: datetime | None) -> ParsedArticle:
-        return ParsedArticle(
-            guid=guid,
-            url=None,
-            title=guid,
-            author=None,
-            content_html=None,
-            summary=None,
-            lang=None,
-            published_at=published,
-        )
 
+async def test_ingest_keeps_small_old_feed(db_session: AsyncSession) -> None:
+    # A slow blog whose posts are all older than the window is still ingested.
+    src = await _new_source(db_session)
+    old = datetime.now(UTC) - timedelta(days=400)
     feed = ParsedFeed(
         title="t",
         site_url=None,
         lang=None,
-        articles=[
-            entry("old", now - timedelta(days=400)),
-            entry("new", now),
-            entry("undated", None),
-        ],
+        articles=[_entry(f"p{i}", old - timedelta(days=i)) for i in range(3)],
     )
-    assert await store_articles(db_session, src, feed) == 2  # default window: 90 days
+    assert await store_articles(db_session, src, feed) == 3
 
 
 async def test_admin_maintenance_and_run(api: AsyncClient, db_session: AsyncSession) -> None:
