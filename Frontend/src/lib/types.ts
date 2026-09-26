@@ -101,3 +101,19 @@ export interface DiscoveredFeed {
 export interface ApiError {
 	error: { code: string; message: string };
 }
+
+/** API key metadata (the secret is never returned after creation). */
+export interface ApiKey {
+	id: string;
+	name: string;
+	prefix: string;
+	scopes: string[];
+	last_used_at: string | null;
+	created_at: string;
+	revoked_at: string | null;
+}
+
+/** Returned once, at creation, with the plaintext key. */
+export interface ApiKeyCreated extends ApiKey {
+	key: string;
+}

@@ -2,13 +2,22 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { setTokens, user } from '$lib/auth';
-	import { setLocale, t } from '$lib/i18n';
+	import { locale, setLocale, t } from '$lib/i18n';
+	import type { Locale } from '$lib/types';
 
 	let mode = $state<'login' | 'register'>('login');
 	let email = $state('');
 	let password = $state('');
 	let error = $state('');
 	let busy = $state(false);
+	// An explicit choice here is saved to the profile (on register it's sent
+	// with the account; on login it overrides the stored preference).
+	let langTouched = false;
+
+	function pickLang(value: Locale) {
+		setLocale(value);
+		langTouched = true;
+	}
 
 	async function submit(e: SubmitEvent) {
 		e.preventDefault();
@@ -18,8 +27,9 @@
 			if (mode === 'login') {
 				const tokens = await api.login(email, password);
 				setTokens(tokens.access_token, tokens.refresh_token);
+				if (langTouched) await api.updateMe({ locale: $locale }).catch(() => {});
 			} else {
-				const res = await api.register(email, password);
+				const res = await api.register(email, password, $locale);
 				setTokens(res.tokens.access_token, res.tokens.refresh_token);
 				user.set(res.user);
 				setLocale(res.user.locale);
@@ -35,6 +45,10 @@
 
 <div class="wrap">
 	<form class="card" onsubmit={submit}>
+		<div class="langsel" role="group" aria-label={$t('language')}>
+			<button type="button" class:active={$locale === 'es'} onclick={() => pickLang('es')}>🇪🇸 Español</button>
+			<button type="button" class:active={$locale === 'en'} onclick={() => pickLang('en')}>🇬🇧 English</button>
+		</div>
 		<div class="brand">
 			<img src="/logo.png" alt="" width="48" height="48" />
 			<h1>{$t('app_name')}</h1>
@@ -119,6 +133,21 @@
 	.switch {
 		text-align: center;
 		font-size: 0.85rem;
+	}
+	.langsel {
+		display: flex;
+		justify-content: center;
+		gap: 0.4rem;
+	}
+	.langsel button {
+		border-radius: 999px;
+		padding: 0.3rem 0.8rem;
+		font-size: 0.85rem;
+	}
+	.langsel button.active {
+		border-color: var(--accent);
+		color: var(--accent);
+		background: var(--accent-soft);
 	}
 	button.link {
 		border: none;

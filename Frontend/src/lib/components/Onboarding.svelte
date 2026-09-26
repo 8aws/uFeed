@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import { locale, t } from '$lib/i18n';
-	import { CATALOG } from '$lib/catalog';
+	import { CATALOG, LANG_FLAG, type CatalogFeed, type FeedLang } from '$lib/catalog';
 
 	let { oncomplete }: { oncomplete: () => void } = $props();
 
@@ -9,9 +9,35 @@
 	let busy = $state(false);
 	let progress = $state('');
 
-	// Pre-select the first few sections' feeds so a new user gets content fast.
-	const preselected = new Set(CATALOG.slice(0, 3).flatMap((s) => s.feeds.map((f) => f.url)));
+	// Pre-select the first few sections' feeds in the user's language so a new
+	// account gets readable content fast; the other language is one tap away.
+	const userLang: FeedLang = $locale === 'es' ? 'es' : 'en';
+	const preselected = new Set(
+		CATALOG.slice(0, 3).flatMap((s) => s.feeds.filter((f) => f.lang === userLang).map((f) => f.url))
+	);
 	let selected = $state<Set<string>>(new Set(preselected));
+
+	// Within each section, list the user's language first.
+	function ordered(feeds: CatalogFeed[]): CatalogFeed[] {
+		return [...feeds].sort((a, b) => Number(b.lang === userLang) - Number(a.lang === userLang));
+	}
+
+	function langSelected(lang: FeedLang): boolean {
+		return CATALOG.every((s) => s.feeds.filter((f) => f.lang === lang).every((f) => selected.has(f.url)));
+	}
+
+	function toggleLang(lang: FeedLang) {
+		const next = new Set(selected);
+		const on = !langSelected(lang);
+		for (const s of CATALOG) {
+			for (const f of s.feeds) {
+				if (f.lang !== lang) continue;
+				if (on) next.add(f.url);
+				else next.delete(f.url);
+			}
+		}
+		selected = next;
+	}
 
 	function sectionName(s: (typeof CATALOG)[number]): string {
 		return $locale === 'es' ? s.name_es : s.name_en;
@@ -55,7 +81,12 @@
 				}
 				for (const f of feeds) {
 					try {
-						await api.subscribe(f.url, folderId);
+						const sub = await api.subscribe(f.url, folderId);
+						// Use the curated name when the feed's own title is generic
+						// (e.g. tag feeds titled "Magazine - programacion").
+						if (!sub.custom_title && sub.source.title !== f.title) {
+							await api.updateSubscription(sub.id, { custom_title: f.title }).catch(() => {});
+						}
 					} catch {
 						/* skip feeds that fail to resolve */
 					}
@@ -94,6 +125,14 @@
 		{:else}
 			<h1>{$t('onboarding_pick_title')}</h1>
 			<p class="lead">{$t('onboarding_pick_hint')}</p>
+			<div class="langbar">
+				{#each ['es', 'en'] as const as lang (lang)}
+					<button class="chip" class:on={langSelected(lang)} onclick={() => toggleLang(lang)}>
+						{LANG_FLAG[lang]} {$t(lang === 'es' ? 'lang_es' : 'lang_en')}
+					</button>
+				{/each}
+				<button class="chip" onclick={() => (selected = new Set())}>{$t('select_none')}</button>
+			</div>
 			<div class="sections">
 				{#each CATALOG as s (s.id)}
 					<div class="section">
@@ -106,13 +145,18 @@
 							{sectionName(s)}
 						</button>
 						<div class="feeds">
-							{#each s.feeds as f (f.url)}
+							{#each ordered(s.feeds) as f (f.url)}
 								<label class="feed">
 									<input
 										type="checkbox"
 										checked={selected.has(f.url)}
 										onchange={() => toggleFeed(f.url)}
 									/>
+									<span
+										class="flag"
+										title={$t(f.lang === 'es' ? 'lang_es' : 'lang_en')}
+										aria-label={$t(f.lang === 'es' ? 'lang_es' : 'lang_en')}
+									>{LANG_FLAG[f.lang]}</span>
 									<span>{f.title}</span>
 								</label>
 							{/each}
@@ -212,6 +256,26 @@
 	.box[data-state='some'] {
 		background: var(--accent-soft);
 		border-color: var(--accent);
+	}
+	.langbar {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+	.chip {
+		border-radius: 999px;
+		padding: 0.3rem 0.75rem;
+		font-size: 0.85rem;
+	}
+	.chip.on {
+		border-color: var(--accent);
+		color: var(--accent);
+		background: var(--accent-soft);
+	}
+	.flag {
+		flex: none;
+		font-size: 1rem;
+		line-height: 1;
 	}
 	.feeds {
 		display: flex;

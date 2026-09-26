@@ -2,6 +2,8 @@ import { get } from 'svelte/store';
 import { clearTokens, getAccess, getRefresh, setTokens } from '$lib/auth';
 import { locale } from '$lib/i18n';
 import type {
+	ApiKey,
+	ApiKeyCreated,
 	Article,
 	AuthResponse,
 	DiscoveredFeed,
@@ -98,6 +100,12 @@ export const api = {
 	me: () => request<User>('/me'),
 	updateMe: (body: { locale?: Locale; display_name?: string | null }) =>
 		request<User>('/me', { method: 'PATCH', body }),
+
+	// API keys (for the public /api/v1 read-only API)
+	listKeys: () => request<ApiKey[]>('/keys'),
+	createKey: (name: string) =>
+		request<ApiKeyCreated>('/keys', { method: 'POST', body: { name, scopes: ['read'] } }),
+	revokeKey: (id: string) => request<unknown>(`/keys/${id}`, { method: 'DELETE' }),
 
 	// folders
 	listFolders: () => request<Folder[]>('/folders'),
