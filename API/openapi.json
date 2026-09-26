@@ -602,7 +602,7 @@
           "sources"
         ],
         "summary": "Refresh",
-        "description": "Fetch the user's feeds now (or one source) and report what was found.",
+        "description": "Fetch the user's feeds now (or one source) and report what was found.\n\nRate-limited per plan (see app.core.roles.REFRESH_COOLDOWN_S); the worker\nkeeps polling in the background regardless.",
         "operationId": "refresh_api_refresh_post",
         "security": [
           {
@@ -1637,7 +1637,7 @@
               "type": "integer",
               "maximum": 720,
               "minimum": 1,
-              "default": 48,
+              "default": 720,
               "title": "Window Hours"
             }
           },
@@ -1703,7 +1703,7 @@
               "type": "integer",
               "maximum": 720,
               "minimum": 1,
-              "default": 48,
+              "default": 720,
               "title": "Window Hours"
             }
           },
@@ -1781,6 +1781,186 @@
                     "$ref": "#/components/schemas/ArticleOut"
                   },
                   "title": "Response Get For You Api Foryou Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/site": {
+      "get": {
+        "tags": [
+          "site"
+        ],
+        "summary": "Site Config",
+        "description": "Unauthenticated instance info (e.g. whether sign-ups are open).",
+        "operationId": "site_config_api_site_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/settings": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get Settings",
+        "operationId": "get_settings_api_admin_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSettings"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update Settings",
+        "operationId": "update_settings_api_admin_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Users",
+        "operationId": "list_users_api_admin_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminUserOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Users Api Admin Users Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}": {
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update User",
+        "operationId": "update_user_api_admin_users__user_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserOut"
                 }
               }
             }
@@ -2068,10 +2248,288 @@
           }
         }
       }
+    },
+    "/api/v1/articles/{article_id}/read": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public Mark Read",
+        "operationId": "public_mark_read_api_v1_articles__article_id__read_post",
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public Mark Unread",
+        "operationId": "public_mark_unread_api_v1_articles__article_id__read_delete",
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AdminSettings": {
+        "properties": {
+          "registration_open": {
+            "type": "boolean",
+            "title": "Registration Open"
+          },
+          "default_role": {
+            "type": "string",
+            "enum": [
+              "free",
+              "general",
+              "vip",
+              "editor",
+              "admin"
+            ],
+            "title": "Default Role"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "refresh_cooldown_s": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Refresh Cooldown S"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registration_open",
+          "default_role",
+          "roles",
+          "refresh_cooldown_s"
+        ],
+        "title": "AdminSettings"
+      },
+      "AdminSettingsUpdate": {
+        "properties": {
+          "registration_open": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registration Open"
+          },
+          "default_role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "free",
+                  "general",
+                  "vip",
+                  "editor",
+                  "admin"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Role"
+          }
+        },
+        "type": "object",
+        "title": "AdminSettingsUpdate"
+      },
+      "AdminUserOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "feeds": {
+            "type": "integer",
+            "title": "Feeds",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role",
+          "is_active",
+          "created_at"
+        ],
+        "title": "AdminUserOut"
+      },
+      "AdminUserUpdate": {
+        "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "free",
+                  "general",
+                  "vip",
+                  "editor",
+                  "admin"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "title": "AdminUserUpdate"
+      },
       "ApiKeyCreate": {
         "properties": {
           "name": {
@@ -2829,6 +3287,28 @@
         ],
         "title": "RegisterRequest"
       },
+      "SiteConfig": {
+        "properties": {
+          "registration_open": {
+            "type": "boolean",
+            "title": "Registration Open"
+          },
+          "refresh_cooldown_s": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Refresh Cooldown S"
+          }
+        },
+        "type": "object",
+        "required": [
+          "registration_open",
+          "refresh_cooldown_s"
+        ],
+        "title": "SiteConfig",
+        "description": "Public, unauthenticated instance info for the login screen."
+      },
       "SourceOut": {
         "properties": {
           "id": {
@@ -3067,6 +3547,10 @@
             ],
             "title": "Locale"
           },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
           "is_active": {
             "type": "boolean",
             "title": "Is Active"
@@ -3082,6 +3566,7 @@
           "id",
           "email",
           "locale",
+          "role",
           "is_active",
           "created_at"
         ],
