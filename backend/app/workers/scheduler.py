@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,14 +13,23 @@ from app.models.source import Source
 from app.models.subscription import Subscription
 from app.services.ai import dedup_pending, embed_pending, summarize_pending
 from app.services.ingest import refresh_source
+from app.services.moderation import active_user_ids
 
 log = logging.getLogger("ufeed.ingest")
 
 
 async def select_due_sources(db: AsyncSession, now: datetime, limit: int) -> list[Source]:
-    """Active sources with at least one subscriber whose next_fetch_at has
-    passed (or was never set). Feeds nobody follows aren't polled."""
-    followed = exists().where(Subscription.source_id == Source.id)
+    """Due sources followed by at least one recently active user.
+
+    Feeds nobody follows, or whose followers haven't used the app (web or API
+    key) within `ingest_active_window_h`, aren't polled: returning users sync
+    their own feeds on app open (POST /api/sync) instead.
+    """
+    window = timedelta(hours=settings.ingest_active_window_h)
+    followed = exists().where(
+        Subscription.source_id == Source.id,
+        Subscription.user_id.in_(active_user_ids(window)),
+    )
     stmt = (
         select(Source)
         .where(

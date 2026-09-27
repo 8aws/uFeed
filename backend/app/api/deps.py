@@ -55,6 +55,8 @@ async def get_current_user(
         raise _unauthorized("Session expired; please sign in again.")
     if moderation.is_suspended(user):
         raise _unauthorized("Account suspended.")
+    if moderation.is_dormant(user):
+        raise _unauthorized("Account deactivated for inactivity; sign in to reactivate.")
     await moderation.touch(db, user)
     return user
 
@@ -75,6 +77,9 @@ async def get_api_key(
     owner = await db.get(User, key.user_id)
     if owner is None or not owner.is_active or moderation.is_suspended(owner):
         raise _unauthorized("Account disabled or suspended.")
+    if moderation.is_dormant(owner):
+        # Using the account again (e.g. an app with its key) reclaims it.
+        await moderation.reactivate(db, owner)
     if not await check_rate(f"pub:{key.id}", settings.rate_limit_public_per_min):
         raise AppError(429, "rate_limited", "Rate limit exceeded for this API key.")
     return key

@@ -30,6 +30,7 @@ EXPECTED_PATHS = {
     "/api/admin/users/{user_id}/ban",
     "/api/admin/users/{user_id}/suspend",
     "/api/sources/health",
+    "/api/sync",
     "/api/admin/sources",
 }
 

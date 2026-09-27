@@ -29,3 +29,6 @@ class User(Base, TimestampMixin):
     # Last authenticated web activity (updated at most hourly); with API-key
     # use it drives the inactivity clean-up.
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Deactivated for inactivity at this moment (stage 1). Signing in again or
+    # using an API key reclaims it; otherwise it's deleted later (stage 2).
+    dormant_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

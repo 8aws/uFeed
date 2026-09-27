@@ -134,6 +134,7 @@ export interface AdminSettings {
 	default_role: Role;
 	retention_days: number;
 	inactivity_days: number;
+	dormant_delete_days: number;
 	roles: Role[];
 	refresh_cooldown_s: Record<Role, number>;
 }
@@ -147,6 +148,7 @@ export interface AdminUser {
 	created_at: string;
 	feeds: number;
 	suspended_until: string | null;
+	dormant_since: string | null;
 	last_activity_at: string | null;
 	banned: boolean;
 	ban_until: string | null;
@@ -182,7 +184,14 @@ export interface Maintenance {
 	articles: number;
 	backups: BackupStatus | null;
 	inactivity_days: number;
-	last_inactive_cleanup: { at: string; days: number; deleted_users: number } | null;
+	dormant_delete_days: number;
+	last_inactive_cleanup: {
+		at: string;
+		days: number;
+		delete_days: number;
+		deactivated_users: number;
+		deleted_users: number;
+	} | null;
 }
 
 export type HealthStatus = 'ok' | 'retrying' | 'failing' | 'stale' | 'pending' | 'paused';

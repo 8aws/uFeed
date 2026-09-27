@@ -84,3 +84,12 @@ select {
 .muted {
 	color: var(--muted);
 }
+
+/* Text inputs stretch to their container, but checkboxes/radios must keep their
+   natural size (otherwise they grow to 100% and squeeze their labels). */
+input[type='checkbox'],
+input[type='radio'] {
+	width: auto;
+	flex: none;
+	margin: 0;
+}

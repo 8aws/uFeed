@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
 	import { clearTokens, user } from '$lib/auth';
@@ -110,11 +110,25 @@
 	let showTrending = $state(initialShowTrending());
 
 	let listEl = $state<HTMLElement | null>(null);
+	// Animated scroll to top driven frame by frame. Native smooth scrolling gets
+	// interrupted when content above shifts (lazy images, the trending carousel
+	// appearing) because of scroll anchoring; setting an absolute position on
+	// every frame always lands at the top.
 	function scrollListTop() {
-		listEl?.scrollTo({ top: 0, behavior: 'smooth' });
+		const el = listEl;
+		if (!el || el.scrollTop <= 0) return;
+		const start = el.scrollTop;
+		const t0 = performance.now();
+		const duration = Math.min(500, 180 + start / 8);
+		const step = (now: number) => {
+			const p = Math.min(1, (now - t0) / duration);
+			el.scrollTop = Math.round(start * Math.pow(1 - p, 3));
+			if (p < 1) requestAnimationFrame(step);
+		};
+		requestAnimationFrame(step);
 	}
 
-	function toggleTrending() {
+	async function toggleTrending() {
 		showTrending = !showTrending;
 		try {
 			localStorage.setItem('show_trending', showTrending ? '1' : '0');
@@ -122,8 +136,13 @@
 			/* ignore */
 		}
 		// Turning it on while scrolled down would otherwise leave the bar out of
-		// view — bring the list back to the top so it's visible.
-		if (showTrending) scrollListTop();
+		// view — bring the list back to the top so it's visible. Wait for the
+		// carousel to be in the DOM first: inserting content above the viewport
+		// during a smooth scroll triggers scroll anchoring, which cancels it.
+		if (showTrending) {
+			await tick();
+			scrollListTop();
+		}
 	}
 
 	function setView(v: View) {
@@ -571,7 +590,35 @@
 		loadInsights();
 		// First run: no feeds yet and never onboarded → show the starter flow.
 		if (!onboarded() && subs.length === 0) showOnboarding = true;
+		syncOnOpen();
 	});
+
+	// Feeds are fetched on demand while people use the app (the worker only
+	// polls feeds of recently active users), so pull ours when the app opens.
+	let pendingNew = $state(0);
+	async function syncOnOpen() {
+		try {
+			const r = await api.sync();
+			if (r.new_articles <= 0) return;
+			subs = await api.listSources();
+			const atTop = !listEl || listEl.scrollTop < 40;
+			if (atTop && !openArticle) {
+				await loadArticles(true);
+				refreshMsg = `+${r.new_articles} ${$t('new_items')}`;
+				setTimeout(() => (refreshMsg = ''), 5000);
+			} else {
+				pendingNew = r.new_articles; // don't yank the list while reading
+			}
+		} catch {
+			/* offline or cooling down: nothing to do */
+		}
+	}
+
+	async function showPending() {
+		pendingNew = 0;
+		scrollListTop();
+		await loadArticles(true);
+	}
 
 	onDestroy(() => flushReadEvent());
 </script>
@@ -767,6 +814,9 @@
 			</h2>
 			<div class="actions labels-{$toolbarLabels}">
 				{#if refreshMsg}<span class="refresh-msg muted">{refreshMsg}</span>{/if}
+				{#if pendingNew > 0}
+					<button class="newpill" onclick={showPending}>+{pendingNew} {$t('new_items')}</button>
+				{/if}
 				<div class="viewsel" role="group" aria-label="view">
 					<button class:active={view === 'list'} onclick={() => setView('list')} title={$t('view_list')}>
 						<span class="ico" aria-hidden="true">☰</span><span class="lbl">{$t('view_list')}</span>
@@ -1444,6 +1494,15 @@
 	.htitle {
 		cursor: pointer;
 	}
+	.newpill {
+		flex: none;
+		border-radius: 999px;
+		background: var(--accent);
+		border-color: var(--accent);
+		color: #fff;
+		font-size: 0.8rem;
+		padding: 0.25rem 0.7rem;
+	}
 	.feedwarn {
 		flex: none;
 		color: var(--danger);
@@ -1660,6 +1719,14 @@
 		.sidebar.open {
 			transform: translateX(0);
 		}
+		/* The drawer only scrolls vertically: nothing inside may pan it
+		   sideways (iOS lets wide rows/selects drag the whole panel). */
+		.sidebar {
+			overflow-x: hidden;
+			overscroll-behavior: contain;
+			touch-action: pan-y;
+		}
+
 		.hamburger {
 			display: inline-flex;
 			align-items: center;

@@ -61,6 +61,13 @@ class RefreshResult(BaseModel):
     errors: int
 
 
+class SyncResult(RefreshResult):
+    """Opportunistic refresh on app open; skipped=True when nothing was due or
+    the per-user sync cooldown applies."""
+
+    skipped: bool = False
+
+
 class SubscriptionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

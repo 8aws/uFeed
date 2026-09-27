@@ -21,6 +21,7 @@ class AdminSettings(BaseModel):
     default_role: Role
     retention_days: int
     inactivity_days: int
+    dormant_delete_days: int
     roles: list[str]
     refresh_cooldown_s: dict[str, int]
 
@@ -30,6 +31,7 @@ class AdminSettingsUpdate(BaseModel):
     default_role: Role | None = None
     retention_days: int | None = Field(default=None, ge=0, le=3650)
     inactivity_days: int | None = Field(default=None, ge=0, le=3650)
+    dormant_delete_days: int | None = Field(default=None, ge=0, le=3650)
 
 
 class AdminUserOut(BaseModel):
@@ -43,6 +45,7 @@ class AdminUserOut(BaseModel):
     created_at: datetime
     feeds: int = 0
     suspended_until: datetime | None = None
+    dormant_since: datetime | None = None
     last_activity_at: datetime | None = None
     banned: bool = False
     ban_until: datetime | None = None
@@ -65,6 +68,7 @@ class Maintenance(BaseModel):
     retention_days: int
     last_purge: dict[str, Any] | None = None
     inactivity_days: int = 0
+    dormant_delete_days: int = 0
     last_inactive_cleanup: dict[str, Any] | None = None
     db_size_bytes: int
     articles: int

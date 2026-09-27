@@ -89,3 +89,33 @@ def test_status_for_paused_and_pending() -> None:
     assert source_health.status_for(src, None) == "paused"
     src.is_active = True
     assert source_health.status_for(src, None) == "pending"
+
+
+async def test_scheduler_polls_only_feeds_of_active_users(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    from app.models.user import User
+
+    h, src = await _subscribed(api, db_session, next_fetch_at=None, error_count=0)
+    me = (await api.get("/api/me", headers=h)).json()["id"]
+    due = {s.id for s in await select_due_sources(db_session, datetime.now(UTC), 10_000)}
+    assert src.id in due  # follower just used the app
+
+    old = datetime.now(UTC) - timedelta(days=3)
+    await db_session.execute(
+        update(User).where(User.id == uuid.UUID(me)).values(last_seen_at=old, created_at=old)
+    )
+    await db_session.commit()
+    due = {s.id for s in await select_due_sources(db_session, datetime.now(UTC), 10_000)}
+    assert src.id not in due  # nobody active follows it -> not polled
+
+
+async def test_sync_on_open(api: AsyncClient, db_session: AsyncSession) -> None:
+    h, src = await _subscribed(api, db_session, next_fetch_at=None, error_count=0)
+    first = await api.post("/api/sync", headers=h)
+    assert first.status_code == 200, first.text
+    # Due feeds were found and a refresh ran. (Its per-source sessions can't
+    # see this test's uncommitted rows, so counts aren't asserted here.)
+    assert first.json()["skipped"] is False
+    again = await api.post("/api/sync", headers=h)
+    assert again.json()["skipped"] is True  # per-user cooldown

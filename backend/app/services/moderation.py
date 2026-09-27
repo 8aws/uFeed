@@ -106,29 +106,82 @@ def last_activity_expr():
     return func.greatest(User.last_seen_at, keys, User.created_at)
 
 
-async def purge_inactive(db: AsyncSession, days: int) -> list[str]:
-    """Delete non-admin accounts idle for `days` (0 = never). Returns emails."""
+def is_dormant(user: User) -> bool:
+    return user.dormant_since is not None
+
+
+async def reactivate(db: AsyncSession, user: User) -> User:
+    """Reclaim an account deactivated for inactivity (sign-in or API use)."""
+    user.dormant_since = None
+    user.last_seen_at = now()
+    await db.commit()
+    return user
+
+
+def active_user_ids(window: timedelta):
+    """Users active (web or API key) within `window` and not deactivated."""
+    return select(User.id).where(
+        User.is_active.is_(True),
+        User.dormant_since.is_(None),
+        last_activity_expr() > now() - window,
+    )
+
+
+async def deactivate_inactive(db: AsyncSession, days: int) -> list[str]:
+    """Stage 1: mark non-admin accounts idle for `days` as dormant (0 = never)."""
     if days <= 0:
         return []
     cutoff = now() - timedelta(days=days)
     idle = (
-        (await db.execute(select(User).where(User.role != "admin", last_activity_expr() < cutoff)))
+        (
+            await db.execute(
+                select(User).where(
+                    User.role != "admin",
+                    User.dormant_since.is_(None),
+                    last_activity_expr() < cutoff,
+                )
+            )
+        )
         .scalars()
         .all()
     )
     for user in idle:
-        await db.delete(user)
+        user.dormant_since = now()
+        _signout(user)
     await db.commit()
     return [u.email for u in idle]
+
+
+async def delete_dormant(db: AsyncSession, days: int) -> list[str]:
+    """Stage 2: delete accounts dormant for `days` that nobody reclaimed."""
+    if days <= 0:
+        return []
+    cutoff = now() - timedelta(days=days)
+    gone = (
+        (await db.execute(select(User).where(User.role != "admin", User.dormant_since < cutoff)))
+        .scalars()
+        .all()
+    )
+    for user in gone:
+        await db.delete(user)
+    await db.commit()
+    return [u.email for u in gone]
 
 
 async def run_inactivity_cleanup(db: AsyncSession | None = None) -> dict[str, Any]:
     if db is None:
         async with SessionLocal() as session:
             return await run_inactivity_cleanup(session)
-    days = int((await site_service.get_settings(db))["inactivity_days"])
-    removed = await purge_inactive(db, days)
-    result = {"days": days, "deleted_users": len(removed), "at": now().isoformat()}
+    cfg = await site_service.get_settings(db)
+    deleted = await delete_dormant(db, int(cfg["dormant_delete_days"]))
+    deactivated = await deactivate_inactive(db, int(cfg["inactivity_days"]))
+    result = {
+        "days": int(cfg["inactivity_days"]),
+        "delete_days": int(cfg["dormant_delete_days"]),
+        "deactivated_users": len(deactivated),
+        "deleted_users": len(deleted),
+        "at": now().isoformat(),
+    }
     await site_service.set_internal(db, "last_inactive_cleanup", result)
-    log.info("inactivity clean-up (%sd): %s", days, result)
+    log.info("inactivity clean-up: %s", result)
     return result

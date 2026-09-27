@@ -130,6 +130,7 @@ export const api = {
 		default_role?: Role;
 		retention_days?: number;
 		inactivity_days?: number;
+		dormant_delete_days?: number;
 	}) =>
 		request<AdminSettings>('/admin/settings', { method: 'PATCH', body }),
 	adminUsers: () => request<AdminUser[]>('/admin/users'),
@@ -149,6 +150,8 @@ export const api = {
 		request<AdminUser>(`/admin/users/${id}/suspend`, { method: 'DELETE' }),
 	banUser: (id: string, days: number | null, reason?: string) =>
 		request<AdminUser>(`/admin/users/${id}/ban`, { method: 'POST', body: { days, reason } }),
+	reactivateUser: (id: string) =>
+		request<AdminUser>(`/admin/users/${id}/reactivate`, { method: 'POST' }),
 	unbanUser: (id: string) => request<AdminUser>(`/admin/users/${id}/ban`, { method: 'DELETE' }),
 	deleteUser: (id: string) => request<unknown>(`/admin/users/${id}`, { method: 'DELETE' }),
 	listBans: () => request<Ban[]>('/admin/bans'),
@@ -175,6 +178,12 @@ export const api = {
 	updateSubscription: (id: string, body: { folder_id?: string | null; custom_title?: string }) =>
 		request<Subscription>(`/sources/${id}`, { method: 'PATCH', body }),
 	unsubscribe: (id: string) => request<unknown>(`/sources/${id}`, { method: 'DELETE' }),
+	// Opportunistic fetch of this user's due feeds when the app opens.
+	sync: () =>
+		request<{ checked: number; new_articles: number; errors: number; skipped: boolean }>(
+			'/sync',
+			{ method: 'POST' }
+		),
 	refresh: (source?: string) =>
 		request<{ checked: number; new_articles: number; errors: number }>(
 			`/refresh${source ? `?source=${source}` : ''}`,

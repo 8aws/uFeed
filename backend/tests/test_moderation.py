@@ -138,36 +138,74 @@ async def test_activity_is_recorded(api: AsyncClient, db_session: AsyncSession) 
     assert seen > old + timedelta(days=9)
 
 
-async def test_inactive_accounts_are_purged(api: AsyncClient, db_session: AsyncSession) -> None:
+async def _aged_user(api, db, role: str, key_used_recently: bool = False):
     old = datetime.now(UTC) - timedelta(days=400)
-
-    async def make(role: str, key_used_recently: bool = False) -> uuid.UUID:
-        r = await _register(api)
-        uid = uuid.UUID(r.json()["user"]["id"])
-        await db_session.execute(
-            update(User).where(User.id == uid).values(role=role, created_at=old, last_seen_at=old)
-        )
-        if key_used_recently:
-            k = await api.post("/api/keys", headers=_h(r), json={"name": "k", "scopes": []})
-            await db_session.execute(
-                update(ApiKey)
-                .where(ApiKey.id == uuid.UUID(k.json()["id"]))
-                .values(last_used_at=datetime.now(UTC))
-            )
-        await db_session.commit()
-        return uid
-
-    idle = await make("free")
-    idle_admin = await make("admin")
-    uses_api = await make("general", key_used_recently=True)
-
-    removed = await moderation.purge_inactive(db_session, 180)
-    ids = set(
-        (await db_session.execute(select(User.id).where(User.id.in_([idle, idle_admin, uses_api]))))
-        .scalars()
-        .all()
+    r = await _register(api)
+    uid = uuid.UUID(r.json()["user"]["id"])
+    await db.execute(
+        update(User).where(User.id == uid).values(role=role, created_at=old, last_seen_at=old)
     )
-    assert idle not in ids and len(removed) >= 1
-    assert idle_admin in ids  # admins are never auto-deleted
-    assert uses_api in ids  # API-key use counts as activity
-    assert await moderation.purge_inactive(db_session, 0) == []
+    key = None
+    if key_used_recently:
+        k = await api.post("/api/keys", headers=_h(r), json={"name": "k", "scopes": []})
+        key = k.json()["key"]
+        await db.execute(
+            update(ApiKey)
+            .where(ApiKey.id == uuid.UUID(k.json()["id"]))
+            .values(last_used_at=datetime.now(UTC))
+        )
+    await db.commit()
+    return uid, r.json()["user"]["email"], key
+
+
+async def test_inactivity_deactivates_then_deletes(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    idle, _, _ = await _aged_user(api, db_session, "free")
+    idle_admin, _, _ = await _aged_user(api, db_session, "admin")
+    uses_api, _, _ = await _aged_user(api, db_session, "general", key_used_recently=True)
+
+    # Stage 1: idle accounts are deactivated, not deleted.
+    await moderation.deactivate_inactive(db_session, 180)
+    dormant = await db_session.scalar(select(User.dormant_since).where(User.id == idle))
+    assert dormant is not None
+    for keep in (idle_admin, uses_api):  # admins and API users stay active
+        assert await db_session.scalar(select(User.dormant_since).where(User.id == keep)) is None
+
+    # Stage 2: only after the dormant period, and only if nobody reclaimed it.
+    assert await moderation.delete_dormant(db_session, 180) == []
+    await db_session.execute(
+        update(User)
+        .where(User.id == idle)
+        .values(dormant_since=datetime.now(UTC) - timedelta(days=200))
+    )
+    await db_session.commit()
+    await moderation.delete_dormant(db_session, 180)
+    assert await db_session.scalar(select(User.id).where(User.id == idle)) is None
+    assert await moderation.deactivate_inactive(db_session, 0) == []
+
+
+async def test_dormant_account_is_reclaimed_by_login_or_api(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    uid, email, _ = await _aged_user(api, db_session, "free")
+    await moderation.deactivate_inactive(db_session, 180)
+    login = await _login(api, email)
+    assert login.status_code == 200
+    assert await db_session.scalar(select(User.dormant_since).where(User.id == uid)) is None
+
+    uid2, _, key = await _aged_user(api, db_session, "free", key_used_recently=True)
+    await db_session.execute(
+        update(User).where(User.id == uid2).values(dormant_since=datetime.now(UTC))
+    )
+    await db_session.commit()
+    assert (await api.get("/api/v1/sources", headers={"X-API-Key": key})).status_code == 200
+    assert await db_session.scalar(select(User.dormant_since).where(User.id == uid2)) is None
+
+
+async def test_admin_reactivates_dormant(api: AsyncClient, db_session: AsyncSession) -> None:
+    admin = await _admin(api, db_session)
+    uid, _, _ = await _aged_user(api, db_session, "free")
+    await moderation.deactivate_inactive(db_session, 180)
+    r = await api.post(f"/api/admin/users/{uid}/reactivate", headers=admin)
+    assert r.status_code == 200 and r.json()["dormant_since"] is None

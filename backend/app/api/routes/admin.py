@@ -87,6 +87,7 @@ def _settings_out(cfg: dict) -> AdminSettings:
         default_role=cfg["default_role"],
         retention_days=cfg["retention_days"],
         inactivity_days=cfg["inactivity_days"],
+        dormant_delete_days=cfg["dormant_delete_days"],
         roles=list(ROLES),
         refresh_cooldown_s=dict(REFRESH_COOLDOWN_S),
     )
@@ -176,6 +177,7 @@ async def maintenance(_: AdminUser, db: DbSession) -> Maintenance:
         retention_days=cfg["retention_days"],
         last_purge=await site_service.get_internal(db, "last_purge"),
         inactivity_days=cfg["inactivity_days"],
+        dormant_delete_days=cfg["dormant_delete_days"],
         last_inactive_cleanup=await site_service.get_internal(db, "last_inactive_cleanup"),
         db_size_bytes=int(size or 0),
         articles=int(count or 0),
@@ -207,6 +209,14 @@ async def suspend_user(
 async def unsuspend_user(user_id: uuid.UUID, admin: AdminUser, db: DbSession) -> AdminUserOut:
     target = await _target(db, user_id, admin)
     await moderation.lift(db, target)
+    return await _user_row(db, target)
+
+
+@router.post("/users/{user_id}/reactivate", response_model=AdminUserOut)
+async def reactivate_user(user_id: uuid.UUID, admin: AdminUser, db: DbSession) -> AdminUserOut:
+    """Undo a deactivation for inactivity (stops the pending deletion)."""
+    target = await _target(db, user_id, admin)
+    await moderation.reactivate(db, target)
     return await _user_row(db, target)
 
 

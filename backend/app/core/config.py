@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     # Ingestion worker
     ingest_tick_s: int = Field(default=60)  # how often the scheduler wakes up
     ingest_batch: int = Field(default=20)  # max sources processed per tick
+    # Activity-driven ingest: the worker only polls feeds followed by someone
+    # active (web or API key) within this window; returning users trigger a
+    # sync of their own feeds on app open (POST /api/sync).
+    ingest_active_window_h: int = Field(default=6)
+    sync_cooldown_s: int = Field(default=300)  # per user, separate from plan limits
+    sync_budget_s: float = Field(default=12.0)  # max time a sync request waits
     ingest_default_interval_s: int = Field(default=900)  # base poll interval
     ingest_max_interval_s: int = Field(default=21_600)  # backoff cap (6h)
     http_timeout_s: float = Field(default=20.0)

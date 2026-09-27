@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 from fastapi import APIRouter, UploadFile
@@ -7,6 +8,7 @@ from fastapi.responses import Response
 
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import AppError
+from app.core.config import settings
 from app.core.netguard import public_client
 from app.core.ratelimit import cooldown
 from app.core.roles import refresh_cooldown
@@ -19,6 +21,7 @@ from app.schemas.source import (
     SubscribeRequest,
     SubscriptionOut,
     SubscriptionUpdate,
+    SyncResult,
 )
 from app.services import discovery as discovery_service
 from app.services import folders as folder_service
@@ -71,6 +74,32 @@ def health_out(row: source_health.HealthRow) -> SourceHealthOut:
 async def sources_health(user: CurrentUser, db: DbSession) -> list[SourceHealthOut]:
     """Your feeds with their health status, problems first."""
     return [health_out(r) for r in await source_health.for_user(db, user.id)]
+
+
+@router.post("/sync", response_model=SyncResult)
+async def sync(user: CurrentUser, db: DbSession) -> SyncResult:
+    """Called when the app opens: fetch this user's feeds that are due.
+
+    This is what keeps content fresh for returning users (the worker only polls
+    feeds of recently active users). Doesn't spend the plan's manual-refresh
+    cooldown; has its own short per-user cooldown and a time budget.
+    """
+    if await cooldown(f"sync:{user.id}", settings.sync_cooldown_s):
+        return SyncResult(checked=0, new_articles=0, errors=0, skipped=True)
+    due = await sub_service.due_source_ids_for(db, user.id)
+    if not due:
+        return SyncResult(checked=0, new_articles=0, errors=0, skipped=True)
+    try:
+        summary = await asyncio.wait_for(
+            ingest_service.refresh_sources(due), timeout=settings.sync_budget_s
+        )
+    except TimeoutError:
+        # Sources finish independently; the rest is picked up by the worker
+        # now that this user counts as active.
+        return SyncResult(checked=0, new_articles=0, errors=0, skipped=False)
+    return SyncResult(
+        checked=summary.checked, new_articles=summary.new_articles, errors=summary.errors
+    )
 
 
 @router.post("/refresh", response_model=RefreshResult)

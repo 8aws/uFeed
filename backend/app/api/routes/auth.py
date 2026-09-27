@@ -60,6 +60,8 @@ async def login(body: LoginRequest, db: DbSession) -> Tokens:
     if moderation.is_suspended(user):
         until = user.suspended_until.isoformat() if user.suspended_until else ""
         raise AppError(403, "account_suspended", f"This account is suspended until {until}.")
+    if moderation.is_dormant(user):
+        await moderation.reactivate(db, user)  # signing in reclaims the account
     await moderation.touch(db, user)
     return _tokens_for(user)
 

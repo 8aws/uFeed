@@ -26,10 +26,17 @@
 	function fmtDate(iso: string): string {
 		return new Date(iso).toLocaleDateString($locale);
 	}
-	function deletesIn(u: AdminUser): number | null {
+	// Days until an idle account is deactivated (stage 1), or null if exempt.
+	function deactivatesIn(u: AdminUser): number | null {
 		const lim = settings?.inactivity_days ?? 0;
-		if (!lim || u.role === 'admin') return null;
+		if (!lim || u.role === 'admin' || u.dormant_since) return null;
 		return Math.max(0, lim - daysSince(u.last_activity_at));
+	}
+	// Days until a deactivated account is deleted (stage 2), or null.
+	function deletesIn(u: AdminUser): number | null {
+		const lim = settings?.dormant_delete_days ?? 0;
+		if (!lim || !u.dormant_since) return null;
+		return Math.max(0, lim - daysSince(u.dormant_since));
 	}
 	function suspended(u: AdminUser): boolean {
 		return !!u.suspended_until && new Date(u.suspended_until).getTime() > Date.now();
@@ -50,6 +57,7 @@
 					updated = await api.banUser(u.id, null);
 				} else if (action.startsWith('ban:')) updated = await api.banUser(u.id, Number(action.slice(4)));
 				else if (action === 'unban') updated = await api.unbanUser(u.id);
+				else if (action === 'reactivate') updated = await api.reactivateUser(u.id);
 				else return;
 				users = users.map((x) => (x.id === u.id ? updated : x));
 			}
@@ -177,7 +185,9 @@
 		return $t(`role_${r}` as 'role_free');
 	}
 	function limit(secs: number): string {
-		return secs > 0 ? `${Math.round(secs / 60)} min` : $t('immediate');
+		return secs > 0
+			? `${$t('refresh_every')} ${Math.round(secs / 60)} min`
+			: $t('refresh_immediate');
 	}
 	function saved() {
 		flash = $t('saved_ok');
@@ -207,6 +217,7 @@
 		default_role?: Role;
 		retention_days?: number;
 		inactivity_days?: number;
+		dormant_delete_days?: number;
 	}) {
 		try {
 			settings = await api.updateAdminSettings(body);
@@ -272,7 +283,7 @@
 					{#each settings.roles as r (r)}
 						<tr>
 							<td>{roleName(r)}</td>
-							<td class="muted">{$t('refresh_every')} {limit(settings.refresh_cooldown_s[r])}</td>
+							<td class="muted">{limit(settings.refresh_cooldown_s[r])}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -311,7 +322,7 @@
 			</ul>
 			<div class="row spaced">
 				<label class="field inline">
-					{$t('inactivity')}
+					{$t('deactivate_after')}
 					<select
 						value={settings.inactivity_days}
 						onchange={(e) => setInactivity(Number(e.currentTarget.value))}
@@ -321,15 +332,27 @@
 						{/each}
 					</select>
 				</label>
+				<label class="field inline">
+					{$t('delete_deactivated_after')}
+					<select
+						value={settings.dormant_delete_days}
+						onchange={(e) => saveSettings({ dormant_delete_days: Number(e.currentTarget.value) })}
+					>
+						{#each [90, 180, 365, 0].includes(settings.dormant_delete_days) ? [90, 180, 365, 0] : [90, 180, 365, 0, settings.dormant_delete_days] as d (d)}
+							<option value={d}>{d === 0 ? $t('never') : `${d} ${$t('days')}`}</option>
+						{/each}
+					</select>
+				</label>
 				<button onclick={cleanupInactive} disabled={cleaning || settings.inactivity_days === 0}>
 					{cleaning ? '…' : $t('run_now')}
 				</button>
 			</div>
-			<p class="muted small">{$t('inactivity_hint')}</p>
+			<p class="muted small">{$t('inactivity_hint2')}</p>
 			{#if maint.last_inactive_cleanup}
 				<ul class="facts">
 					<li>
 						{$t('last_inactive_cleanup')}: {relativeTime(maint.last_inactive_cleanup.at, $locale)} ·
+						{maint.last_inactive_cleanup.deactivated_users ?? 0} {$t('accounts_deactivated')} ·
 						{maint.last_inactive_cleanup.deleted_users} {$t('accounts_deleted')}
 					</li>
 				</ul>
@@ -383,8 +406,10 @@
 							{:else if suspended(u)}
 								<span class="badge warn">⏸ {$t('suspended_until')} {fmtDate(u.suspended_until!)}</span>
 							{/if}
-							{#if !self && deletesIn(u) !== null && daysSince(u.last_activity_at) > 30}
-								<span class="badge">💤 {$t('inactive_for')} {daysSince(u.last_activity_at)} {$t('days')} · {$t('deletes_in')} {deletesIn(u)} {$t('days')}</span>
+							{#if u.dormant_since}
+								<span class="badge warn">💤 {$t('dormant_since')} {fmtDate(u.dormant_since)}{#if deletesIn(u) !== null} · {$t('deletes_in')} {deletesIn(u)} {$t('days')}{/if}</span>
+							{:else if !self && deactivatesIn(u) !== null && daysSince(u.last_activity_at) > 30}
+								<span class="badge">💤 {$t('inactive_for')} {daysSince(u.last_activity_at)} {$t('days')} · {$t('deactivates_in')} {deactivatesIn(u)} {$t('days')}</span>
 							{/if}
 						</span>
 					</div>
@@ -417,6 +442,9 @@
 								}}
 							>
 								<option value="" disabled>{$t('moderation')}…</option>
+								{#if u.dormant_since}
+									<option value="reactivate">▶ {$t('reactivate')}</option>
+								{/if}
 								{#if suspended(u)}
 									<option value="lift">▶ {$t('lift_suspension')}</option>
 								{:else}
@@ -681,6 +709,24 @@
 		display: flex;
 		flex-direction: column;
 		min-width: 0;
+		flex: 1;
+	}
+	.srcinfo .ellipsis {
+		display: block;
+	}
+	/* Narrow screens: user controls wrap under the name instead of pushing
+	   the page wider than the viewport. */
+	@media (max-width: 640px) {
+		.users li {
+			flex-wrap: wrap;
+		}
+		.uctl {
+			width: 100%;
+			justify-content: flex-start;
+		}
+		.row input[type='email'] {
+			flex: 1 1 100%;
+		}
 	}
 	.st {
 		font-size: 0.72rem;

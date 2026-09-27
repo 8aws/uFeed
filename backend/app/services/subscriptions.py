@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 from sqlalchemy import and_, func, or_, select
@@ -76,6 +77,21 @@ async def source_ids_for(
     if source_id is not None:
         stmt = stmt.where(Subscription.source_id == source_id)
     return list((await db.execute(stmt)).scalars().all())
+
+
+async def due_source_ids_for(db: AsyncSession, user_id: uuid.UUID) -> list[uuid.UUID]:
+    """The user's active feeds whose next fetch time has come (or never fetched)."""
+    now = datetime.now(UTC)
+    rows = await db.execute(
+        select(Source.id)
+        .join(Subscription, Subscription.source_id == Source.id)
+        .where(
+            Subscription.user_id == user_id,
+            Source.is_active.is_(True),
+            or_(Source.next_fetch_at.is_(None), Source.next_fetch_at <= now),
+        )
+    )
+    return list(rows.scalars().all())
 
 
 def is_feed_url(url: str) -> bool:

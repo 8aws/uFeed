@@ -16,8 +16,11 @@ DEFAULTS: dict[str, Any] = {
     "default_role": DEFAULT_SIGNUP_ROLE,
     # Days of articles to keep (0 = forever); saved/favourites are always kept.
     "retention_days": 90,
-    # Delete non-admin accounts idle this many days (0 = never).
+    # Stage 1: deactivate non-admin accounts idle this many days (0 = never).
     "inactivity_days": 180,
+    # Stage 2: delete deactivated accounts nobody reclaimed after this many
+    # more days (0 = never delete).
+    "dormant_delete_days": 180,
 }
 
 
