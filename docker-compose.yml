@@ -98,7 +98,9 @@ services:
       # Behind an external TLS proxy (e.g. Cosmos on the QNAP), leave
       # UFEED_DOMAIN unset and point it at http://<beelink-ip>:${UFEED_HTTP_PORT}.
       - "${UFEED_HTTP_PORT:-80}:80"
-      - "${UFEED_HTTPS_PORT:-443}:443"
+      # Behind an external TLS proxy set UFEED_HTTPS_BIND=127.0.0.1 so the
+      # (unused) HTTPS port isn't exposed on the network.
+      - "${UFEED_HTTPS_BIND:-0.0.0.0}:${UFEED_HTTPS_PORT:-443}:443"
 
 volumes:
   pgdata:

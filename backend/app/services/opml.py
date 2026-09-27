@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.folder import Folder
-from app.services.subscriptions import list_subscriptions, subscribe
+from app.services.subscriptions import is_feed_url, list_subscriptions, subscribe
 
 # --- Export ------------------------------------------------------------------
 
@@ -89,7 +89,10 @@ async def import_opml(db: AsyncSession, user_id: uuid.UUID, content: bytes) -> t
         nonlocal imported, skipped
         feed_url = outline.get("xmlUrl")
         if feed_url:
-            _, created = await subscribe(db, user_id, feed_url, folder_id)
+            if not is_feed_url(feed_url):
+                skipped += 1
+                return
+            _, created = await subscribe(db, user_id, feed_url.strip(), folder_id)
             if created:
                 imported += 1
             else:

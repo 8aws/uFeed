@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from time import struct_time
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import feedparser
 import httpx
@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.netguard import public_client
 from app.db.session import SessionLocal
 from app.models.article import Article
 from app.models.source import Source
@@ -123,10 +124,25 @@ def _entry_tags(entry: dict) -> list[str]:
     return out[:10]
 
 
+def http_url(url: str | None, base: str | None = None) -> str | None:
+    """Keep only absolute http(s) URLs (resolving relative ones against `base`).
+
+    Feed-supplied links end up in href/src attributes; a `javascript:` link
+    would run in the reader when clicked, so anything else is dropped.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    url = url.strip()
+    if base and not urlsplit(url).scheme:
+        url = urljoin(base, url)
+    parts = urlsplit(url)
+    return url if parts.scheme in ("http", "https") and parts.netloc else None
+
+
 def _feed_favicon(feed: dict, site_url: str | None) -> str | None:
     image = feed.get("image")
-    if isinstance(image, dict) and image.get("href"):
-        return image["href"]
+    if isinstance(image, dict) and http_url(image.get("href"), site_url):
+        return http_url(image.get("href"), site_url)
     if site_url:
         parts = urlsplit(site_url)
         if parts.scheme and parts.netloc:
@@ -144,22 +160,23 @@ def parse_feed(content: bytes, feed_lang_fallback: str | None = None) -> ParsedF
     for entry in parsed.get("entries", []):
         published = _struct_to_dt(entry.get("published_parsed") or entry.get("updated_parsed"))
         content_html = _entry_content_html(entry)
+        link = http_url(entry.get("link"))
         articles.append(
             ParsedArticle(
                 guid=_entry_guid(entry),
-                url=entry.get("link"),
+                url=link,
                 title=entry.get("title"),
                 author=entry.get("author"),
                 content_html=content_html,
                 summary=entry.get("summary"),
                 lang=entry.get("language") or feed_lang,
                 published_at=published,
-                image_url=_entry_image(entry, content_html),
+                image_url=http_url(_entry_image(entry, content_html), link),
                 word_count=_word_count(content_html),
                 tags=_entry_tags(entry),
             )
         )
-    site_url = feed.get("link")
+    site_url = http_url(feed.get("link"))
     return ParsedFeed(
         title=feed.get("title"),
         site_url=site_url,
@@ -291,7 +308,7 @@ async def fetch_og_image(client: httpx.AsyncClient, url: str) -> str | None:
     for rx in (_OG_RE, _OG_RE_REV):
         m = rx.search(html)
         if m:
-            return m.group(1)
+            return http_url(m.group(1), url)
     return None
 
 
@@ -347,6 +364,8 @@ async def refresh_source(
 
     if result.status == "error":
         source.error_count += 1
+        source.last_error = (result.error or "fetch failed")[:500]
+        source.last_error_at = now
         source.next_fetch_at = compute_next_fetch(
             source.fetch_interval_s, source.error_count, now=now
         )
@@ -368,6 +387,7 @@ async def refresh_source(
 
     # Success (ok or not_modified): clear errors and schedule normally.
     source.error_count = 0
+    source.last_error = None
     source.last_fetch_at = now
     source.next_fetch_at = compute_next_fetch(source.fetch_interval_s, 0, now=now)
     await db.commit()
@@ -389,7 +409,7 @@ async def refresh_sources(source_ids: list[uuid.UUID], concurrency: int = 6) -> 
         return summary
     sem = asyncio.Semaphore(concurrency)
 
-    async with httpx.AsyncClient() as client:
+    async with public_client() as client:
 
         async def one(sid: uuid.UUID) -> None:
             async with sem, SessionLocal() as session:

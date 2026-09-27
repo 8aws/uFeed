@@ -47,10 +47,13 @@
 			}
 			await goto('/');
 		} catch (e) {
+			const known = ['account_suspended', 'account_disabled', 'registration_banned'] as const;
 			if (e instanceof ApiError && e.code === 'registration_closed') {
 				registrationOpen = false;
 				mode = 'login';
 				error = $t('registration_closed');
+			} else if (e instanceof ApiError && (known as readonly string[]).includes(e.code)) {
+				error = $t(e.code as (typeof known)[number]);
 			} else {
 				error = mode === 'login' ? $t('login_failed') : $t('register_failed');
 			}

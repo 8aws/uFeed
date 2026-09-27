@@ -6,7 +6,29 @@ const config = {
 	preprocess: vitePreprocess(),
 	kit: {
 		// SPA: fallback so client-side routing handles every path.
-		adapter: adapter({ fallback: 'index.html' })
+		adapter: adapter({ fallback: 'index.html' }),
+		// Content-Security-Policy (emitted as a <meta> tag with hashes for the
+		// inline bootstrap script). Only our own scripts can run, so injected
+		// markup in third-party feed content can't execute or exfiltrate.
+		csp: {
+			mode: 'hash',
+			directives: {
+				'default-src': ['self'],
+				'script-src': ['self'],
+				'style-src': ['self', 'unsafe-inline'],
+				'img-src': ['self', 'https:', 'data:', 'blob:'],
+				'media-src': ['self', 'https:'],
+				'font-src': ['self', 'data:'],
+				'connect-src': ['self'],
+				'worker-src': ['self'],
+				'manifest-src': ['self'],
+				'frame-src': ['none'],
+				'object-src': ['none'],
+				'base-uri': ['self'],
+				'form-action': ['self'],
+				'upgrade-insecure-requests': true
+			}
+		}
 	}
 };
 

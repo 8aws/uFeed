@@ -182,6 +182,32 @@ files. Drop `compose.npu.yml` from the list on hosts without `/dev/accel/accel0`
 Migrations run automatically. Zero-config; the SPA is served fresh (the service
 worker is network-first for navigations).
 
+## Security hardening (checklist)
+
+Already in place in the app and stack:
+- **SSRF guard**: every server-side fetch (feeds, discovery, og:image) and each
+  redirect hop must resolve to public IPs; LAN/Docker/localhost are refused
+  (`ALLOW_PRIVATE_FEEDS=true` only for trusted single-user installs).
+- **XSS**: feed HTML is sanitised twice (feedparser server-side, DOMPurify in
+  the reader); feed links/images are kept only if `http(s)`; a CSP
+  (`script-src 'self'` + hashes) blocks injected scripts.
+- **Auth**: bcrypt, per-IP rate limits on login/sign-up (real client IP via
+  `TRUSTED_PROXIES`), sessions revoked on password change/reset, suspension,
+  ban or deactivation; API keys hashed, scoped and rate-limited.
+- **Proxy**: security headers, no `Server`/`Via`, 404 for scanner probes
+  (`/.env`, `/.git`, `*.php`, …), `/docs` and `/openapi.json` off with `ENV=prod`.
+
+On the box (`.env`):
+```bash
+ENV=prod
+UFEED_HTTPS_BIND=127.0.0.1        # uFeed's own HTTPS port unused behind Cosmos
+TRUSTED_PROXIES=<cosmos-ip>/32    # only the external proxy may set X-Forwarded-For
+ALLOW_PRIVATE_FEEDS=false
+```
+and `chmod 600 .env` (backups are written owner-only by `backup.sh`).
+Only `UFEED_HTTP_PORT` needs to be reachable, and only from the external
+proxy — firewall it to that IP if the host's other services allow it.
+
 ## Notes / architecture
 
 - Only the **proxy** publishes a port (`UFEED_HTTP_PORT`). Postgres and the

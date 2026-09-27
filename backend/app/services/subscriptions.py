@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -75,6 +76,13 @@ async def source_ids_for(
     if source_id is not None:
         stmt = stmt.where(Subscription.source_id == source_id)
     return list((await db.execute(stmt)).scalars().all())
+
+
+def is_feed_url(url: str) -> bool:
+    """Only absolute http(s) URLs of sane length can be subscribed."""
+    url = (url or "").strip()
+    parts = urlsplit(url)
+    return len(url) <= 2048 and parts.scheme in ("http", "https") and bool(parts.hostname)
 
 
 async def subscribe(

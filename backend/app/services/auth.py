@@ -9,7 +9,6 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     hash_password,
-    verify_password,
 )
 from app.models.user import User
 from app.schemas.auth import Tokens
@@ -32,15 +31,6 @@ async def create_user(
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    return user
-
-
-async def authenticate(db: AsyncSession, email: str, password: str) -> User | None:
-    user = await get_user_by_email(db, email)
-    if user is None or not user.is_active:
-        return None
-    if not verify_password(password, user.password_hash):
-        return None
     return user
 
 

@@ -29,4 +29,7 @@ class Source(Base):
     )
     fetch_interval_s: Mapped[int] = mapped_column(Integer, default=900, nullable=False)
     error_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Last fetch failure (cleared on success) for the feed-health views.
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_error_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

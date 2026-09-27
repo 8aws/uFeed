@@ -7,9 +7,11 @@
 # Usage: ./scripts/backup.sh   (stack must be up; safe to run from cron)
 # Exit: 0 ok, 1 local dump failed, 2 dump ok but the off-box copy failed.
 set -uo pipefail
+umask 077 # dumps contain emails and password hashes: owner-only
 
 cd "$(dirname "$0")/.."
 mkdir -p backups
+chmod 700 backups
 
 env_get() { grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2-; }
 POSTGRES_USER="$(env_get POSTGRES_USER)"; POSTGRES_USER="${POSTGRES_USER:-ufeed}"

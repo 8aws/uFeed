@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends
 from app.api.deps import DbSession, rate_limit_auth
 from app.api.errors import AppError
 from app.core.config import settings
-from app.core.security import decode_token, token_version_ok, user_id_from_sub
+from app.core.security import (
+    decode_token,
+    token_version_ok,
+    user_id_from_sub,
+    verify_password,
+)
 from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
@@ -16,6 +21,7 @@ from app.schemas.auth import (
     Tokens,
 )
 from app.services import auth as auth_service
+from app.services import moderation
 from app.services import site as site_service
 
 router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(rate_limit_auth)])
@@ -31,6 +37,8 @@ async def register(body: RegisterRequest, db: DbSession) -> AuthResponse:
         raise AppError(409, "email_taken", "That email is already registered.")
     # The first account of an empty instance can always register and becomes
     # the admin; after that, admins can close sign-ups and pick the default plan.
+    if await moderation.active_ban(db, body.email):
+        raise AppError(403, "registration_banned", "This email can't register an account.")
     cfg = await site_service.get_settings(db)
     first = await site_service.user_count(db) == 0
     if not first and not cfg["registration_open"]:
@@ -43,9 +51,16 @@ async def register(body: RegisterRequest, db: DbSession) -> AuthResponse:
 
 @router.post("/login", response_model=Tokens)
 async def login(body: LoginRequest, db: DbSession) -> Tokens:
-    user = await auth_service.authenticate(db, body.email, body.password)
-    if user is None:
+    user = await auth_service.get_user_by_email(db, body.email)
+    if user is None or not verify_password(body.password, user.password_hash):
         raise AppError(401, "invalid_credentials", "Invalid email or password.")
+    # Only reveal the account's status to someone who knows the password.
+    if not user.is_active:
+        raise AppError(403, "account_disabled", "This account is disabled.")
+    if moderation.is_suspended(user):
+        until = user.suspended_until.isoformat() if user.suspended_until else ""
+        raise AppError(403, "account_suspended", f"This account is suspended until {until}.")
+    await moderation.touch(db, user)
     return _tokens_for(user)
 
 
@@ -61,6 +76,6 @@ async def refresh(body: RefreshRequest, db: DbSession) -> Tokens:
     user = await db.get(User, user_id) if user_id else None
     if user is None or not user.is_active:
         raise AppError(401, "invalid_token", "User not found or inactive.")
-    if not token_version_ok(payload, user.token_version):
+    if not token_version_ok(payload, user.token_version) or moderation.is_suspended(user):
         raise AppError(401, "invalid_token", "Session expired; please sign in again.")
     return _tokens_for(user)

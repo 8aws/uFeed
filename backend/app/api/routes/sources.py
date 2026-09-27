@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import uuid
 
-import httpx
 from fastapi import APIRouter, UploadFile
 from fastapi.responses import Response
 
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import AppError
+from app.core.netguard import public_client
 from app.core.ratelimit import cooldown
 from app.core.roles import refresh_cooldown
 from app.schemas.common import OkResponse
 from app.schemas.discover import DiscoveredFeed, DiscoverRequest, OpmlImportResult
 from app.schemas.source import (
     RefreshResult,
+    SourceHealthOut,
     SourceOut,
     SubscribeRequest,
     SubscriptionOut,
@@ -23,8 +24,11 @@ from app.services import discovery as discovery_service
 from app.services import folders as folder_service
 from app.services import ingest as ingest_service
 from app.services import opml as opml_service
+from app.services import source_health
 from app.services import subscriptions as sub_service
 from app.services.subscriptions import SubscriptionRow
+
+MAX_OPML_BYTES = 2 * 1024 * 1024
 
 router = APIRouter(tags=["sources"])
 
@@ -43,6 +47,30 @@ def _to_out(row: SubscriptionRow) -> SubscriptionOut:
 async def list_sources(user: CurrentUser, db: DbSession) -> list[SubscriptionOut]:
     rows = await sub_service.list_subscriptions(db, user.id)
     return [_to_out(r) for r in rows]
+
+
+def health_out(row: source_health.HealthRow) -> SourceHealthOut:
+    src = row.source
+    return SourceHealthOut(
+        source_id=src.id,
+        subscription_id=row.subscription_id,
+        title=row.title,
+        feed_url=src.feed_url,
+        site_url=src.site_url,
+        status=row.status,
+        error_count=src.error_count,
+        last_error=src.last_error,
+        last_error_at=src.last_error_at,
+        last_fetch_at=src.last_fetch_at,
+        last_article_at=row.last_article_at,
+        subscribers=row.subscribers,
+    )
+
+
+@router.get("/sources/health", response_model=list[SourceHealthOut])
+async def sources_health(user: CurrentUser, db: DbSession) -> list[SourceHealthOut]:
+    """Your feeds with their health status, problems first."""
+    return [health_out(r) for r in await source_health.for_user(db, user.id)]
 
 
 @router.post("/refresh", response_model=RefreshResult)
@@ -90,7 +118,7 @@ async def subscribe(body: SubscribeRequest, user: CurrentUser, db: DbSession) ->
     # of waiting for the next worker tick. Best-effort; the worker retries.
     if row.source.last_fetch_at is None:
         try:
-            async with httpx.AsyncClient() as client:
+            async with public_client() as client:
                 await ingest_service.refresh_source(db, client, row.source)
             row = await sub_service.get_subscription_row(db, user.id, sub.id)
             assert row is not None
@@ -133,13 +161,15 @@ async def unsubscribe(subscription_id: uuid.UUID, user: CurrentUser, db: DbSessi
 
 @router.post("/discover", response_model=list[DiscoveredFeed])
 async def discover(body: DiscoverRequest, user: CurrentUser) -> list[DiscoveredFeed]:
-    async with httpx.AsyncClient() as client:
+    async with public_client() as client:
         return await discovery_service.discover_feeds(client, body.url)
 
 
 @router.post("/opml/import", response_model=OpmlImportResult)
 async def opml_import(user: CurrentUser, db: DbSession, file: UploadFile) -> OpmlImportResult:
-    content = await file.read()
+    content = await file.read(MAX_OPML_BYTES + 1)
+    if len(content) > MAX_OPML_BYTES:
+        raise AppError(413, "too_large", "OPML file is too large (max 2 MB).")
     imported, skipped = await opml_service.import_opml(db, user.id, content)
     return OpmlImportResult(imported=imported, skipped=skipped)
 

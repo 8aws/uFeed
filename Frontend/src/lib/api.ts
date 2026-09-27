@@ -2,6 +2,8 @@ import { get } from 'svelte/store';
 import { clearTokens, getAccess, getRefresh, setTokens } from '$lib/auth';
 import { locale } from '$lib/i18n';
 import type {
+	Ban,
+	SourceHealth,
 	AdminSettings,
 	AdminUser,
 	ApiKey,
@@ -127,6 +129,7 @@ export const api = {
 		registration_open?: boolean;
 		default_role?: Role;
 		retention_days?: number;
+		inactivity_days?: number;
 	}) =>
 		request<AdminSettings>('/admin/settings', { method: 'PATCH', body }),
 	adminUsers: () => request<AdminUser[]>('/admin/users'),
@@ -138,6 +141,26 @@ export const api = {
 		}),
 	adminMaintenance: () => request<Maintenance>('/admin/maintenance'),
 	runRetention: () => request<Maintenance>('/admin/retention/run', { method: 'POST' }),
+	runInactivity: () => request<Maintenance>('/admin/inactivity/run', { method: 'POST' }),
+	// moderation
+	suspendUser: (id: string, days: number) =>
+		request<AdminUser>(`/admin/users/${id}/suspend`, { method: 'POST', body: { days } }),
+	unsuspendUser: (id: string) =>
+		request<AdminUser>(`/admin/users/${id}/suspend`, { method: 'DELETE' }),
+	banUser: (id: string, days: number | null, reason?: string) =>
+		request<AdminUser>(`/admin/users/${id}/ban`, { method: 'POST', body: { days, reason } }),
+	unbanUser: (id: string) => request<AdminUser>(`/admin/users/${id}/ban`, { method: 'DELETE' }),
+	deleteUser: (id: string) => request<unknown>(`/admin/users/${id}`, { method: 'DELETE' }),
+	listBans: () => request<Ban[]>('/admin/bans'),
+	createBan: (email: string, days: number | null, reason?: string) =>
+		request<Ban>('/admin/bans', { method: 'POST', body: { email, days, reason } }),
+	deleteBan: (id: string) => request<unknown>(`/admin/bans/${id}`, { method: 'DELETE' }),
+	// feed health
+	adminSources: () => request<SourceHealth[]>('/admin/sources'),
+	pauseSource: (id: string, paused: boolean) =>
+		request<unknown>(`/admin/sources/${id}`, { method: 'PATCH', body: { paused } }),
+	deleteOrphanSources: () =>
+		request<{ deleted: number }>('/admin/sources/delete-orphans', { method: 'POST' }),
 
 	// folders
 	listFolders: () => request<Folder[]>('/folders'),
@@ -146,6 +169,7 @@ export const api = {
 
 	// sources
 	listSources: () => request<Subscription[]>('/sources'),
+	sourcesHealth: () => request<SourceHealth[]>('/sources/health'),
 	subscribe: (url: string, folder_id?: string | null) =>
 		request<Subscription>('/sources', { method: 'POST', body: { url, folder_id } }),
 	updateSubscription: (id: string, body: { folder_id?: string | null; custom_title?: string }) =>

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Boolean, Integer, String
+from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin
@@ -23,3 +24,8 @@ class User(Base, TimestampMixin):
     # so older sessions stop working.
     token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Temporary suspension/ban: no access until this moment (lifts by itself).
+    suspended_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Last authenticated web activity (updated at most hourly); with API-key
+    # use it drives the inactivity clean-up.
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

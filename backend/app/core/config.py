@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     embed_max_per_tick: int = Field(default=50)
     summarize_max_per_tick: int = Field(default=20)
     ai_summary_sentences: int = Field(default=4)
+    # Allow fetching feeds on private/LAN addresses (SSRF guard off). Only for
+    # trusted single-user installs.
+    allow_private_feeds: bool = Field(default=False)
     # Where backups/status.json is readable (mounted read-only in production).
     backups_dir: str = Field(default="/backups")
     # Near-duplicate grouping: lower cosine distance = stricter. Tune up (~0.2)

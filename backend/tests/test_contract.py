@@ -26,6 +26,11 @@ EXPECTED_PATHS = {
     "/api/admin/users",
     "/api/admin/maintenance",
     "/api/me/password",
+    "/api/admin/bans",
+    "/api/admin/users/{user_id}/ban",
+    "/api/admin/users/{user_id}/suspend",
+    "/api/sources/health",
+    "/api/admin/sources",
 }
 
 

@@ -6,7 +6,8 @@
 	import { locale, setLocale, t } from '$lib/i18n';
 	import { toolbarLabels, type ToolbarLabels } from '$lib/prefs';
 	import { relativeTime } from '$lib/format';
-	import type { ApiKey, ApiKeyCreated, Folder, Locale, Role, Subscription } from '$lib/types';
+	import type { ApiKey, ApiKeyCreated, Folder, Locale, Role, SourceHealth, Subscription } from '$lib/types';
+	import { safeUrl } from '$lib/safe';
 	import { CATALOG, LANG_FLAG, type CatalogFeed, type CatalogSection, type FeedLang } from '$lib/catalog';
 	import { addCatalogFeed, ensureFolder, feedKey } from '$lib/catalogActions';
 
@@ -107,6 +108,32 @@
 
 	async function addAll(s: CatalogSection) {
 		for (const f of catFeeds(s)) if (!isSub(f)) await addFeed(s, f);
+	}
+
+	// --- Feed health (lazy, collapsed by default) ---
+	let healthOpen = $state(false);
+	let health = $state<SourceHealth[] | null>(null);
+	const healthProblems = $derived((health ?? []).filter((h) => h.status !== 'ok'));
+
+	async function toggleHealth() {
+		healthOpen = !healthOpen;
+		if (healthOpen && health === null) {
+			try {
+				health = await api.sourcesHealth();
+			} catch {
+				health = [];
+			}
+		}
+	}
+
+	async function unsubscribeFeed(h: SourceHealth) {
+		if (!h.subscription_id) return;
+		try {
+			await api.unsubscribe(h.subscription_id);
+			health = (health ?? []).filter((x) => x.subscription_id !== h.subscription_id);
+		} catch {
+			/* ignore */
+		}
 	}
 
 	// --- Password ---
@@ -266,6 +293,45 @@
 			/>
 			{#if importMsg}<span class="muted">{importMsg}</span>{/if}
 		</div>
+	</section>
+
+	<section>
+		<button class="collapse" onclick={toggleHealth} aria-expanded={healthOpen}>
+			<h2>
+				{$t('feed_health')}
+				{#if health && healthProblems.length}<span class="warnbadge">⚠ {healthProblems.length}</span>{/if}
+			</h2>
+			<span class="chev" aria-hidden="true">{healthOpen ? '▾' : '▸'}</span>
+		</button>
+		{#if healthOpen}
+			<p class="muted hint">{$t('feed_health_hint')}</p>
+			{#if health === null}
+				<p class="muted">…</p>
+			{:else if healthProblems.length === 0}
+				<p>✓ {$t('all_feeds_ok')}</p>
+			{:else}
+				<p class="muted small">{health.length - healthProblems.length} {$t('feeds_ok')}</p>
+				<ul class="cfeeds">
+					{#each healthProblems as h (h.source_id)}
+						<li class="hrow">
+							<span class="hinfo">
+								<span class="ftitle">
+									<span class="st st-{h.status}">{$t(`st_${h.status}` as 'st_ok')}</span>
+									{#if safeUrl(h.site_url)}
+										<a href={safeUrl(h.site_url)} target="_blank" rel="noopener noreferrer">{h.title}</a>
+									{:else}{h.title}{/if}
+								</span>
+								<span class="muted small ftitle">
+									{#if h.last_error}{$t('error')}: {h.last_error} ·{/if}
+									{$t('last_post')}: {h.last_article_at ? relativeTime(h.last_article_at, $locale) : '—'}
+								</span>
+							</span>
+							<button class="small-btn" onclick={() => unsubscribeFeed(h)}>{$t('unsubscribe')}</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		{/if}
 	</section>
 
 	<section>
@@ -524,6 +590,38 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.hrow {
+		align-items: flex-start !important;
+		border-top: 1px solid var(--border);
+		padding-top: 0.4rem;
+	}
+	.hinfo {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		flex: 1;
+	}
+	.warnbadge {
+		font-size: 0.75rem;
+		color: var(--danger);
+		margin-left: 0.4rem;
+	}
+	.st {
+		font-size: 0.72rem;
+		border-radius: 999px;
+		padding: 0 0.4rem;
+		margin-right: 0.3rem;
+		border: 1px solid var(--border);
+	}
+	.st-failing {
+		color: var(--danger);
+		border-color: var(--danger);
+	}
+	.st-retrying,
+	.st-stale {
+		color: var(--accent);
+		border-color: var(--accent);
 	}
 	.small-btn {
 		flex: none;

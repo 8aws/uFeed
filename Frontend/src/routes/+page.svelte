@@ -5,6 +5,7 @@
 	import { clearTokens, user } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
 	import { toolbarLabels } from '$lib/prefs';
+	import { safeHtml, safeUrl } from '$lib/safe';
 	import { relativeTime, readingTime, stripHtml } from '$lib/format';
 	import Onboarding from '$lib/components/Onboarding.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
@@ -307,9 +308,10 @@
 	}
 
 	async function shareArticle(a: Article) {
-		if (a.url) {
+		const url = safeUrl(a.url);
+		if (url) {
 			try {
-				await navigator.clipboard.writeText(a.url);
+				await navigator.clipboard.writeText(url);
 			} catch {
 				/* ignore */
 			}
@@ -534,8 +536,8 @@
 		return subs.find((x) => x.source.id === id)?.source.favicon_url ?? null;
 	}
 
-	function thumbUrl(a: Article): string | null {
-		return a.image_url || sourceFavicon(a.source_id);
+	function thumbUrl(a: Article): string | undefined {
+		return safeUrl(a.image_url) || safeUrl(sourceFavicon(a.source_id));
 	}
 
 	function hideImg(e: Event) {
@@ -662,11 +664,14 @@
 			<li class:active={filter.kind === 'source' && filter.id === s.source.id}>
 				<button class="feed" onclick={() => setFilter({ kind: 'source', id: s.source.id })}>
 					{#if s.source.favicon_url}
-						<img class="favicon" src={s.source.favicon_url} alt="" loading="lazy" onerror={hideImg} />
+						<img class="favicon" src={safeUrl(s.source.favicon_url)} alt="" loading="lazy" onerror={hideImg} />
 					{:else}
 						<span class="favicon dot"></span>
 					{/if}
 					<span class="ellipsis">{s.custom_title || s.source.title || s.source.feed_url}</span>
+					{#if s.source.error_count >= 3}
+						<span class="feedwarn" title={$t('feed_problem')} aria-label={$t('feed_problem')}>⚠</span>
+					{/if}
 					{#if s.unread_count}<span class="badge">{s.unread_count}</span>{/if}
 				</button>
 				<select
@@ -921,13 +926,13 @@
 					<button class:active={a.is_favorite} onclick={() => toggleFavorite(a)}>
 						{a.is_favorite ? '★' : '☆'} {a.is_favorite ? $t('unfavorite') : $t('favorite')}
 					</button>
-					{#if a.url}<button onclick={() => shareArticle(a)}>{$t('share')}</button>{/if}
-					{#if a.url}
+					{#if safeUrl(a.url)}<button onclick={() => shareArticle(a)}>{$t('share')}</button>{/if}
+					{#if safeUrl(a.url)}
 						<a
 							class="btn"
-							href={a.url}
+							href={safeUrl(a.url)}
 							target="_blank"
-							rel="noopener"
+							rel="noopener noreferrer"
 							onclick={() => openOriginal(a)}
 						>
 							{$t('open_original')}
@@ -954,7 +959,7 @@
 				</div>
 			{/if}
 			<div class="content">
-				{@html a.content_html || a.summary || ''}
+				{@html safeHtml(a.content_html || a.summary)}
 			</div>
 			{#if similarList.length}
 				<div class="similar">
@@ -1438,6 +1443,11 @@
 	}
 	.htitle {
 		cursor: pointer;
+	}
+	.feedwarn {
+		flex: none;
+		color: var(--danger);
+		font-size: 0.8rem;
 	}
 	.tempbanner {
 		display: block;

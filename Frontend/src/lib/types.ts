@@ -36,6 +36,7 @@ export interface Source {
 	site_url: string | null;
 	title: string | null;
 	favicon_url: string | null;
+	error_count: number;
 }
 
 export interface Subscription {
@@ -132,6 +133,7 @@ export interface AdminSettings {
 	registration_open: boolean;
 	default_role: Role;
 	retention_days: number;
+	inactivity_days: number;
 	roles: Role[];
 	refresh_cooldown_s: Record<Role, number>;
 }
@@ -144,6 +146,10 @@ export interface AdminUser {
 	is_active: boolean;
 	created_at: string;
 	feeds: number;
+	suspended_until: string | null;
+	last_activity_at: string | null;
+	banned: boolean;
+	ban_until: string | null;
 }
 
 export interface BackupStatus {
@@ -175,4 +181,31 @@ export interface Maintenance {
 	db_size_bytes: number;
 	articles: number;
 	backups: BackupStatus | null;
+	inactivity_days: number;
+	last_inactive_cleanup: { at: string; days: number; deleted_users: number } | null;
+}
+
+export type HealthStatus = 'ok' | 'retrying' | 'failing' | 'stale' | 'pending' | 'paused';
+
+export interface SourceHealth {
+	source_id: string;
+	subscription_id: string | null;
+	title: string | null;
+	feed_url: string;
+	site_url: string | null;
+	status: HealthStatus;
+	error_count: number;
+	last_error: string | null;
+	last_error_at: string | null;
+	last_fetch_at: string | null;
+	last_article_at: string | null;
+	subscribers: number;
+}
+
+export interface Ban {
+	id: string;
+	email: string;
+	until: string | null;
+	reason: string | null;
+	created_at: string;
 }

@@ -3,13 +3,14 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-import httpx
-from sqlalchemy import or_, select
+from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.netguard import public_client
 from app.db.session import SessionLocal
 from app.models.source import Source
+from app.models.subscription import Subscription
 from app.services.ai import dedup_pending, embed_pending, summarize_pending
 from app.services.ingest import refresh_source
 
@@ -17,11 +18,14 @@ log = logging.getLogger("ufeed.ingest")
 
 
 async def select_due_sources(db: AsyncSession, now: datetime, limit: int) -> list[Source]:
-    """Active sources whose next_fetch_at has passed (or was never set)."""
+    """Active sources with at least one subscriber whose next_fetch_at has
+    passed (or was never set). Feeds nobody follows aren't polled."""
+    followed = exists().where(Subscription.source_id == Source.id)
     stmt = (
         select(Source)
         .where(
             Source.is_active.is_(True),
+            followed,
             or_(Source.next_fetch_at.is_(None), Source.next_fetch_at <= now),
         )
         .order_by(Source.next_fetch_at.nulls_first())
@@ -37,7 +41,7 @@ async def run_tick() -> int:
     processed = 0
     async with SessionLocal() as db:
         sources = await select_due_sources(db, now, settings.ingest_batch)
-        async with httpx.AsyncClient() as client:
+        async with public_client() as client:
             for source in sources:
                 try:
                     result = await refresh_source(db, client, source)

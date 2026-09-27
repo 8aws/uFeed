@@ -15,6 +15,7 @@ from app.core.security import decode_token, token_version_ok, user_id_from_sub
 from app.db.session import get_db
 from app.models.api_key import ApiKey
 from app.models.user import User
+from app.services import moderation
 from app.services.api_keys import resolve_api_key
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -52,6 +53,9 @@ async def get_current_user(
         raise _unauthorized("User not found or inactive.")
     if not token_version_ok(payload, user.token_version):
         raise _unauthorized("Session expired; please sign in again.")
+    if moderation.is_suspended(user):
+        raise _unauthorized("Account suspended.")
+    await moderation.touch(db, user)
     return user
 
 
@@ -69,8 +73,8 @@ async def get_api_key(
     if key is None:
         raise _unauthorized("Invalid API key.")
     owner = await db.get(User, key.user_id)
-    if owner is None or not owner.is_active:
-        raise _unauthorized("Account disabled.")
+    if owner is None or not owner.is_active or moderation.is_suspended(owner):
+        raise _unauthorized("Account disabled or suspended.")
     if not await check_rate(f"pub:{key.id}", settings.rate_limit_public_per_min):
         raise AppError(429, "rate_limited", "Rate limit exceeded for this API key.")
     return key

@@ -1,26 +1,54 @@
 # uFeed reverse proxy.
 # Local dev: browse http://localhost (UFEED_DOMAIN unset -> listens on :80).
-# Production: set UFEED_DOMAIN=feeds.example.com and Caddy auto-provisions HTTPS.
+# Production: set UFEED_DOMAIN=feeds.example.com and Caddy auto-provisions HTTPS,
+# or leave it unset behind an external TLS proxy (e.g. Cosmos on a QNAP).
+{
+	servers {
+		# Trust X-Forwarded-For only from the external proxy so the backend sees
+		# real client IPs (per-IP login/sign-up rate limits). Narrow it with
+		# TRUSTED_PROXIES=<proxy ip>/32 in .env.
+		trusted_proxies static {$TRUSTED_PROXIES:private_ranges}
+		client_ip_headers X-Forwarded-For X-Real-IP
+	}
+}
+
 {$UFEED_DOMAIN::80} {
 	encode gzip
 
 	header {
+		defer
 		# Security headers (applied to every response).
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy same-origin
+		# Don't advertise the software stack.
 		-Server
+		-Via
+		-X-Powered-By
 	}
+
+	# Scanners probe for secrets and admin panels (.env, .git, wp-login...).
+	# Answer with a plain 404 instead of the SPA shell, which looks like a hit.
+	@dotfile {
+		path_regexp /\.
+		not path /.well-known/*
+	}
+	@probe path *.php *.env *.ini *.sql *.bak *.old *.swp *.yml *.yaml *.conf *.cfg *.log *.sh /wp-* /cgi-bin/* /server-status* /phpmyadmin* /vendor/*
+	respond @dotfile 404
+	respond @probe 404
 
 	# API (internal + public) -> backend
 	handle /api/* {
 		reverse_proxy backend:8000
 	}
-	handle /openapi.json {
+	handle /health {
 		reverse_proxy backend:8000
 	}
-	handle /health {
+	# API docs are disabled in production (ENV=prod) and 404 there.
+	handle /openapi.json {
 		reverse_proxy backend:8000
 	}
 	handle /docs* {

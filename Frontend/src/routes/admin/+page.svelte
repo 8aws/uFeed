@@ -5,12 +5,122 @@
 	import { user } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
 	import { relativeTime } from '$lib/format';
-	import type { AdminSettings, AdminUser, Maintenance, Role } from '$lib/types';
+	import type { AdminSettings, AdminUser, Ban, Maintenance, Role, SourceHealth } from '$lib/types';
 
 	let settings = $state<AdminSettings | null>(null);
 	let maint = $state<Maintenance | null>(null);
 	let purging = $state(false);
 	let tempPw = $state<{ id: string; pw: string } | null>(null);
+	let bans = $state<Ban[]>([]);
+	let sources = $state<SourceHealth[]>([]);
+	let banEmail = $state('');
+	let banDays = $state(0); // 0 = permanent
+	let cleaning = $state(false);
+	const INACTIVITY_PRESETS = [90, 180, 365, 730, 0];
+	const problems = $derived(sources.filter((x) => x.status !== 'ok'));
+	const orphans = $derived(sources.filter((x) => x.subscribers === 0).length);
+
+	function daysSince(iso: string | null): number {
+		return iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : 0;
+	}
+	function fmtDate(iso: string): string {
+		return new Date(iso).toLocaleDateString($locale);
+	}
+	function deletesIn(u: AdminUser): number | null {
+		const lim = settings?.inactivity_days ?? 0;
+		if (!lim || u.role === 'admin') return null;
+		return Math.max(0, lim - daysSince(u.last_activity_at));
+	}
+	function suspended(u: AdminUser): boolean {
+		return !!u.suspended_until && new Date(u.suspended_until).getTime() > Date.now();
+	}
+
+	async function moderate(u: AdminUser, action: string) {
+		try {
+			if (action === 'delete') {
+				if (!confirm($t('confirm_delete_user'))) return;
+				await api.deleteUser(u.id);
+				users = users.filter((x) => x.id !== u.id);
+			} else {
+				let updated: AdminUser;
+				if (action.startsWith('suspend:')) updated = await api.suspendUser(u.id, Number(action.slice(8)));
+				else if (action === 'lift') updated = await api.unsuspendUser(u.id);
+				else if (action === 'ban:perm') {
+					if (!confirm($t('confirm_ban_permanent'))) return;
+					updated = await api.banUser(u.id, null);
+				} else if (action.startsWith('ban:')) updated = await api.banUser(u.id, Number(action.slice(4)));
+				else if (action === 'unban') updated = await api.unbanUser(u.id);
+				else return;
+				users = users.map((x) => (x.id === u.id ? updated : x));
+			}
+			bans = await api.listBans();
+			saved();
+		} catch (e) {
+			fail(e);
+			await load();
+		}
+	}
+
+	async function addBan(e: SubmitEvent) {
+		e.preventDefault();
+		try {
+			await api.createBan(banEmail.trim(), banDays === 0 ? null : banDays);
+			banEmail = '';
+			[bans, users] = await Promise.all([api.listBans(), api.adminUsers()]);
+			saved();
+		} catch (err) {
+			fail(err);
+		}
+	}
+
+	async function removeBan(b: Ban) {
+		try {
+			await api.deleteBan(b.id);
+			[bans, users] = await Promise.all([api.listBans(), api.adminUsers()]);
+			saved();
+		} catch (e) {
+			fail(e);
+		}
+	}
+
+	async function setInactivity(days: number) {
+		await saveSettings({ inactivity_days: days });
+		await loadMaint();
+	}
+
+	async function cleanupInactive() {
+		cleaning = true;
+		try {
+			maint = await api.runInactivity();
+			users = await api.adminUsers();
+			saved();
+		} catch (e) {
+			fail(e);
+		} finally {
+			cleaning = false;
+		}
+	}
+
+	async function togglePause(src: SourceHealth) {
+		try {
+			await api.pauseSource(src.source_id, src.status !== 'paused');
+			sources = await api.adminSources();
+			saved();
+		} catch (e) {
+			fail(e);
+		}
+	}
+
+	async function deleteOrphans() {
+		try {
+			const r = await api.deleteOrphanSources();
+			sources = await api.adminSources();
+			flash = `${r.deleted} ${$t('orphans_deleted')}`;
+			setTimeout(() => (flash = ''), 2500);
+		} catch (e) {
+			fail(e);
+		}
+	}
 	const RETENTION_PRESETS = [30, 60, 90, 180, 365, 0];
 	const retentionOptions = $derived(
 		settings && !RETENTION_PRESETS.includes(settings.retention_days)
@@ -80,10 +190,12 @@
 
 	async function load() {
 		try {
-			[settings, users, maint] = await Promise.all([
+			[settings, users, maint, bans, sources] = await Promise.all([
 				api.adminSettings(),
 				api.adminUsers(),
-				api.adminMaintenance()
+				api.adminMaintenance(),
+				api.listBans(),
+				api.adminSources()
 			]);
 		} catch (e) {
 			fail(e);
@@ -94,6 +206,7 @@
 		registration_open?: boolean;
 		default_role?: Role;
 		retention_days?: number;
+		inactivity_days?: number;
 	}) {
 		try {
 			settings = await api.updateAdminSettings(body);
@@ -196,6 +309,31 @@
 					</li>
 				{/if}
 			</ul>
+			<div class="row spaced">
+				<label class="field inline">
+					{$t('inactivity')}
+					<select
+						value={settings.inactivity_days}
+						onchange={(e) => setInactivity(Number(e.currentTarget.value))}
+					>
+						{#each INACTIVITY_PRESETS.includes(settings.inactivity_days) ? INACTIVITY_PRESETS : [...INACTIVITY_PRESETS, settings.inactivity_days] as d (d)}
+							<option value={d}>{d === 0 ? $t('never') : `${d} ${$t('days')}`}</option>
+						{/each}
+					</select>
+				</label>
+				<button onclick={cleanupInactive} disabled={cleaning || settings.inactivity_days === 0}>
+					{cleaning ? '…' : $t('run_now')}
+				</button>
+			</div>
+			<p class="muted small">{$t('inactivity_hint')}</p>
+			{#if maint.last_inactive_cleanup}
+				<ul class="facts">
+					<li>
+						{$t('last_inactive_cleanup')}: {relativeTime(maint.last_inactive_cleanup.at, $locale)} ·
+						{maint.last_inactive_cleanup.deleted_users} {$t('accounts_deleted')}
+					</li>
+				</ul>
+			{/if}
 		</section>
 
 		<section>
@@ -239,6 +377,16 @@
 							{#if u.display_name}{u.email} · {/if}{relativeTime(u.created_at, $locale)} · {u.feeds}
 							{$t('feeds_count')}
 						</span>
+						<span class="badges small">
+							{#if u.banned}
+								<span class="badge bad">⛔ {$t('banned')} {u.ban_until ? `${$t('until')} ${fmtDate(u.ban_until)}` : `(${$t('permanent')})`}</span>
+							{:else if suspended(u)}
+								<span class="badge warn">⏸ {$t('suspended_until')} {fmtDate(u.suspended_until!)}</span>
+							{/if}
+							{#if !self && deletesIn(u) !== null && daysSince(u.last_activity_at) > 30}
+								<span class="badge">💤 {$t('inactive_for')} {daysSince(u.last_activity_at)} {$t('days')} · {$t('deletes_in')} {deletesIn(u)} {$t('days')}</span>
+							{/if}
+						</span>
 					</div>
 					<div class="uctl">
 						<select
@@ -259,6 +407,34 @@
 						</label>
 						{#if !self}
 							<button class="small-btn" onclick={() => resetPw(u)}>🔑 {$t('reset_password')}</button>
+							<select
+								class="actions-sel"
+								value=""
+								onchange={(e) => {
+									const v = e.currentTarget.value;
+									e.currentTarget.value = '';
+									moderate(u, v);
+								}}
+							>
+								<option value="" disabled>{$t('moderation')}…</option>
+								{#if suspended(u)}
+									<option value="lift">▶ {$t('lift_suspension')}</option>
+								{:else}
+									<option value="suspend:1">⏸ {$t('suspend')} 1 {$t('days')}</option>
+									<option value="suspend:7">⏸ {$t('suspend')} 7 {$t('days')}</option>
+									<option value="suspend:30">⏸ {$t('suspend')} 30 {$t('days')}</option>
+								{/if}
+								{#if u.banned}
+									<option value="unban">✅ {$t('unban')}</option>
+								{:else}
+									<option value="ban:7">⛔ {$t('ban')} 7 {$t('days')}</option>
+									<option value="ban:30">⛔ {$t('ban')} 30 {$t('days')}</option>
+									<option value="ban:perm">⛔ {$t('ban')} ({$t('permanent')})</option>
+								{/if}
+								{#if u.role !== 'admin'}
+									<option value="delete">🗑 {$t('delete_account')}</option>
+								{/if}
+							</select>
 						{/if}
 					</div>
 				</li>
@@ -273,6 +449,61 @@
 				{/if}
 			{/each}
 		</ul>
+	</section>
+
+	<section>
+		<h2>{$t('bans')} ({bans.length})</h2>
+		<form class="row" onsubmit={addBan}>
+			<input type="email" bind:value={banEmail} placeholder={$t('ban_email')} required />
+			<select bind:value={banDays}>
+				<option value={7}>7 {$t('days')}</option>
+				<option value={30}>30 {$t('days')}</option>
+				<option value={0}>{$t('permanent')}</option>
+			</select>
+			<button type="submit">⛔ {$t('add_ban')}</button>
+		</form>
+		{#if bans.length === 0}
+			<p class="muted small">{$t('no_bans')}</p>
+		{:else}
+			<ul class="facts">
+				{#each bans as b (b.id)}
+					<li class="banrow">
+						<span class="ellipsis">
+							{b.email} — {b.until ? `${$t('until')} ${fmtDate(b.until)}` : $t('permanent')}
+							{#if b.reason}<span class="muted">· {b.reason}</span>{/if}
+						</span>
+						<button class="small-btn" onclick={() => removeBan(b)}>{$t('unban')}</button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
+
+	<section>
+		<h2>{$t('feed_health')} ({problems.length}/{sources.length})</h2>
+		<p class="muted small">{$t('feed_health_hint')}</p>
+		<ul class="facts">
+			{#each problems as src (src.source_id)}
+				<li class="banrow">
+					<span class="srcinfo">
+						<span class="ellipsis">
+							<span class="st st-{src.status}">{$t(`st_${src.status}` as 'st_ok')}</span>
+							<strong>{src.title}</strong> · {src.subscribers} {$t('subscribers')}
+						</span>
+						<span class="muted small ellipsis">
+							{#if src.last_error}{$t('error')}: {src.last_error} ·{/if}
+							{$t('last_post')}: {src.last_article_at ? relativeTime(src.last_article_at, $locale) : '—'}
+						</span>
+					</span>
+					<button class="small-btn" onclick={() => togglePause(src)}>
+						{src.status === 'paused' ? `▶ ${$t('resume')}` : `⏸ ${$t('pause')}`}
+					</button>
+				</li>
+			{/each}
+		</ul>
+		{#if orphans > 0}
+			<button class="small-btn spaced" onclick={deleteOrphans}>🧹 {$t('delete_orphans')} ({orphans})</button>
+		{/if}
 	</section>
 </div>
 
@@ -409,6 +640,63 @@
 		border: 1px solid var(--accent);
 		border-radius: 6px;
 		padding: 0.2rem 0.5rem;
+	}
+	.spaced {
+		margin-top: 0.75rem;
+	}
+	.badges {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.3rem;
+	}
+	.badge {
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		padding: 0 0.45rem;
+	}
+	.badge.bad {
+		border-color: var(--danger);
+		color: var(--danger);
+	}
+	.badge.warn {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+	.actions-sel {
+		font-size: 0.8rem;
+		max-width: 9rem;
+	}
+	.uctl {
+		flex-wrap: wrap;
+		justify-content: flex-end;
+	}
+	.banrow {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		min-width: 0;
+	}
+	.srcinfo {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+	.st {
+		font-size: 0.72rem;
+		border-radius: 999px;
+		padding: 0 0.4rem;
+		margin-right: 0.3rem;
+		border: 1px solid var(--border);
+	}
+	.st-failing {
+		color: var(--danger);
+		border-color: var(--danger);
+	}
+	.st-retrying,
+	.st-stale {
+		color: var(--accent);
+		border-color: var(--accent);
 	}
 	.flash {
 		margin: 0;

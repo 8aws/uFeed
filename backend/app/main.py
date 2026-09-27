@@ -11,7 +11,13 @@ from app.core.config import settings
 
 
 def create_app() -> FastAPI:
+    # Interactive docs and the schema map every endpoint; don't publish them in
+    # production (the contract lives in API/openapi.json in the repo).
+    docs = settings.env != "prod"
     app = FastAPI(
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
         title="uFeed API",
         version=__version__,
         description=(
