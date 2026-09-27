@@ -84,7 +84,7 @@ def require_scope(scope: str):
 
     Keys with no scopes are full-access for their owner (legacy/default);
     otherwise the key must list the scope. "read" covers GETs, "state" covers
-    marking articles read/unread.
+    changing article state (read / saved / favourite).
     """
 
     async def _dep(key: ApiKeyPrincipal) -> ApiKey:

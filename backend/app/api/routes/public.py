@@ -15,8 +15,9 @@ from app.services import articles as article_service
 from app.services import subscriptions as sub_service
 
 # Public API. Authenticated via API key (X-API-Key header); everything is
-# scoped to the key owner's account. GETs need the "read" scope; marking
-# articles read/unread needs "state". Keys with no scopes are full-access.
+# scoped to the key owner's account. GETs need the "read" scope; changing an
+# article's state (read / saved / favourite) needs "state". Keys with no
+# scopes are full-access.
 router = APIRouter(prefix="/v1", tags=["public"])
 
 
@@ -34,6 +35,7 @@ async def public_list_articles(
     source: uuid.UUID | None = None,
     unread: bool | None = None,
     saved: bool | None = None,
+    favorite: bool | None = None,
     q: str | None = None,
     cursor: str | None = None,
     limit: int = Query(default=50, ge=1, le=200),
@@ -45,6 +47,7 @@ async def public_list_articles(
         source=source,
         unread=unread,
         saved=saved,
+        favorite=favorite,
         q=q,
         cursor=cursor,
         limit=limit,
@@ -62,21 +65,49 @@ async def public_get_article(
     return _article_out(row)
 
 
-async def _set_read(principal, db, article_id: uuid.UUID, is_read: bool) -> OkResponse:
-    if not await article_service.set_state(db, principal.user_id, article_id, is_read=is_read):
+async def _set_state(principal, db, article_id: uuid.UUID, **state: bool) -> OkResponse:
+    if not await article_service.set_state(db, principal.user_id, article_id, **state):
         raise AppError(404, "not_found", "Article not found.")
     return OkResponse()
+
+
+# State changes (need the "state" scope): read, save, favourite — each with
+# POST to set and DELETE to clear.
 
 
 @router.post("/articles/{article_id}/read", response_model=OkResponse)
 async def public_mark_read(
     article_id: uuid.UUID, principal: ApiKeyState, db: DbSession
 ) -> OkResponse:
-    return await _set_read(principal, db, article_id, True)
+    return await _set_state(principal, db, article_id, is_read=True)
 
 
 @router.delete("/articles/{article_id}/read", response_model=OkResponse)
 async def public_mark_unread(
     article_id: uuid.UUID, principal: ApiKeyState, db: DbSession
 ) -> OkResponse:
-    return await _set_read(principal, db, article_id, False)
+    return await _set_state(principal, db, article_id, is_read=False)
+
+
+@router.post("/articles/{article_id}/save", response_model=OkResponse)
+async def public_save(article_id: uuid.UUID, principal: ApiKeyState, db: DbSession) -> OkResponse:
+    return await _set_state(principal, db, article_id, is_saved=True)
+
+
+@router.delete("/articles/{article_id}/save", response_model=OkResponse)
+async def public_unsave(article_id: uuid.UUID, principal: ApiKeyState, db: DbSession) -> OkResponse:
+    return await _set_state(principal, db, article_id, is_saved=False)
+
+
+@router.post("/articles/{article_id}/favorite", response_model=OkResponse)
+async def public_favorite(
+    article_id: uuid.UUID, principal: ApiKeyState, db: DbSession
+) -> OkResponse:
+    return await _set_state(principal, db, article_id, is_favorite=True)
+
+
+@router.delete("/articles/{article_id}/favorite", response_model=OkResponse)
+async def public_unfavorite(
+    article_id: uuid.UUID, principal: ApiKeyState, db: DbSession
+) -> OkResponse:
+    return await _set_state(principal, db, article_id, is_favorite=False)

@@ -19,6 +19,8 @@ EXPECTED_PATHS = {
     "/api/v1/articles",
     "/api/v1/sources",
     "/api/v1/articles/{article_id}/read",
+    "/api/v1/articles/{article_id}/save",
+    "/api/v1/articles/{article_id}/favorite",
     "/api/site",
     "/api/admin/settings",
     "/api/admin/users",

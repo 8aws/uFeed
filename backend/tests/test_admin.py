@@ -140,3 +140,34 @@ async def test_public_mark_read_respects_scopes(api: AsyncClient, db_session: As
 
     missing = await api.post(f"/api/v1/articles/{uuid.uuid4()}/read", headers=full)
     assert missing.status_code == 404
+
+
+async def test_public_save_and_favorite(api: AsyncClient, db_session: AsyncSession) -> None:
+    r = await _register(api)
+    h = _h(r)
+    src = await _seed_source(db_session, [("A", "<p>a</p>"), ("B", "<p>b</p>")])
+    await api.post("/api/sources", headers=h, json={"url": src.feed_url})
+    k = await api.post("/api/keys", headers=h, json={"name": "t", "scopes": ["read", "state"]})
+    key = {"X-API-Key": k.json()["key"]}
+    ro = await api.post("/api/keys", headers=h, json={"name": "ro", "scopes": ["read"]})
+    read_only = {"X-API-Key": ro.json()["key"]}
+    aid = (await api.get("/api/v1/articles", headers=key)).json()["items"][0]["id"]
+
+    for action, flag, param in (
+        ("save", "is_saved", "saved"),
+        ("favorite", "is_favorite", "favorite"),
+    ):
+        denied = await api.post(f"/api/v1/articles/{aid}/{action}", headers=read_only)
+        assert denied.status_code == 403
+        assert (await api.post(f"/api/v1/articles/{aid}/{action}", headers=key)).status_code == 200
+        art = (await api.get(f"/api/v1/articles/{aid}", headers=key)).json()
+        assert art[flag] is True
+        listed = (await api.get(f"/api/v1/articles?{param}=true", headers=key)).json()["items"]
+        assert [i["id"] for i in listed] == [aid]
+        assert (
+            await api.delete(f"/api/v1/articles/{aid}/{action}", headers=key)
+        ).status_code == 200
+        assert (await api.get(f"/api/v1/articles/{aid}", headers=key)).json()[flag] is False
+
+    missing = await api.post(f"/api/v1/articles/{uuid.uuid4()}/favorite", headers=key)
+    assert missing.status_code == 404
