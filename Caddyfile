@@ -37,8 +37,14 @@
 		not path /.well-known/*
 	}
 	@probe path *.php *.env *.ini *.sql *.bak *.old *.swp *.yml *.yaml *.conf *.cfg *.log *.sh /wp-* /cgi-bin/* /server-status* /phpmyadmin* /vendor/*
-	respond @dotfile 404
-	respond @probe 404
+	# (`handle` runs before `respond` in Caddy's directive order, so these must
+	# be handle blocks listed before the catch-all below.)
+	handle @dotfile {
+		respond 404
+	}
+	handle @probe {
+		respond 404
+	}
 
 	# API (internal + public) -> backend
 	handle /api/* {

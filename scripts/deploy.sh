@@ -80,7 +80,9 @@ say "Synced to $DEPLOY_HOST:$DEPLOY_PATH"
 # 5) Validate, build and restart on the box (compose files come from COMPOSE_FILE).
 ssh "$DEPLOY_HOST" "cd '$DEPLOY_PATH' && docker compose config -q \
 	&& docker compose build ${services[*]} && docker compose up -d" </dev/null
-say "Built and restarted: ${services[*]}"
+# The proxy's Caddyfile is bind-mounted: reload it so config changes apply.
+ssh "$DEPLOY_HOST" "cd '$DEPLOY_PATH' && docker compose exec -T proxy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile" </dev/null
+say "Built and restarted: ${services[*]} (proxy config reloaded)"
 
 # 6) Health: backend (inside the network), AI device, and the public URL.
 ssh "$DEPLOY_HOST" "cd '$DEPLOY_PATH' && for i in \$(seq 1 40); do \
