@@ -1,0 +1,10 @@
+# Pass the Intel NPU (Core Ultra / Core Series 3 "AI Boost") into the AI
+# container. Use only where the host NPU driver is installed and
+# /dev/accel/accel0 exists — a missing node stops the container from starting.
+# Note: the embeddings service runs on the iGPU; the NPU needs static shapes
+# and is much slower for this model (see docs/DEPLOY.md). Kept available for
+# experiments and future static-shape models.
+services:
+  ai:
+    devices:
+      - /dev/accel/accel0:/dev/accel/accel0

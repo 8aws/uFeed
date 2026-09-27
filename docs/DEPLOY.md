@@ -89,7 +89,7 @@ runtime for you; you only need the host driver + device nodes.
    ```
 2. **Host (NPU, optional):** install Intel's `linux-npu-driver` (.debs matched to
    your kernel's `intel_vpu`), confirm `ls /dev/accel/accel0`, then uncomment the
-   `/dev/accel/accel0` line in `compose.openvino.yml`.
+   add `compose.npu.yml` to `COMPOSE_FILE` in `.env`.
 3. Set `AI_BACKEND=openvino` and `OPENVINO_DEVICE=GPU` in `.env`. Use the **iGPU**
    for embeddings (~12× CPU, measured ~2700 emb/s on Wildcat Lake). Do **not**
    use the NPU here: it requires static shapes and sentence embeddings are
@@ -157,20 +157,28 @@ docker compose -f docker-compose.yml -f compose.prod.yml up -d --build
 # add -f compose.openvino.yml if you enabled OpenVINO
 ```
 
-**Production Beelink uses Mac→rsync instead** (private repo, box does not pull).
-Proven flow — clone/pull on the Mac, then sync preserving local state:
+**Production (Beelink) is deployed from a workstation** — the private repo
+can't be pulled on the box — with `scripts/deploy.sh`:
+
 ```bash
-rsync -a --delete \
-  --exclude='.git' --exclude='.env' --exclude='backups' --exclude='AI/intel-debs/*.deb' \
-  /path/to/uFeed/ user@<beelink>:/vol2/ufeed/
+cp .deploy.env.example .deploy.env   # once: DEPLOY_HOST, DEPLOY_PATH, DEPLOY_PUBLIC_URL
+scripts/deploy.sh                    # frontend backend worker
+scripts/deploy.sh ai                 # also rebuild the AI image (keeps intel-debs)
 ```
-Then on the box **re-apply the box-specific `compose.openvino.yml` edits** (not
-in git): numeric `group_add` gids (e.g. `"44"` video, `"105"` render) and the
-uncommented `/dev/accel/accel0` line. Rebuild only what changed and recreate:
+It deploys `origin/main` only if CI is green for that commit, aborts if rsync
+would delete anything on the box, never touches the box's `.env`, `backups/` or
+`AI/intel-debs/*.deb`, validates the compose config, restarts, and checks the
+backend, the AI device and the public URL.
+
+Everything box-specific lives in the box's `.env` (nothing is hand-edited):
 ```bash
-DC="docker compose -f docker-compose.yml -f compose.prod.yml -f compose.openvino.yml"
-$DC build frontend backend && $DC up -d   # NOT 'ai' — keep the working iGPU image
+COMPOSE_FILE=docker-compose.yml:compose.prod.yml:compose.openvino.yml:compose.npu.yml
+GPU_VIDEO_GID=44       # getent group video | cut -d: -f3
+GPU_RENDER_GID=105     # stat -c %g /dev/dri/renderD128
 ```
+With `COMPOSE_FILE` set, plain `docker compose ...` on the box uses the right
+files. Drop `compose.npu.yml` from the list on hosts without `/dev/accel/accel0`.
+
 Migrations run automatically. Zero-config; the SPA is served fresh (the service
 worker is network-first for navigations).
 

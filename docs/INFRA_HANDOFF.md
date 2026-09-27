@@ -59,8 +59,8 @@ docker compose -f docker-compose.yml -f compose.prod.yml up -d --build
 the Intel **user-space runtime inside the image** (the OpenVINO build installs
 the iGPU runtime for you) and the **device nodes passed in**.
 1. Host iGPU: `intel-opencl-icd`, confirm `ls /dev/dri/renderD128`. NPU: install
-   Intel's `linux-npu-driver`, confirm `/dev/accel/accel0`, then uncomment that
-   line in `compose.openvino.yml`.
+   Intel's `linux-npu-driver`, confirm `/dev/accel/accel0`, then add
+   `compose.npu.yml` to `COMPOSE_FILE` in `.env` (see docs/DEPLOY.md).
 2. Set `AI_BACKEND=openvino` in `.env`.
 3. `docker compose -f docker-compose.yml -f compose.prod.yml -f compose.openvino.yml up -d --build`
    (the `--build` is required — it bakes the Intel runtime into the AI image).

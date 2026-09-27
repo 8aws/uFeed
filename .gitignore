@@ -37,3 +37,6 @@ redis-data/
 .idea/
 .vscode/
 *.swp
+
+# Local deploy target (scripts/deploy.sh)
+.deploy.env
