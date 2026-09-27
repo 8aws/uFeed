@@ -11,7 +11,7 @@ services:
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --proxy-headers --forwarded-allow-ips='*' --no-server-header"
     # --forwarded-allow-ips='*' is safe here: the backend is only reachable via
     # the internal network (proxy) and 127.0.0.1; Caddy sets X-Forwarded-For
-    # from the client IP it trusts (see Caddyfile trusted_proxies).
+    # from the client IP it trusts (see proxy/Caddyfile trusted_proxies).
     volumes:
       # Read-only view of backup status (backups/status.json) for the admin panel.
       - ./backups:/backups:ro

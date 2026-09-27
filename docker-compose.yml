@@ -91,7 +91,9 @@ services:
       - backend
       - frontend
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Mount the directory, not the file: a single-file bind mount keeps the
+      # old inode when the file is replaced (rsync/git), hiding config updates.
+      - ./proxy:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
     ports:

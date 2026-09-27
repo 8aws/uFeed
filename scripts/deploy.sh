@@ -3,13 +3,14 @@
 # repo, so this runs on a workstation: fresh checkout -> rsync -> build/restart
 # on the box -> health checks.
 #
-# Usage:  scripts/deploy.sh [--skip-ci] [service ...]
+# Usage:  scripts/deploy.sh [--skip-ci] [--allow-delete] [service ...]
 #         default services: frontend backend worker   (add "ai" to rebuild AI)
 # Config: .deploy.env (gitignored; see .deploy.env.example)
 #
 # Safety rails:
 #   - refuses to deploy a commit whose CI isn't green (unless --skip-ci)
-#   - aborts if rsync would delete anything on the box
+#   - aborts if rsync would delete anything on the box (unless --allow-delete,
+#     e.g. when a file moved in the repo; the list is always printed)
 #   - never touches the box's .env, backups/ or AI/intel-debs/*.deb
 #   - validates the box's compose config before restarting
 set -euo pipefail
@@ -23,10 +24,12 @@ REPO="${DEPLOY_REPO:-8aws/uFeed}"
 SRC="${DEPLOY_CACHE:-$HOME/.cache/ufeed-deploy}"
 
 skip_ci=0
+allow_delete=0
 services=()
 for arg in "$@"; do
 	case "$arg" in
 	--skip-ci) skip_ci=1 ;;
+	--allow-delete) allow_delete=1 ;;
 	-*) echo "unknown option $arg" >&2; exit 64 ;;
 	*) services+=("$arg") ;;
 	esac
@@ -70,9 +73,12 @@ excludes=(--exclude=.git --exclude=.env --exclude=.deploy.env --exclude=backups
 deleting="$(rsync -a --delete --dry-run --itemize-changes "${excludes[@]}" \
 	"$SRC/" "$DEPLOY_HOST:$DEPLOY_PATH/" | grep '^\*deleting' || true)"
 if [ -n "$deleting" ]; then
-	echo "rsync would delete on the box — aborting:" >&2
+	echo "rsync will delete on the box:" >&2
 	echo "$deleting" >&2
-	exit 1
+	if [ "$allow_delete" -ne 1 ]; then
+		echo "aborting (re-run with --allow-delete if these are expected)." >&2
+		exit 1
+	fi
 fi
 rsync -a --delete "${excludes[@]}" "$SRC/" "$DEPLOY_HOST:$DEPLOY_PATH/"
 say "Synced to $DEPLOY_HOST:$DEPLOY_PATH"
