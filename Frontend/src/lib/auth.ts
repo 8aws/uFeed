@@ -48,6 +48,7 @@ export function setTokens(access: string, refresh: string) {
 export function clearTokens() {
 	localStorage.removeItem(ACCESS);
 	localStorage.removeItem(REFRESH);
+	localStorage.removeItem('ufeed_outbox'); // unsynced changes of this session
 	// Offline copies (saved articles, images) belong to this session only.
 	if (typeof caches !== 'undefined') {
 		caches

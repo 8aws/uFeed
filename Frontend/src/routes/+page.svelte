@@ -5,6 +5,7 @@
 	import { clearTokens, user } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
 	import { toolbarLabels } from '$lib/prefs';
+	import { applyPending, flush, initOutbox, pendingCount, setState } from '$lib/outbox';
 	import { safeHtml, safeUrl } from '$lib/safe';
 	import { relativeTime, readingTime, stripHtml } from '$lib/format';
 	import Onboarding from '$lib/components/Onboarding.svelte';
@@ -242,6 +243,24 @@
 			.catch(() => {});
 	}
 
+	// Changes made offline and not yet synced win over what the server says,
+	// so a post read without connection doesn't come back as unread.
+	function withPending(items: Article[]): Article[] {
+		applyPending(items);
+		return filter.kind === 'unread' ? items.filter((a) => !a.is_read) : items;
+	}
+
+	// Send queued offline changes; tell the reader and refresh the counts.
+	async function syncOutbox() {
+		if ($pendingCount === 0) return;
+		const sent = await flush().catch(() => 0);
+		if (sent > 0) {
+			refreshMsg = `✓ ${sent} ${$t(sent === 1 ? 'synced_one' : 'synced')}`;
+			setTimeout(() => (refreshMsg = ''), 4000);
+			loadSidebar().catch(() => {});
+		}
+	}
+
 	// A reset load (new filter, refresh) supersedes one still in flight, so a
 	// tap on a feed while the first load is slow isn't lost or overwritten.
 	let loadSeq = 0;
@@ -251,7 +270,7 @@
 		loading = true;
 		try {
 			if (filter.kind === 'foryou') {
-				const items = await api.forYou(40);
+				const items = withPending(await api.forYou(40));
 				if (seq !== loadSeq) return;
 				articles = items;
 				cursor = null;
@@ -261,7 +280,8 @@
 			}
 			const page = await api.listArticles(buildParams(reset));
 			if (seq !== loadSeq) return;
-			articles = reset ? page.items : [...articles, ...page.items];
+			const items = withPending(page.items);
+			articles = reset ? items : [...articles, ...items];
 			cursor = page.next_cursor;
 			hasMore = !!page.next_cursor;
 			if (reset) {
@@ -369,7 +389,7 @@
 		a.is_favorite = !a.is_favorite;
 		articles = [...articles];
 		try {
-			await api.setFavorite(a.id, a.is_favorite);
+			await setState(a.id, 'favorite', a.is_favorite);
 		} catch {
 			a.is_favorite = !a.is_favorite;
 			articles = [...articles];
@@ -487,10 +507,10 @@
 		// Marking read from the list without opening is a weak "skip" signal.
 		if (read && openArticle?.id !== a.id) api.engage(a.id, 'skip').catch(() => {});
 		try {
-			await api.setRead(a.id, read);
-			await refreshUnreadFor(a.source_id);
+			// Queued (and synced later) if there's no connection right now.
+			if ((await setState(a.id, 'read', read)) === 'sent') await refreshUnreadFor(a.source_id);
 		} catch {
-			/* ignore; UI already updated optimistically */
+			/* permanent failure (e.g. article purged): nothing to retry */
 		}
 	}
 
@@ -498,7 +518,7 @@
 		a.is_saved = !a.is_saved;
 		articles = [...articles];
 		try {
-			await api.setSaved(a.id, a.is_saved);
+			await setState(a.id, 'saved', a.is_saved);
 		} catch {
 			a.is_saved = !a.is_saved;
 			articles = [...articles];
@@ -860,15 +880,19 @@
 	}
 
 	onMount(async () => {
+		initOutbox();
 		const snap = await readSnapshot();
 		if (snap) {
 			folders = snap.folders;
 			subs = snap.subs;
-			articles = snap.articles;
+			articles = withPending(snap.articles);
 			cursor = snap.cursor;
 			hasMore = !!snap.cursor;
 			fromSnapshot = true;
 		}
+		// Push changes made offline first (bounded, so a slow network can't hold
+		// the list back; anything still queued is overlaid on the fresh data).
+		await Promise.race([syncOutbox(), new Promise((r) => setTimeout(r, 3000))]);
 		await loadSidebar().catch(() => {});
 		await loadArticles(true);
 		loadInsights();
@@ -882,11 +906,20 @@
 				.then((r) => (hiddenIds = new Set(r.ids)))
 				.catch(() => {});
 		window.addEventListener('offline', () => (offline = true));
-		window.addEventListener('online', () => {
+		window.addEventListener('online', async () => {
 			offline = false;
+			await syncOutbox();
 			loadArticles(true);
 			warmOffline();
 		});
+		// iOS has no background sync: retry when the app comes back to the
+		// foreground, and every minute while something is still queued.
+		document.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'visible') syncOutbox();
+		});
+		outboxTimer = setInterval(() => {
+			if (navigator.onLine) syncOutbox();
+		}, 60000);
 		api
 			.site()
 			.then((c) => {
@@ -895,6 +928,9 @@
 			})
 			.catch(() => {});
 	});
+
+	let outboxTimer: ReturnType<typeof setInterval> | undefined;
+	onDestroy(() => clearInterval(outboxTimer));
 
 	// Feeds are fetched on demand while people use the app (the worker only
 	// polls feeds of recently active users), so pull ours when the app opens.
@@ -1158,6 +1194,11 @@
 		{/if}
 		{#if offline}
 			<p class="offlinebanner">📴 {$t('offline_banner')}</p>
+		{/if}
+		{#if $pendingCount > 0}
+			<p class="offlinebanner">
+				⟳ {$pendingCount} {$t($pendingCount === 1 ? 'pending_sync_one' : 'pending_sync')}
+			</p>
 		{/if}
 		{#if $user?.must_change_password}
 			<a class="tempbanner" href="/settings#password">
