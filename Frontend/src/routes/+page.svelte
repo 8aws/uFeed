@@ -68,6 +68,9 @@
 	let searchMode = $state<'text' | 'ai'>('text');
 	let view = $state<View>(initialView());
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
+	let offline = $state(typeof navigator !== 'undefined' && !navigator.onLine);
+	// Current plan's limits (hide AI entry points the plan doesn't include).
+	let aiAllowed = $state(true);
 	// Mobile-only: the sidebar becomes an off-canvas drawer.
 	let sidebarOpen = $state(false);
 	// Long-press bookkeeping: ignore the tap that ends the gesture, and delay
@@ -203,6 +206,17 @@
 			cursor = page.next_cursor;
 			hasMore = !!page.next_cursor;
 			if (reset) selected = 0;
+		} catch (e) {
+			// No connection: fall back to the saved articles kept for offline use.
+			if (!navigator.onLine || (e instanceof ApiError && e.code === 'offline')) {
+				offline = true;
+				if (filter.kind !== 'saved') {
+					loading = false;
+					filter = { kind: 'saved' };
+					await loadArticles(true);
+					return;
+				}
+			}
 		} finally {
 			loading = false;
 		}
@@ -425,7 +439,15 @@
 	}
 
 	async function subscribe(url: string) {
-		await api.subscribe(url);
+		try {
+			await api.subscribe(url);
+		} catch (e) {
+			discoverMsg =
+				e instanceof ApiError && e.code === 'plan_limit_feeds'
+					? $t('plan_limit_feeds')
+					: $t('no_feeds_found');
+			return;
+		}
 		showAdd = false;
 		feedUrl = '';
 		candidates = [];
@@ -691,6 +713,20 @@
 		// First run: no feeds yet and never onboarded → show the starter flow.
 		if (!onboarded() && subs.length === 0) showOnboarding = true;
 		syncOnOpen();
+		warmOffline();
+		window.addEventListener('offline', () => (offline = true));
+		window.addEventListener('online', () => {
+			offline = false;
+			loadArticles(true);
+			warmOffline();
+		});
+		api
+			.site()
+			.then((c) => {
+				const role = ($user?.role ?? 'free') as keyof typeof c.plan_limits;
+				aiAllowed = c.plan_limits[role]?.ai_features ?? true;
+			})
+			.catch(() => {});
 	});
 
 	// Feeds are fetched on demand while people use the app (the worker only
@@ -711,6 +747,28 @@
 			}
 		} catch {
 			/* offline or cooling down: nothing to do */
+		}
+	}
+
+	// Keep saved articles (and their main images) available offline: the
+	// service worker stores this response and the images we hand it.
+	async function warmOffline() {
+		if (!navigator.onLine || !navigator.serviceWorker?.controller) return;
+		try {
+			const page = await api.listArticles({ saved: 'true', limit: '100', offline: '1' });
+			const urls = new Set<string>();
+			for (const a of page.items) {
+				const thumb = safeUrl(a.image_url);
+				if (thumb) urls.add(thumb);
+				for (const m of (a.content_html ?? '').matchAll(/<img[^>]+src="([^"]+)"/g)) {
+					const u = safeUrl(m[1]);
+					if (u) urls.add(u);
+					if (urls.size > 150) break;
+				}
+			}
+			navigator.serviceWorker.controller.postMessage({ type: 'cache-images', urls: [...urls] });
+		} catch {
+			/* best effort */
 		}
 	}
 
@@ -763,13 +821,15 @@
 						loadArticles(true);
 					}}>{$t('search_text')}</button
 				>
-				<button
-					class:active={searchMode === 'ai'}
-					onclick={() => {
-						searchMode = 'ai';
-						loadArticles(true);
-					}}>✨ {$t('search_ai')}</button
-				>
+				{#if aiAllowed}
+					<button
+						class:active={searchMode === 'ai'}
+						onclick={() => {
+							searchMode = 'ai';
+							loadArticles(true);
+						}}>✨ {$t('search_ai')}</button
+					>
+				{/if}
 			</div>
 		{/if}
 
@@ -798,13 +858,15 @@
 			>
 				★ {$t('favorites')}
 			</button>
-			<button
-				class="nav"
-				class:active={filter.kind === 'foryou'}
-				onclick={() => setFilter({ kind: 'foryou' })}
-			>
-				✨ {$t('for_you')}
-			</button>
+			{#if aiAllowed}
+				<button
+					class="nav"
+					class:active={filter.kind === 'foryou'}
+					onclick={() => setFilter({ kind: 'foryou' })}
+				>
+					✨ {$t('for_you')}
+				</button>
+			{/if}
 		</nav>
 
 		{#snippet feedRow(s: Subscription)}
@@ -898,6 +960,9 @@
 	</aside>
 
 	<main class="list" bind:this={listEl}>
+		{#if offline}
+			<p class="offlinebanner">📴 {$t('offline_banner')}</p>
+		{/if}
 		{#if $user?.must_change_password}
 			<a class="tempbanner" href="/settings#password">
 				🔑 {$t('temp_password_banner')} <strong>{$t('change_it_now')} →</strong>
@@ -1605,6 +1670,14 @@
 	}
 	.htitle {
 		cursor: pointer;
+	}
+	.offlinebanner {
+		margin: 0.5rem 0.25rem 0;
+		padding: 0.45rem 0.75rem;
+		border-radius: var(--radius);
+		background: var(--surface);
+		border: 1px dashed var(--border);
+		font-size: 0.85rem;
 	}
 	.newpill {
 		flex: none;

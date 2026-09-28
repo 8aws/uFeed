@@ -1,28 +1,42 @@
-"""User roles (plans) and the limits attached to each.
+"""User roles (plans) and the default limits attached to each.
 
 Ordered from least to most privileged. `admin` can manage the instance
 (registration, roles); `editor` is reserved for curating shared content later.
+Admins can override any limit from the panel (stored in app_settings); these
+are the defaults.
 """
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 Role = Literal["free", "general", "vip", "editor", "admin"]
 ROLES: tuple[Role, ...] = ("free", "general", "vip", "editor", "admin")
 
-# Minimum seconds between on-demand refreshes ("Refresh" button / POST
-# /api/refresh). Background polling by the worker is unaffected.
-REFRESH_COOLDOWN_S: dict[str, int] = {
-    "free": 10 * 60,
-    "general": 5 * 60,
-    "vip": 0,
-    "editor": 0,
-    "admin": 0,
+# refresh_cooldown_s: seconds between manual refreshes (0 = immediate)
+# max_feeds / max_api_keys: None = unlimited
+# ai_features: semantic search, "For you" and similar articles
+DEFAULT_PLAN_LIMITS: dict[str, dict[str, Any]] = {
+    "free": {"refresh_cooldown_s": 600, "max_feeds": 100, "max_api_keys": 1, "ai_features": True},
+    "general": {
+        "refresh_cooldown_s": 300,
+        "max_feeds": 300,
+        "max_api_keys": 3,
+        "ai_features": True,
+    },
+    "vip": {"refresh_cooldown_s": 0, "max_feeds": None, "max_api_keys": 10, "ai_features": True},
+    "editor": {
+        "refresh_cooldown_s": 0,
+        "max_feeds": None,
+        "max_api_keys": 10,
+        "ai_features": True,
+    },
+    "admin": {
+        "refresh_cooldown_s": 0,
+        "max_feeds": None,
+        "max_api_keys": None,
+        "ai_features": True,
+    },
 }
 
 DEFAULT_SIGNUP_ROLE: Role = "free"
-
-
-def refresh_cooldown(role: str) -> int:
-    return REFRESH_COOLDOWN_S.get(role, REFRESH_COOLDOWN_S["free"])

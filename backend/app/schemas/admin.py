@@ -9,11 +9,19 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from app.core.roles import Role
 
 
+class PlanLimits(BaseModel):
+    refresh_cooldown_s: int = Field(ge=0, le=86_400)
+    max_feeds: int | None = Field(default=None, ge=0, le=100_000)  # None = unlimited
+    max_api_keys: int | None = Field(default=None, ge=0, le=1_000)  # None = unlimited
+    ai_features: bool = True
+
+
 class SiteConfig(BaseModel):
-    """Public, unauthenticated instance info for the login screen."""
+    """Public, unauthenticated instance info (sign-up state, plan limits)."""
 
     registration_open: bool
     refresh_cooldown_s: dict[str, int]
+    plan_limits: dict[str, PlanLimits]
 
 
 class AdminSettings(BaseModel):
@@ -24,6 +32,7 @@ class AdminSettings(BaseModel):
     dormant_delete_days: int
     roles: list[str]
     refresh_cooldown_s: dict[str, int]
+    plan_limits: dict[str, PlanLimits]
 
 
 class AdminSettingsUpdate(BaseModel):

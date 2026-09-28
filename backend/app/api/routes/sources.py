@@ -11,7 +11,6 @@ from app.api.errors import AppError
 from app.core.config import settings
 from app.core.netguard import public_client
 from app.core.ratelimit import cooldown
-from app.core.roles import refresh_cooldown
 from app.schemas.common import OkResponse
 from app.schemas.discover import DiscoveredFeed, DiscoverRequest, OpmlImportResult
 from app.schemas.source import (
@@ -27,6 +26,7 @@ from app.services import discovery as discovery_service
 from app.services import folders as folder_service
 from app.services import ingest as ingest_service
 from app.services import opml as opml_service
+from app.services import site as site_service
 from app.services import source_health
 from app.services import subscriptions as sub_service
 from app.services.subscriptions import SubscriptionRow
@@ -51,6 +51,12 @@ def _to_out(row: SubscriptionRow) -> SubscriptionOut:
 async def list_sources(user: CurrentUser, db: DbSession) -> list[SubscriptionOut]:
     rows = await sub_service.list_subscriptions(db, user.id)
     return [_to_out(r) for r in rows]
+
+
+async def _check_feed_limit(db, user) -> None:
+    max_feeds = (await site_service.limits_for(db, user.role))["max_feeds"]
+    if max_feeds is not None and await sub_service.count(db, user.id) >= max_feeds:
+        raise AppError(403, "plan_limit_feeds", f"Your plan allows up to {max_feeds} feeds.")
 
 
 def health_out(row: source_health.HealthRow) -> SourceHealthOut:
@@ -111,10 +117,10 @@ async def refresh(
 ) -> RefreshResult:
     """Fetch the user's feeds now (or one source) and report what was found.
 
-    Rate-limited per plan (see app.core.roles.REFRESH_COOLDOWN_S); the worker
-    keeps polling in the background regardless.
+    Rate-limited per plan (admin-editable; defaults in app.core.roles).
     """
-    wait = await cooldown(f"refresh:{user.id}", refresh_cooldown(user.role))
+    limits = await site_service.limits_for(db, user.role)
+    wait = await cooldown(f"refresh:{user.id}", int(limits["refresh_cooldown_s"]))
     if wait:
         raise AppError(
             429,
@@ -141,6 +147,7 @@ async def subscribe(body: SubscribeRequest, user: CurrentUser, db: DbSession) ->
     if body.folder_id is not None:
         if await folder_service.get_folder(db, user.id, body.folder_id) is None:
             raise AppError(404, "not_found", "Folder not found.")
+    await _check_feed_limit(db, user)
     sub, _created = await sub_service.subscribe(db, user.id, body.url, body.folder_id)
     row = await sub_service.get_subscription_row(db, user.id, sub.id)
     assert row is not None
@@ -201,7 +208,9 @@ async def opml_import(user: CurrentUser, db: DbSession, file: UploadFile) -> Opm
     content = await file.read(MAX_OPML_BYTES + 1)
     if len(content) > MAX_OPML_BYTES:
         raise AppError(413, "too_large", "OPML file is too large (max 2 MB).")
-    imported, skipped = await opml_service.import_opml(db, user.id, content)
+    max_feeds = (await site_service.limits_for(db, user.role))["max_feeds"]
+    room = None if max_feeds is None else max(0, max_feeds - await sub_service.count(db, user.id))
+    imported, skipped = await opml_service.import_opml(db, user.id, content, max_new=room)
     return OpmlImportResult(imported=imported, skipped=skipped)
 
 

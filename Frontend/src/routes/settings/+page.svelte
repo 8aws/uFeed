@@ -7,6 +7,7 @@
 	import { toolbarLabels, type ToolbarLabels } from '$lib/prefs';
 	import { relativeTime } from '$lib/format';
 	import type {
+		PlanLimits,
 		ApiKey,
 		ApiKeyCreated,
 		Folder,
@@ -90,12 +91,15 @@
 	async function addFeed(s: CatalogSection, f: CatalogFeed) {
 		if (catBusy.has(f.url) || isSub(f)) return;
 		setBusy(f.url, true);
+		catMsg = '';
 		try {
 			const folder = await ensureFolder(catName(s), catFolders);
 			const sub = await addCatalogFeed(f, folder?.id ?? null);
 			// The worker fetches new sources on its next tick; no manual refresh,
 			// which would spend the plan's refresh cooldown.
 			if (sub) catSubs = [...catSubs, sub];
+		} catch (e) {
+			if (e instanceof ApiError && e.code === 'plan_limit_feeds') catMsg = $t('plan_limit_feeds');
 		} finally {
 			setBusy(f.url, false);
 		}
@@ -230,17 +234,25 @@
 	let copied = $state<'url' | 'key' | null>(null);
 	let serverUrl = $state('');
 	let allowState = $state(true);
-	let cooldowns = $state<Record<Role, number> | null>(null);
+	let myPlan = $state<PlanLimits | null>(null);
+	let keyMsg = $state('');
+	let catMsg = $state('');
 
 	function scopeLabels(k: ApiKey): string {
 		const sc = k.scopes.length ? k.scopes : ['read', 'state']; // [] = full access
 		return sc.map((x) => $t(x === 'state' ? 'scope_state' : 'scope_read')).join(' · ');
 	}
 
-	function planLimit(role: Role): string {
-		const secs = cooldowns?.[role];
-		if (secs === undefined) return '';
-		return secs > 0 ? `${$t('refresh_every')} ${Math.round(secs / 60)} min` : $t('refresh_immediate');
+	function planSummary(p: PlanLimits): string {
+		const parts = [
+			p.refresh_cooldown_s > 0
+				? `${$t('refresh_every')} ${Math.round(p.refresh_cooldown_s / 60)} min`
+				: $t('refresh_immediate'),
+			`${p.max_feeds === null ? $t('unlimited') : `${$t('up_to')} ${p.max_feeds}`} ${$t('feeds_short')}`,
+			`${p.max_api_keys === null ? $t('unlimited') : `${$t('up_to')} ${p.max_api_keys}`} ${$t('api_keys_short')}`,
+			p.ai_features ? $t('ai_yes') : $t('ai_no')
+		];
+		return parts.join(' · ');
 	}
 
 	async function loadKeys() {
@@ -255,10 +267,11 @@
 		const name = newKeyName.trim();
 		if (!name) return;
 		try {
+			keyMsg = '';
 			created = await api.createKey(name, allowState ? ['read', 'state'] : ['read']);
 			await loadKeys();
-		} catch {
-			/* ignore */
+		} catch (e) {
+			keyMsg = e instanceof ApiError && e.code === 'plan_limit_keys' ? $t('plan_limit_keys') : '⚠';
 		}
 	}
 
@@ -286,7 +299,10 @@
 	onMount(() => {
 		serverUrl = window.location.origin;
 		loadKeys();
-		api.site().then((c) => (cooldowns = c.refresh_cooldown_s)).catch(() => {});
+		api
+			.site()
+			.then((c) => (myPlan = $user ? (c.plan_limits[$user.role as Role] ?? null) : null))
+			.catch(() => {});
 	});
 
 	async function onImport(e: Event) {
@@ -443,6 +459,7 @@
 				<button class:active={catFilter === 'es'} onclick={() => (catFilter = 'es')}>{LANG_FLAG.es} {$t('lang_es')}</button>
 				<button class:active={catFilter === 'en'} onclick={() => (catFilter = 'en')}>{LANG_FLAG.en} {$t('lang_en')}</button>
 			</div>
+			{#if catMsg}<p class="errmsg">{catMsg}</p>{/if}
 			{#each CATALOG as s (s.id)}
 				{@const feeds = catFeeds(s)}
 				{@const count = feeds.filter(isSub).length}
@@ -492,6 +509,7 @@
 				<input bind:value={newKeyName} maxlength="120" />
 				<button class="primary" onclick={createKey} disabled={!newKeyName.trim()}>{$t('generate_key')}</button>
 			</div>
+			{#if keyMsg}<span class="errmsg">{keyMsg}</span>{/if}
 		</label>
 		<label class="check">
 			<input type="checkbox" bind:checked={allowState} />
@@ -577,7 +595,7 @@
 			<p class="muted">{$user.email}</p>
 			<p class="muted small">
 				{$t('plan')}: <strong>{$t(`role_${$user.role}` as 'role_free')}</strong>
-				{#if cooldowns}· {planLimit($user.role)}{/if}
+				{#if myPlan}· {planSummary(myPlan)}{/if}
 			</p>
 		{/if}
 		<button onclick={logout}>{$t('logout')}</button>

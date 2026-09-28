@@ -129,10 +129,18 @@ export interface ApiKeyCreated extends ApiKey {
 	key: string;
 }
 
+export interface PlanLimits {
+	refresh_cooldown_s: number;
+	max_feeds: number | null; // null = unlimited
+	max_api_keys: number | null; // null = unlimited
+	ai_features: boolean;
+}
+
 /** Unauthenticated instance info. */
 export interface SiteConfig {
 	registration_open: boolean;
 	refresh_cooldown_s: Record<Role, number>;
+	plan_limits: Record<Role, PlanLimits>;
 }
 
 export interface AdminSettings {
@@ -143,6 +151,7 @@ export interface AdminSettings {
 	dormant_delete_days: number;
 	roles: Role[];
 	refresh_cooldown_s: Record<Role, number>;
+	plan_limits: Record<Role, PlanLimits>;
 }
 
 export interface AdminUser {

@@ -11,7 +11,7 @@ from app.api.deps import AdminUser, DbSession
 from app.api.errors import AppError
 from app.api.routes.sources import health_out
 from app.core.config import settings
-from app.core.roles import REFRESH_COOLDOWN_S, ROLES
+from app.core.roles import ROLES, Role
 from app.models.article import Article
 from app.models.ban import Ban
 from app.models.source import Source
@@ -26,6 +26,7 @@ from app.schemas.admin import (
     BanOut,
     BanRequest,
     Maintenance,
+    PlanLimits,
     SuspendRequest,
     TemporaryPassword,
 )
@@ -81,7 +82,7 @@ async def _target(db, user_id: uuid.UUID, admin: User) -> User:
     return target
 
 
-def _settings_out(cfg: dict) -> AdminSettings:
+def _settings_out(cfg: dict, plans: dict) -> AdminSettings:
     return AdminSettings(
         registration_open=cfg["registration_open"],
         default_role=cfg["default_role"],
@@ -89,19 +90,31 @@ def _settings_out(cfg: dict) -> AdminSettings:
         inactivity_days=cfg["inactivity_days"],
         dormant_delete_days=cfg["dormant_delete_days"],
         roles=list(ROLES),
-        refresh_cooldown_s=dict(REFRESH_COOLDOWN_S),
+        refresh_cooldown_s={r: int(p["refresh_cooldown_s"]) for r, p in plans.items()},
+        plan_limits=plans,
     )
 
 
 @router.get("/settings", response_model=AdminSettings)
 async def get_settings(_: AdminUser, db: DbSession) -> AdminSettings:
-    return _settings_out(await site_service.get_settings(db))
+    return _settings_out(await site_service.get_settings(db), await site_service.plan_limits(db))
 
 
 @router.patch("/settings", response_model=AdminSettings)
 async def update_settings(body: AdminSettingsUpdate, _: AdminUser, db: DbSession) -> AdminSettings:
     values = body.model_dump(exclude_none=True)
-    return _settings_out(await site_service.update_settings(db, values))
+    cfg = await site_service.update_settings(db, values)
+    return _settings_out(cfg, await site_service.plan_limits(db))
+
+
+@router.put("/plans", response_model=AdminSettings)
+async def update_plans(body: dict[Role, PlanLimits], _: AdminUser, db: DbSession) -> AdminSettings:
+    """Replace the limits of the given plans (others keep their values)."""
+    plans = await site_service.plan_limits(db)
+    for role, limits in body.items():
+        plans[role] = limits.model_dump()
+    await site_service.save_plan_limits(db, plans)
+    return _settings_out(await site_service.get_settings(db), plans)
 
 
 @router.get("/users", response_model=list[AdminUserOut])

@@ -71,12 +71,16 @@
 		busy = true;
 		try {
 			const folders = await api.listFolders().catch(() => []);
-			for (const s of CATALOG) {
-				const feeds = s.feeds.filter((f) => selected.has(f.url));
-				if (!feeds.length) continue;
-				progress = sectionName(s);
-				const folder = await ensureFolder(sectionName(s), folders);
-				for (const f of feeds) await addCatalogFeed(f, folder?.id ?? null);
+			try {
+				for (const s of CATALOG) {
+					const feeds = s.feeds.filter((f) => selected.has(f.url));
+					if (!feeds.length) continue;
+					progress = sectionName(s);
+					const folder = await ensureFolder(sectionName(s), folders);
+					for (const f of feeds) await addCatalogFeed(f, folder?.id ?? null);
+				}
+			} catch {
+				/* plan's feed limit reached: keep what was added */
 			}
 			// Kick off a first fetch so there's something to read immediately.
 			try {

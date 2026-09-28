@@ -1,6 +1,6 @@
 // Shared actions for the starter catalogue (onboarding + Settings).
 
-import { api } from '$lib/api';
+import { api, ApiError } from '$lib/api';
 import type { CatalogFeed } from '$lib/catalog';
 import type { Folder, Subscription } from '$lib/types';
 
@@ -43,7 +43,9 @@ export async function addCatalogFeed(
 			}
 		}
 		return sub;
-	} catch {
+	} catch (e) {
+		// Plan limits must reach the UI; other failures just skip the feed.
+		if (e instanceof ApiError && e.code.startsWith('plan_limit')) throw e;
 		return null;
 	}
 }

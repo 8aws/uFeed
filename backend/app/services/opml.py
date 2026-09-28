@@ -72,7 +72,9 @@ async def _get_or_create_folder(db: AsyncSession, user_id: uuid.UUID, name: str)
     return folder
 
 
-async def import_opml(db: AsyncSession, user_id: uuid.UUID, content: bytes) -> tuple[int, int]:
+async def import_opml(
+    db: AsyncSession, user_id: uuid.UUID, content: bytes, max_new: int | None = None
+) -> tuple[int, int]:
     """Import subscriptions from OPML. Returns (imported, skipped)."""
     try:
         root = ET.fromstring(content)
@@ -89,8 +91,8 @@ async def import_opml(db: AsyncSession, user_id: uuid.UUID, content: bytes) -> t
         nonlocal imported, skipped
         feed_url = outline.get("xmlUrl")
         if feed_url:
-            if not is_feed_url(feed_url):
-                skipped += 1
+            if not is_feed_url(feed_url) or (max_new is not None and imported >= max_new):
+                skipped += 1  # invalid URL, or the plan's feed limit is reached
                 return
             _, created = await subscribe(db, user_id, feed_url.strip(), folder_id)
             if created:

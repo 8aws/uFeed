@@ -5,13 +5,70 @@
 	import { user } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
 	import { relativeTime } from '$lib/format';
-	import type { AdminSettings, AdminUser, Ban, Maintenance, Role, SourceHealth } from '$lib/types';
+	import type {
+		AdminSettings,
+		AdminUser,
+		Ban,
+		Maintenance,
+		PlanLimits,
+		Role,
+		SourceHealth
+	} from '$lib/types';
 
 	let settings = $state<AdminSettings | null>(null);
 	let maint = $state<Maintenance | null>(null);
 	let purging = $state(false);
 	let tempPw = $state<{ id: string; pw: string } | null>(null);
 	let bans = $state<Ban[]>([]);
+	// Editable copy of the plan limits (minutes and blank = unlimited in the UI).
+	type Draft = { refresh_min: number; max_feeds: string; max_api_keys: string; ai_features: boolean };
+	let plansDraft = $state<Record<string, Draft>>({});
+	let savingPlans = $state(false);
+
+	function initDraft(plans: Record<string, PlanLimits>) {
+		plansDraft = Object.fromEntries(
+			Object.entries(plans).map(([role, p]) => [
+				role,
+				{
+					refresh_min: Math.round(p.refresh_cooldown_s / 60),
+					max_feeds: p.max_feeds === null ? '' : String(p.max_feeds),
+					max_api_keys: p.max_api_keys === null ? '' : String(p.max_api_keys),
+					ai_features: p.ai_features
+				}
+			])
+		);
+	}
+
+	function num(v: string | number): number | null {
+		const t = String(v).trim();
+		if (t === '') return null;
+		const n = Math.max(0, Math.floor(Number(t)));
+		return Number.isFinite(n) ? n : null;
+	}
+
+	async function savePlans() {
+		savingPlans = true;
+		try {
+			const body = Object.fromEntries(
+				Object.entries(plansDraft).map(([role, d]) => [
+					role,
+					{
+						refresh_cooldown_s: Math.max(0, Math.round(Number(d.refresh_min) || 0) * 60),
+						max_feeds: num(d.max_feeds),
+						max_api_keys: num(d.max_api_keys),
+						ai_features: d.ai_features
+					}
+				])
+			);
+			settings = await api.updatePlans(body);
+			initDraft(settings.plan_limits);
+			saved();
+		} catch (e) {
+			fail(e);
+		} finally {
+			savingPlans = false;
+		}
+	}
 	let sources = $state<SourceHealth[]>([]);
 	let banEmail = $state('');
 	let banDays = $state(0); // 0 = permanent
@@ -184,11 +241,6 @@
 	function roleName(r: Role): string {
 		return $t(`role_${r}` as 'role_free');
 	}
-	function limit(secs: number): string {
-		return secs > 0
-			? `${$t('refresh_every')} ${Math.round(secs / 60)} min`
-			: $t('refresh_immediate');
-	}
 	function saved() {
 		flash = $t('saved_ok');
 		setTimeout(() => (flash = ''), 1500);
@@ -207,6 +259,7 @@
 				api.listBans(),
 				api.adminSources()
 			]);
+			if (settings) initDraft(settings.plan_limits);
 		} catch (e) {
 			fail(e);
 		}
@@ -278,16 +331,35 @@
 
 		<section>
 			<h2>{$t('plans_limits')}</h2>
-			<table>
-				<tbody>
-					{#each settings.roles as r (r)}
-						<tr>
-							<td>{roleName(r)}</td>
-							<td class="muted">{limit(settings.refresh_cooldown_s[r])}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+			<p class="muted small">{$t('plans_hint')}</p>
+			<div class="plans">
+				{#each settings.roles as r (r)}
+					{#if plansDraft[r]}
+						<div class="plan">
+							<strong>{roleName(r)}</strong>
+							<label>
+								{$t('refresh_minutes')}
+								<input type="number" min="0" max="1440" bind:value={plansDraft[r].refresh_min} />
+							</label>
+							<label>
+								{$t('max_feeds')}
+								<input type="number" min="0" placeholder="∞" bind:value={plansDraft[r].max_feeds} />
+							</label>
+							<label>
+								{$t('max_api_keys')}
+								<input type="number" min="0" placeholder="∞" bind:value={plansDraft[r].max_api_keys} />
+							</label>
+							<label class="check small">
+								<input type="checkbox" bind:checked={plansDraft[r].ai_features} />
+								{$t('ai_features')}
+							</label>
+						</div>
+					{/if}
+				{/each}
+			</div>
+			<button class="spaced" onclick={savePlans} disabled={savingPlans}>
+				{savingPlans ? '…' : $t('save_plans')}
+			</button>
 		</section>
 	{/if}
 
@@ -579,13 +651,6 @@
 		font-size: 0.8rem;
 		margin: 0;
 	}
-	table {
-		border-collapse: collapse;
-		font-size: 0.9rem;
-	}
-	td {
-		padding: 0.25rem 1rem 0.25rem 0;
-	}
 	.users {
 		list-style: none;
 		margin: 0;
@@ -668,6 +733,30 @@
 		border: 1px solid var(--accent);
 		border-radius: 6px;
 		padding: 0.2rem 0.5rem;
+	}
+	.plans {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+		gap: 0.6rem;
+		margin-top: 0.5rem;
+	}
+	.plan {
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 0.6rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+		font-size: 0.8rem;
+	}
+	.plan label:not(.check) {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		color: var(--muted);
+	}
+	.plan input[type='number'] {
+		padding: 0.25rem 0.4rem;
 	}
 	.spaced {
 		margin-top: 0.75rem;

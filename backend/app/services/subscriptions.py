@@ -85,6 +85,15 @@ async def source_ids_for(
     return list((await db.execute(stmt)).scalars().all())
 
 
+async def count(db: AsyncSession, user_id: uuid.UUID) -> int:
+    return int(
+        await db.scalar(
+            select(func.count()).select_from(Subscription).where(Subscription.user_id == user_id)
+        )
+        or 0
+    )
+
+
 async def due_source_ids_for(db: AsyncSession, user_id: uuid.UUID) -> list[uuid.UUID]:
     """The user's active feeds whose next fetch time has come (or never fetched)."""
     now = datetime.now(UTC)

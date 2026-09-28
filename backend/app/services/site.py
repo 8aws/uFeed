@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.roles import DEFAULT_SIGNUP_ROLE, ROLES
+from app.core.roles import DEFAULT_PLAN_LIMITS, DEFAULT_SIGNUP_ROLE, ROLES
 from app.models.app_setting import AppSetting
 from app.models.user import User
 
@@ -64,3 +65,22 @@ async def set_internal(db: AsyncSession, key: str, value: Any) -> None:
     else:
         row.value = value
     await db.commit()
+
+
+async def plan_limits(db: AsyncSession) -> dict[str, dict[str, Any]]:
+    """Per-role limits: code defaults overridden by what admins saved."""
+    out = copy.deepcopy(DEFAULT_PLAN_LIMITS)
+    saved = await get_internal(db, "plan_limits") or {}
+    for role, limits in saved.items():
+        if role in out and isinstance(limits, dict):
+            out[role].update({k: v for k, v in limits.items() if k in out[role]})
+    return out
+
+
+async def limits_for(db: AsyncSession, role: str) -> dict[str, Any]:
+    plans = await plan_limits(db)
+    return plans.get(role, plans["free"])
+
+
+async def save_plan_limits(db: AsyncSession, plans: dict[str, dict[str, Any]]) -> None:
+    await set_internal(db, "plan_limits", plans)

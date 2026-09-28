@@ -110,6 +110,7 @@ async def test_refresh_cooldown_by_role(api: AsyncClient, db_session: AsyncSessi
 
 async def test_public_mark_read_respects_scopes(api: AsyncClient, db_session: AsyncSession) -> None:
     r = await _register(api)
+    await _set_role(db_session, r.json()["user"]["id"], "admin")  # scopes, not plan limits
     h = _h(r)
     src = await _seed_source(db_session, [("A", "<p>body a</p>")])
     sub = await api.post("/api/sources", headers=h, json={"url": src.feed_url})
@@ -144,6 +145,7 @@ async def test_public_mark_read_respects_scopes(api: AsyncClient, db_session: As
 
 async def test_public_save_and_favorite(api: AsyncClient, db_session: AsyncSession) -> None:
     r = await _register(api)
+    await _set_role(db_session, r.json()["user"]["id"], "admin")  # scopes, not plan limits
     h = _h(r)
     src = await _seed_source(db_session, [("A", "<p>a</p>"), ("B", "<p>b</p>")])
     await api.post("/api/sources", headers=h, json={"url": src.feed_url})

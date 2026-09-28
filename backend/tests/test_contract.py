@@ -32,6 +32,7 @@ EXPECTED_PATHS = {
     "/api/sources/health",
     "/api/sync",
     "/api/filters/keywords",
+    "/api/admin/plans",
     "/api/admin/sources",
 }
 

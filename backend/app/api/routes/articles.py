@@ -15,6 +15,7 @@ from app.schemas.article import (
 from app.schemas.common import OkResponse, Page
 from app.services import ai as ai_service
 from app.services import articles as article_service
+from app.services import site as site_service
 from app.services.articles import ArticleRow
 
 router = APIRouter(prefix="/articles", tags=["articles"])
@@ -44,6 +45,8 @@ async def list_articles(
     limit: int = Query(default=50, ge=1, le=200),
     collapse: bool = True,
 ) -> Page[ArticleOut]:
+    if semantic and not (await site_service.limits_for(db, user.role))["ai_features"]:
+        semantic = False  # plan without AI search: plain text search instead
     page = await article_service.list_articles(
         db,
         user.id,
@@ -76,6 +79,8 @@ async def similar(
     db: DbSession,
     limit: int = Query(default=8, ge=1, le=30),
 ) -> list[ArticleOut]:
+    if not (await site_service.limits_for(db, user.role))["ai_features"]:
+        return []
     arts = await ai_service.similar_articles(db, user.id, article_id, limit=limit)
     rows = await article_service.rows_for_ids(db, user.id, [a.id for a in arts])
     return [_to_out(r) for r in rows]

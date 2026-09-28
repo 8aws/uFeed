@@ -15,9 +15,13 @@ from app.main import app
 
 
 @pytest.fixture
-def client() -> TestClient:
+def client():
     """Sync client for DB-less tests (health, contract)."""
-    return TestClient(app)
+    # Same as `api`: the shared test IP must not trip the auth rate limiter
+    # (repeated local runs share Redis within the minute window).
+    app.dependency_overrides[rate_limit_auth] = lambda: None
+    yield TestClient(app)
+    app.dependency_overrides.pop(rate_limit_auth, None)
 
 
 @pytest_asyncio.fixture

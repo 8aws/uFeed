@@ -7,16 +7,82 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
 const CACHE = `ufeed-${version}`;
 const ASSETS = [...build, ...files];
 
+// Offline reading of saved articles (kept across deploys; cleared on logout).
+const API_CACHE = 'ufeed-offline-api';
+const IMG_CACHE = 'ufeed-offline-img';
+const IMG_MAX = 150;
+const SAVED_KEY = '/__offline/saved';
+// Enough of the API for the app shell to open offline.
+const SHELL_API = new Set(['/api/me', '/api/sources', '/api/folders', '/api/site']);
+
 sw.addEventListener('install', (event) => {
-	event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => sw.skipWaiting()));
+	// '/' is the SPA shell, needed to open the app offline.
+	event.waitUntil(
+		caches
+			.open(CACHE)
+			.then((cache) => cache.addAll([...ASSETS, '/']))
+			.then(() => sw.skipWaiting())
+	);
 });
 
 sw.addEventListener('activate', (event) => {
 	event.waitUntil(
 		caches
 			.keys()
-			.then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+			.then((keys) =>
+				Promise.all(
+					keys
+						.filter((k) => k !== CACHE && !k.startsWith('ufeed-offline'))
+						.map((k) => caches.delete(k))
+				)
+			)
 			.then(() => sw.clients.claim())
+	);
+});
+
+function offlineError(): Response {
+	return new Response(JSON.stringify({ error: { code: 'offline', message: 'Offline' } }), {
+		status: 503,
+		headers: { 'content-type': 'application/json' }
+	});
+}
+
+/** Network first; on success optionally refresh the cached copy under `store`,
+ *  on failure serve the copy under `fallback`. */
+async function networkFirst(req: Request, fallback: string, store: string | null) {
+	const cache = await caches.open(API_CACHE);
+	try {
+		const resp = await fetch(req);
+		if (resp.ok && store) await cache.put(store, resp.clone());
+		return resp;
+	} catch {
+		return (await cache.match(fallback)) ?? offlineError();
+	}
+}
+
+async function trim(cache: Cache, max: number) {
+	const keys = await cache.keys();
+	for (const k of keys.slice(0, Math.max(0, keys.length - max))) await cache.delete(k);
+}
+
+// The page asks us to keep a saved article's images for offline reading.
+sw.addEventListener('message', (event) => {
+	const data = event.data as { type?: string; urls?: string[] } | null;
+	if (data?.type !== 'cache-images' || !Array.isArray(data.urls)) return;
+	event.waitUntil(
+		(async () => {
+			const cache = await caches.open(IMG_CACHE);
+			for (const url of data.urls!.slice(0, IMG_MAX)) {
+				if (!/^https?:\/\//.test(url) || (await cache.match(url))) continue;
+				try {
+					const resp = await fetch(url, { mode: 'no-cors' });
+					if (resp.ok || resp.type === 'opaque') await cache.put(url, resp);
+				} catch {
+					/* skip unreachable images */
+				}
+			}
+			await trim(cache, IMG_MAX);
+		})()
 	);
 });
 
@@ -24,8 +90,32 @@ sw.addEventListener('fetch', (event) => {
 	const req = event.request;
 	if (req.method !== 'GET') return;
 	const url = new URL(req.url);
-	// Never cache API traffic; always hit the network.
-	if (url.pathname.startsWith('/api')) return;
+
+	if (url.origin === location.origin && url.pathname.startsWith('/api')) {
+		// Saved list: the page's warm-up request (offline=1) refreshes the copy;
+		// any saved list request falls back to it when there's no network.
+		if (url.pathname === '/api/articles' && url.searchParams.get('saved') === 'true') {
+			const store = url.searchParams.get('offline') === '1' ? SAVED_KEY : null;
+			event.respondWith(networkFirst(req, SAVED_KEY, store));
+			return;
+		}
+		if (SHELL_API.has(url.pathname)) {
+			event.respondWith(networkFirst(req, url.pathname, url.pathname));
+			return;
+		}
+		return; // everything else: network only
+	}
+
+	// Images of saved articles (cached on request by the page) work offline.
+	if (req.destination === 'image') {
+		event.respondWith(
+			caches
+				.open(IMG_CACHE)
+				.then((c) => c.match(req.url))
+				.then((hit) => hit ?? fetch(req))
+		);
+		return;
+	}
 
 	// Navigations: network-first so a new deploy is picked up immediately;
 	// fall back to the cached app shell only when offline.

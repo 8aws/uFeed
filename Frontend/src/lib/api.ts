@@ -17,6 +17,7 @@ import type {
 	Maintenance,
 	MutedKeyword,
 	Page,
+	PlanLimits,
 	Role,
 	SiteConfig,
 	Subscription,
@@ -135,6 +136,8 @@ export const api = {
 	}) =>
 		request<AdminSettings>('/admin/settings', { method: 'PATCH', body }),
 	adminUsers: () => request<AdminUser[]>('/admin/users'),
+	updatePlans: (plans: Partial<Record<Role, PlanLimits>>) =>
+		request<AdminSettings>('/admin/plans', { method: 'PUT', body: plans }),
 	updateAdminUser: (id: string, body: { role?: Role; is_active?: boolean }) =>
 		request<AdminUser>(`/admin/users/${id}`, { method: 'PATCH', body }),
 	adminResetPassword: (id: string) =>
