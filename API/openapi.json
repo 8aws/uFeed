@@ -2127,6 +2127,33 @@
         }
       }
     },
+    "/api/catalog": {
+      "get": {
+        "tags": [
+          "site"
+        ],
+        "summary": "Starter Catalog",
+        "description": "The starter suggestions curated by editors (sections=None: the app's\nbuilt-in list applies).",
+        "operationId": "starter_catalog_api_catalog_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/admin/settings": {
       "get": {
         "tags": [
@@ -2903,25 +2930,41 @@
         ]
       }
     },
-    "/api/admin/sources": {
-      "get": {
+    "/api/curation/catalog": {
+      "put": {
         "tags": [
-          "admin"
+          "curation"
         ],
-        "summary": "Admin Sources",
-        "description": "Every feed on the instance, problems first, with subscriber counts.",
-        "operationId": "admin_sources_api_admin_sources_get",
+        "summary": "Save Catalog",
+        "description": "Replace the starter catalogue (sections=None restores the built-in one).",
+        "operationId": "save_catalog_api_curation_catalog_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Catalog"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SourceHealthOut"
-                  },
-                  "type": "array",
-                  "title": "Response Admin Sources Api Admin Sources Get"
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -2934,14 +2977,45 @@
         ]
       }
     },
-    "/api/admin/sources/{source_id}": {
+    "/api/curation/sources": {
+      "get": {
+        "tags": [
+          "curation"
+        ],
+        "summary": "Curation Sources",
+        "description": "Every feed on the instance, problems first, with subscriber counts.",
+        "operationId": "curation_sources_api_curation_sources_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceHealthOut"
+                  },
+                  "type": "array",
+                  "title": "Response Curation Sources Api Curation Sources Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/curation/sources/{source_id}": {
       "patch": {
         "tags": [
-          "admin"
+          "curation"
         ],
         "summary": "Pause Source",
         "description": "Pause polling of a dead feed (or resume it, retrying soon).",
-        "operationId": "pause_source_api_admin_sources__source_id__patch",
+        "operationId": "pause_source_api_curation_sources__source_id__patch",
         "security": [
           {
             "HTTPBearer": []
@@ -2993,14 +3067,14 @@
         }
       }
     },
-    "/api/admin/sources/delete-orphans": {
+    "/api/curation/sources/delete-orphans": {
       "post": {
         "tags": [
-          "admin"
+          "curation"
         ],
         "summary": "Delete Orphan Sources",
         "description": "Remove feeds nobody follows (keeps any with saved/favourite articles).",
-        "operationId": "delete_orphan_sources_api_admin_sources_delete_orphans_post",
+        "operationId": "delete_orphan_sources_api_curation_sources_delete_orphans_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3011,7 +3085,7 @@
                     "type": "integer"
                   },
                   "type": "object",
-                  "title": "Response Delete Orphan Sources Api Admin Sources Delete Orphans Post"
+                  "title": "Response Delete Orphan Sources Api Curation Sources Delete Orphans Post"
                 }
               }
             }
@@ -3022,6 +3096,122 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/curation/hidden": {
+      "get": {
+        "tags": [
+          "curation"
+        ],
+        "summary": "Hidden Articles",
+        "description": "Articles kept out of Trending and the insight rankings, newest first.",
+        "operationId": "hidden_articles_api_curation_hidden_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HiddenArticleOut"
+                  },
+                  "type": "array",
+                  "title": "Response Hidden Articles Api Curation Hidden Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/curation/hidden/ids": {
+      "get": {
+        "tags": [
+          "curation"
+        ],
+        "summary": "Hidden Ids",
+        "operationId": "hidden_ids_api_curation_hidden_ids_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HiddenIds"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/curation/articles/{article_id}/hidden": {
+      "put": {
+        "tags": [
+          "curation"
+        ],
+        "summary": "Set Hidden",
+        "description": "Hide an article from (or restore it to) the shared rankings.",
+        "operationId": "set_hidden_api_curation_articles__article_id__hidden_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HideRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/sources": {
@@ -4275,6 +4465,18 @@
             ],
             "title": "Published At"
           },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fetched At"
+          },
           "is_read": {
             "type": "boolean",
             "title": "Is Read",
@@ -4452,6 +4654,109 @@
         ],
         "title": "Body_opml_import_api_opml_import_post"
       },
+      "Catalog": {
+        "properties": {
+          "sections": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CatalogSection"
+                },
+                "type": "array",
+                "maxItems": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sections"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "title": "Catalog",
+        "description": "The starter suggestions new accounts see. `sections` is None while the\ninstance uses the built-in list shipped with the app."
+      },
+      "CatalogFeed": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "title": "Url"
+          },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "en",
+              "es"
+            ],
+            "title": "Lang"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "url",
+          "lang"
+        ],
+        "title": "CatalogFeed"
+      },
+      "CatalogSection": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "title": "Id"
+          },
+          "name_en": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name En"
+          },
+          "name_es": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name Es"
+          },
+          "feeds": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogFeed"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Feeds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name_en",
+          "name_es",
+          "feeds"
+        ],
+        "title": "CatalogSection"
+      },
       "DiscoverRequest": {
         "properties": {
           "url": {
@@ -4495,6 +4800,18 @@
           "kind": {
             "type": "string",
             "title": "Kind"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
           }
         },
         "type": "object",
@@ -4584,6 +4901,65 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HiddenArticleOut": {
+        "properties": {
+          "article": {
+            "$ref": "#/components/schemas/ArticleOut"
+          },
+          "hidden_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Hidden At"
+          },
+          "hidden_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hidden By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article",
+          "hidden_at"
+        ],
+        "title": "HiddenArticleOut"
+      },
+      "HiddenIds": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "title": "HiddenIds"
+      },
+      "HideRequest": {
+        "properties": {
+          "hidden": {
+            "type": "boolean",
+            "title": "Hidden"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hidden"
+        ],
+        "title": "HideRequest"
       },
       "Insights": {
         "properties": {
@@ -4747,6 +5123,18 @@
               }
             ],
             "title": "Source Id"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
           }
         },
         "type": "object",
@@ -4961,6 +5349,18 @@
             "type": "number",
             "title": "Completion",
             "default": 0.0
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
           }
         },
         "type": "object",
