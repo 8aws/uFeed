@@ -2,6 +2,7 @@ import { get } from 'svelte/store';
 import { clearTokens, getAccess, getRefresh, setTokens } from '$lib/auth';
 import { locale } from '$lib/i18n';
 import type {
+	AISummary,
 	Ban,
 	SourceHealth,
 	AdminSettings,
@@ -176,6 +177,10 @@ export const api = {
 
 	// sources
 	listSources: () => request<Subscription[]>('/sources'),
+	aiSummary: (id: string, lang: string, generate = false) =>
+		request<AISummary>(
+			`/articles/${id}/ai-summary?lang=${encodeURIComponent(lang)}&generate=${generate}`
+		),
 	// muted keywords (hide matching articles)
 	listKeywords: () => request<MutedKeyword[]>('/filters/keywords'),
 	addKeyword: (keyword: string) =>

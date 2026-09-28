@@ -6,13 +6,18 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import AppError
+from app.core.config import settings
+from app.core.ratelimit import check_rate
+from app.models.article_ai import ArticleAI
 from app.schemas.article import (
+    AISummaryOut,
     ArticleOut,
     EngageRequest,
     MarkAllReadRequest,
     ReadEventRequest,
 )
 from app.schemas.common import OkResponse, Page
+from app.schemas.user import Locale
 from app.services import ai as ai_service
 from app.services import articles as article_service
 from app.services import site as site_service
@@ -84,6 +89,56 @@ async def similar(
     arts = await ai_service.similar_articles(db, user.id, article_id, limit=limit)
     rows = await article_service.rows_for_ids(db, user.id, [a.id for a in arts])
     return [_to_out(r) for r in rows]
+
+
+@router.get("/{article_id}/ai-summary", response_model=AISummaryOut)
+async def ai_summary(
+    article_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    lang: Locale | None = None,
+    generate: bool = False,
+) -> AISummaryOut:
+    """The article's AI summary in `lang` (default: yours).
+
+    Generated on demand (generate=true) by the on-device LLM and stored, so every
+    later reader in that language gets it instantly. Without generate=true only
+    an existing summary is returned.
+    """
+    row = await article_service.get_article(db, user.id, article_id)
+    if row is None:
+        raise AppError(404, "not_found", "Article not found.")
+    lang = lang or user.locale
+    cached = await db.get(ArticleAI, (article_id, lang))
+    if cached is not None:
+        return AISummaryOut(
+            lang=lang, summary=cached.summary, title=cached.title, model=cached.model, cached=True
+        )
+    if not generate:
+        return AISummaryOut(lang=lang)
+    if not (await site_service.limits_for(db, user.role))["ai_features"]:
+        raise AppError(403, "plan_limit_ai", "Your plan doesn't include AI features.")
+    if not await check_rate(f"llm:{user.id}", settings.ai_llm_per_hour, window_s=3600):
+        raise AppError(429, "rate_limited", "Too many AI summaries this hour; try later.")
+    art = row.article
+    translate = bool(art.lang) and not art.lang.lower().startswith(lang)
+    out = await ai_service.llm_summary(
+        art.title or "", art.content_html or art.summary or "", lang, translate
+    )
+    if out is None:
+        raise AppError(503, "ai_unavailable", "The AI model is not available right now.")
+    rec = ArticleAI(
+        article_id=article_id,
+        lang=lang,
+        summary=out["summary"],
+        title=out.get("title"),
+        model=out.get("model") or "llm",
+    )
+    await db.merge(rec)
+    await db.commit()
+    return AISummaryOut(
+        lang=lang, summary=rec.summary, title=rec.title, model=rec.model, cached=False
+    )
 
 
 async def _set_state(user, db, article_id, **kwargs) -> OkResponse:

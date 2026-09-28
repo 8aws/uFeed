@@ -14,6 +14,13 @@ services:
       AI_BACKEND: openvino
       AI_MODEL: ${AI_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
       OPENVINO_DEVICE: ${OPENVINO_DEVICE:-AUTO}
+      # On-device LLM for AI summaries/translation (empty = disabled).
+      AI_LLM_MODEL: ${AI_LLM_MODEL:-OpenVINO/Qwen3-4B-int4-ov}
+      AI_LLM_DEVICE: ${AI_LLM_DEVICE:-GPU}
+      AI_MODELS_DIR: /models
+    volumes:
+      # Downloaded LLMs persist here (~2.5 GB for Qwen3-4B int4).
+      - ai-models:/models
     devices:
       - /dev/dri:/dev/dri                    # iGPU
     # The NPU node is added by compose.npu.yml (only where it exists).
@@ -25,3 +32,6 @@ services:
       #   GPU_RENDER_GID=$(stat -c %g /dev/dri/renderD128)
       - "${GPU_VIDEO_GID:-video}"
       - "${GPU_RENDER_GID:-render}"
+
+volumes:
+  ai-models:

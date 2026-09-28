@@ -239,3 +239,27 @@ async def for_you(db: AsyncSession, user_id: uuid.UUID, limit: int = 20) -> list
     if kw is not None:
         stmt = stmt.where(kw)
     return list((await db.execute(stmt)).scalars().all())
+
+
+async def llm_summary(title: str, text: str, lang: str, translate_title: bool) -> dict | None:
+    """Ask the AI service's on-device LLM for a summary in `lang` (and the
+    headline translated if asked). None if unavailable."""
+    if not settings.ai_enabled or not (text or title):
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=settings.ai_llm_timeout_s) as client:
+            resp = await client.post(
+                f"{settings.ai_url}/generate/summary",
+                json={
+                    "title": title,
+                    "text": text,
+                    "lang": lang,
+                    "translate_title": translate_title,
+                },
+            )
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        return data if data.get("summary") else None
+    except (httpx.HTTPError, ValueError):
+        return None

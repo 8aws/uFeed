@@ -6,6 +6,16 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
+class AISummaryOut(BaseModel):
+    """LLM summary of an article in one language (null until generated)."""
+
+    lang: str
+    summary: str | None = None
+    title: str | None = None  # translated headline, when the article is in another language
+    model: str | None = None
+    cached: bool = False
+
+
 class ArticleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

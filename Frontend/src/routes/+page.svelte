@@ -241,11 +241,45 @@
 		if (dwell > 1000) api.readEvent(a.id, dwell, Math.max(0, Math.min(1, completion))).catch(() => {});
 	}
 
+	// On-demand LLM summary for the open article (in the reader's language).
+	let llm = $state<{
+		id: string;
+		summary: string | null;
+		title: string | null;
+		model: string | null;
+		loading: boolean;
+		error: string;
+	} | null>(null);
+
+	async function generateLLM(a: Article) {
+		if (!llm || llm.id !== a.id || llm.loading) return;
+		llm = { ...llm, loading: true, error: '' };
+		try {
+			const r = await api.aiSummary(a.id, $locale, true);
+			if (llm?.id === a.id) llm = { ...llm, ...r, loading: false };
+		} catch (e) {
+			const code = e instanceof ApiError ? e.code : '';
+			const msg =
+				code === 'rate_limited'
+					? $t('ai_rate')
+					: code === 'plan_limit_ai'
+						? $t('plan_limit_ai')
+						: $t('ai_unavailable');
+			if (llm?.id === a.id) llm = { ...llm, loading: false, error: msg };
+		}
+	}
+
 	function openArticleObj(a: Article) {
 		flushReadEvent();
 		openArticle = a;
 		readingStart = Date.now();
 		similarList = [];
+		llm = { id: a.id, summary: null, title: null, model: null, loading: false, error: '' };
+		api.aiSummary(a.id, $locale)
+			.then((r) => {
+				if (llm?.id === a.id && r.summary) llm = { ...llm, ...r };
+			})
+			.catch(() => {});
 		api.similar(a.id, 6)
 			.then((r) => {
 				if (openArticle?.id === a.id) similarList = r;
@@ -1166,6 +1200,9 @@
 				</div>
 			</div>
 			<h1>{title(a)}</h1>
+			{#if llm?.id === a.id && llm.title}
+				<p class="trtitle">🌐 {llm.title}</p>
+			{/if}
 			<p class="muted small">
 				{sourceName(a.source_id)}
 				{#if a.author}· {$t('by')} {a.author}{/if}
@@ -1177,10 +1214,21 @@
 					{#each a.tags as tag (tag)}<span class="tag">{tag}</span>{/each}
 				</div>
 			{/if}
-			{#if a.ai_summary}
+			{#if a.ai_summary || aiAllowed}
+				{@const gen = llm?.id === a.id ? llm : null}
 				<div class="ai-summary">
-					<span class="ai-summary-label">✨ {$t('summary_label')}</span>
-					{a.ai_summary}
+					<span class="ai-summary-label">
+						✨ {gen?.summary ? `${$t('ai_summary_llm')} · ${gen.model}` : $t('summary_label')}
+					</span>
+					{gen?.summary ?? a.ai_summary ?? ''}
+					{#if aiAllowed && !gen?.summary}
+						<div class="llm-row">
+							<button class="llm-btn" onclick={() => generateLLM(a)} disabled={gen?.loading}>
+								{gen?.loading ? $t('ai_generating') : $t('ai_generate')}
+							</button>
+							{#if gen?.error}<span class="llm-err">{gen.error}</span>{/if}
+						</div>
+					{/if}
 				</div>
 			{/if}
 			<div class="content">
@@ -1871,6 +1919,30 @@
 		border-radius: var(--radius);
 		font-size: 0.9rem;
 		line-height: 1.5;
+	}
+	.trtitle {
+		margin: -0.25rem 0 0.5rem;
+		color: var(--muted);
+		font-size: 0.95rem;
+	}
+	.llm-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		margin-top: 0.5rem;
+	}
+	.llm-btn {
+		font-size: 0.82rem;
+		padding: 0.3rem 0.7rem;
+		border-radius: 999px;
+		border-color: var(--accent);
+		color: var(--accent);
+		background: transparent;
+	}
+	.llm-err {
+		font-size: 0.8rem;
+		color: var(--danger);
 	}
 	.ai-summary-label {
 		display: block;

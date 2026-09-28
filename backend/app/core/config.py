@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     embed_max_per_tick: int = Field(default=50)
     summarize_max_per_tick: int = Field(default=20)
     ai_summary_sentences: int = Field(default=4)
+    # On-device LLM (abstractive summaries in the reader's language).
+    ai_llm_timeout_s: float = Field(default=120.0)
+    ai_llm_per_hour: int = Field(default=30)  # generations per user per hour
     # Allow fetching feeds on private/LAN addresses (SSRF guard off). Only for
     # trusted single-user installs.
     allow_private_feeds: bool = Field(default=False)

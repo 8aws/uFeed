@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from app import llm
 from app.embedders import DIM, build_embedder
 
 BACKEND = os.getenv("AI_BACKEND", "hashing")
@@ -12,6 +13,9 @@ MODEL = os.getenv("AI_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 DEVICE = os.getenv("OPENVINO_DEVICE", "AUTO")
 
 app = FastAPI(title="uFeed AI", version="0.1.0")
+
+if BACKEND == "openvino" and llm.enabled():
+    llm.warm_up_in_background()
 _embedder = None
 
 
@@ -84,6 +88,7 @@ def health() -> dict:
         "dim": DIM,
         "device": DEVICE,
         **_openvino_devices(),
+        "llm": llm.status(),
     }
 
 
@@ -167,3 +172,30 @@ def summarize_batch(body: SummarizeBatchRequest) -> SummarizeBatchResponse:
     return SummarizeBatchResponse(
         summaries=[_summarize(t, body.max_sentences) for t in body.texts]
     )
+
+
+class LLMSummaryRequest(BaseModel):
+    title: str = ""
+    text: str
+    lang: str = "es"
+    translate_title: bool = False
+
+
+class LLMSummaryResponse(BaseModel):
+    summary: str
+    title: str | None = None
+    model: str
+    ms: int
+
+
+@app.post("/generate/summary", response_model=LLMSummaryResponse)
+def generate_summary(body: LLMSummaryRequest) -> LLMSummaryResponse:
+    """Abstractive summary in the reader's language (sync: runs in a thread)."""
+    if not llm.enabled():
+        raise HTTPException(status_code=503, detail="LLM not configured")
+    plain = _WS_RE.sub(" ", _TAG_RE.sub(" ", body.text or "")).strip()
+    try:
+        out = llm.summarize(body.title, plain, body.lang, body.translate_title)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail=f"LLM unavailable: {exc}"[:200]) from exc
+    return LLMSummaryResponse(**out)

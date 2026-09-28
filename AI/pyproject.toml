@@ -18,6 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 openvino = [
     "openvino>=2026.2",
+    "openvino-genai>=2026.2",  # on-device LLM (summaries/translation)
     "optimum-intel>=1.25",
     "transformers>=4.44",
 ]

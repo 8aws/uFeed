@@ -48,6 +48,15 @@ export interface Subscription {
 	muted: boolean;
 }
 
+/** On-demand LLM summary of an article in one language. */
+export interface AISummary {
+	lang: string;
+	summary: string | null;
+	title: string | null; // translated headline (article in another language)
+	model: string | null;
+	cached: boolean;
+}
+
 export interface MutedKeyword {
 	id: string;
 	keyword: string;
