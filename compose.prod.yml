@@ -15,3 +15,10 @@ services:
     volumes:
       # Read-only view of backup status (backups/status.json) for the admin panel.
       - ./backups:/backups:ro
+    # Non-root (see backend/Dockerfile) and no way to regain privileges.
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+  worker:
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]

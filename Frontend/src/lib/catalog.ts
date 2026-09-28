@@ -5,6 +5,8 @@
 // account's Unread view isn't flooded. Titles are curated and applied as the
 // subscription's display name.
 
+import { api } from '$lib/api';
+
 export type FeedLang = 'en' | 'es';
 
 export interface CatalogFeed {
@@ -219,3 +221,12 @@ export const CATALOG: CatalogSection[] = [
 		]
 	}
 ];
+
+/** The starter list editors curated on this server, or the built-in one. */
+export async function fetchCatalog(): Promise<CatalogSection[]> {
+	try {
+		return (await api.catalog()).sections ?? CATALOG;
+	} catch {
+		return CATALOG;
+	}
+}

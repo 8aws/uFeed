@@ -6,6 +6,7 @@ from app.api.routes import (
     admin,
     articles,
     auth,
+    curation,
     filters,
     folders,
     foryou,
@@ -32,6 +33,7 @@ api_router.include_router(insights.router)
 api_router.include_router(foryou.router)
 api_router.include_router(site.router)
 api_router.include_router(admin.router)
+api_router.include_router(curation.router)
 
 # Public API (/api/v1/...)
 api_router.include_router(public.router)

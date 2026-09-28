@@ -48,21 +48,21 @@ async def test_user_health_statuses(api: AsyncClient, db_session: AsyncSession) 
     assert next(r for r in rows if r["source_id"] == str(src.id))["status"] == "stale"
 
 
-async def test_admin_pause_resume_and_orphans(api: AsyncClient, db_session: AsyncSession) -> None:
+async def test_editor_pause_resume_and_orphans(api: AsyncClient, db_session: AsyncSession) -> None:
     admin = await _register(api)
-    await _set_role(db_session, admin.json()["user"]["id"], "admin")
+    await _set_role(db_session, admin.json()["user"]["id"], "editor")
     ah = _h(admin)
     _, src = await _subscribed(api, db_session, error_count=5)
 
-    listed = (await api.get("/api/admin/sources", headers=ah)).json()
+    listed = (await api.get("/api/curation/sources", headers=ah)).json()
     mine = next(r for r in listed if r["source_id"] == str(src.id))
     assert mine["subscribers"] == 1 and mine["status"] == "failing"
 
-    r = await api.patch(f"/api/admin/sources/{src.id}", headers=ah, json={"paused": True})
+    r = await api.patch(f"/api/curation/sources/{src.id}", headers=ah, json={"paused": True})
     assert r.status_code == 200
     await db_session.refresh(src)
     assert src.is_active is False
-    await api.patch(f"/api/admin/sources/{src.id}", headers=ah, json={"paused": False})
+    await api.patch(f"/api/curation/sources/{src.id}", headers=ah, json={"paused": False})
     await db_session.refresh(src)
     assert src.is_active is True and src.error_count == 0
 
@@ -70,7 +70,7 @@ async def test_admin_pause_resume_and_orphans(api: AsyncClient, db_session: Asyn
     db_session.add(orphan)
     await db_session.commit()
     oid = orphan.id
-    deleted = (await api.post("/api/admin/sources/delete-orphans", headers=ah)).json()["deleted"]
+    deleted = (await api.post("/api/curation/sources/delete-orphans", headers=ah)).json()["deleted"]
     assert deleted >= 1
     assert await db_session.scalar(select(Source.id).where(Source.id == oid)) is None
     assert await db_session.scalar(select(Source.id).where(Source.id == src.id)) == src.id

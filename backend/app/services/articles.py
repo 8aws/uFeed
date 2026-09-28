@@ -14,6 +14,7 @@ from sqlalchemy.orm import aliased
 
 from app.models.article import Article
 from app.models.article_state import ArticleState
+from app.models.hidden_article import HiddenArticle
 from app.models.read_event import ReadEvent
 from app.models.source import Source
 from app.models.subscription import Subscription
@@ -415,7 +416,11 @@ async def insights(
             weighted.label("weighted"),
         )
         .join(Article, Article.id == ReadEvent.article_id)
-        .where(ReadEvent.kind == "read", ReadEvent.created_at >= since)
+        .where(
+            ReadEvent.kind == "read",
+            ReadEvent.created_at >= since,
+            ReadEvent.article_id.not_in(select(HiddenArticle.article_id)),
+        )
         .group_by(ReadEvent.article_id)
     )
     reads = {r.aid: r for r in (await db.execute(read_stmt)).all()}
@@ -531,7 +536,10 @@ async def trending(
             func.avg(ReadEvent.completion).label("avg_completion"),
             func.avg(ReadEvent.dwell_ms).label("avg_dwell"),
         )
-        .where(ReadEvent.created_at >= since)
+        .where(
+            ReadEvent.created_at >= since,
+            ReadEvent.article_id.not_in(select(HiddenArticle.article_id)),
+        )
         .group_by(ReadEvent.article_id)
         .subquery()
     )

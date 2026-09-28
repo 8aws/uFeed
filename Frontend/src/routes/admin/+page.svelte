@@ -11,8 +11,7 @@
 		Ban,
 		Maintenance,
 		PlanLimits,
-		Role,
-		SourceHealth
+		Role
 	} from '$lib/types';
 
 	let settings = $state<AdminSettings | null>(null);
@@ -69,13 +68,10 @@
 			savingPlans = false;
 		}
 	}
-	let sources = $state<SourceHealth[]>([]);
 	let banEmail = $state('');
 	let banDays = $state(0); // 0 = permanent
 	let cleaning = $state(false);
 	const INACTIVITY_PRESETS = [90, 180, 365, 730, 0];
-	const problems = $derived(sources.filter((x) => x.status !== 'ok'));
-	const orphans = $derived(sources.filter((x) => x.subscribers === 0).length);
 
 	function daysSince(iso: string | null): number {
 		return iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : 0;
@@ -166,26 +162,6 @@
 		}
 	}
 
-	async function togglePause(src: SourceHealth) {
-		try {
-			await api.pauseSource(src.source_id, src.status !== 'paused');
-			sources = await api.adminSources();
-			saved();
-		} catch (e) {
-			fail(e);
-		}
-	}
-
-	async function deleteOrphans() {
-		try {
-			const r = await api.deleteOrphanSources();
-			sources = await api.adminSources();
-			flash = `${r.deleted} ${$t('orphans_deleted')}`;
-			setTimeout(() => (flash = ''), 2500);
-		} catch (e) {
-			fail(e);
-		}
-	}
 	const RETENTION_PRESETS = [30, 60, 90, 180, 365, 0];
 	const retentionOptions = $derived(
 		settings && !RETENTION_PRESETS.includes(settings.retention_days)
@@ -252,12 +228,11 @@
 
 	async function load() {
 		try {
-			[settings, users, maint, bans, sources] = await Promise.all([
+			[settings, users, maint, bans] = await Promise.all([
 				api.adminSettings(),
 				api.adminUsers(),
 				api.adminMaintenance(),
-				api.listBans(),
-				api.adminSources()
+				api.listBans()
 			]);
 			if (settings) initDraft(settings.plan_limits);
 		} catch (e) {
@@ -292,8 +267,11 @@
 		}
 	}
 
-	onMount(() => {
-		if ($user && $user.role !== 'admin') {
+	onMount(async () => {
+		// Check the live role (the cached profile may predate a role change).
+		const me = await api.me().catch(() => null);
+		if (me) user.set(me);
+		if (me && me.role !== 'admin') {
 			goto('/');
 			return;
 		}
@@ -304,6 +282,7 @@
 <div class="page">
 	<a class="back" href="/settings">← {$t('settings')}</a>
 	<h1>🛡 {$t('admin')}</h1>
+	<a class="pill" href="/curation">✎ {$t('curation')} →</a>
 	{#if flash}<p class="flash">✓ {flash}</p>{/if}
 	{#if error}<p class="err">{error}</p>{/if}
 
@@ -447,7 +426,9 @@
 						{#if !b.mirror.enabled}
 							<span class="muted">{$t('mirror_off')}</span>
 						{:else if b.mirror.ok}
-							✓ {b.mirror.count}/{b.mirror.keep} · <code>{b.mirror.dir}</code>
+							✓ {b.mirror.count}/{b.mirror.keep} ·
+							{b.mirror.encrypted ? `🔒 ${$t('mirror_encrypted')}` : `⚠ ${$t('mirror_plain')}`} ·
+							<code>{b.mirror.dir}</code>
 						{:else}
 							✗ {b.mirror.error}
 						{/if}
@@ -579,32 +560,6 @@
 		{/if}
 	</section>
 
-	<section>
-		<h2>{$t('feed_health')} ({problems.length}/{sources.length})</h2>
-		<p class="muted small">{$t('feed_health_hint')}</p>
-		<ul class="facts">
-			{#each problems as src (src.source_id)}
-				<li class="banrow">
-					<span class="srcinfo">
-						<span class="ellipsis">
-							<span class="st st-{src.status}">{$t(`st_${src.status}` as 'st_ok')}</span>
-							<strong>{src.title}</strong> · {src.subscribers} {$t('subscribers')}
-						</span>
-						<span class="muted small ellipsis">
-							{#if src.last_error}{$t('error')}: {src.last_error} ·{/if}
-							{$t('last_post')}: {src.last_article_at ? relativeTime(src.last_article_at, $locale) : '—'}
-						</span>
-					</span>
-					<button class="small-btn" onclick={() => togglePause(src)}>
-						{src.status === 'paused' ? `▶ ${$t('resume')}` : `⏸ ${$t('pause')}`}
-					</button>
-				</li>
-			{/each}
-		</ul>
-		{#if orphans > 0}
-			<button class="small-btn spaced" onclick={deleteOrphans}>🧹 {$t('delete_orphans')} ({orphans})</button>
-		{/if}
-	</section>
 </div>
 
 <style>
@@ -794,15 +749,6 @@
 		gap: 0.5rem;
 		min-width: 0;
 	}
-	.srcinfo {
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-		flex: 1;
-	}
-	.srcinfo .ellipsis {
-		display: block;
-	}
 	/* Narrow screens: user controls wrap under the name instead of pushing
 	   the page wider than the viewport. */
 	@media (max-width: 640px) {
@@ -817,21 +763,12 @@
 			flex: 1 1 100%;
 		}
 	}
-	.st {
-		font-size: 0.72rem;
+	.pill {
+		align-self: flex-start;
+		font-size: 0.9rem;
+		border: 1px solid var(--accent);
 		border-radius: 999px;
-		padding: 0 0.4rem;
-		margin-right: 0.3rem;
-		border: 1px solid var(--border);
-	}
-	.st-failing {
-		color: var(--danger);
-		border-color: var(--danger);
-	}
-	.st-retrying,
-	.st-stale {
-		color: var(--accent);
-		border-color: var(--accent);
+		padding: 0.3rem 0.8rem;
 	}
 	.flash {
 		margin: 0;

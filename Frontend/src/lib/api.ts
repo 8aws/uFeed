@@ -1,3 +1,4 @@
+import type { CatalogSection } from '$lib/catalog';
 import { get } from 'svelte/store';
 import { clearTokens, getAccess, getRefresh, setTokens } from '$lib/auth';
 import { locale } from '$lib/i18n';
@@ -5,6 +6,8 @@ import type {
 	AISummary,
 	Ban,
 	SourceHealth,
+	CatalogResponse,
+	HiddenArticle,
 	AdminSettings,
 	AdminUser,
 	ApiKey,
@@ -163,12 +166,19 @@ export const api = {
 	createBan: (email: string, days: number | null, reason?: string) =>
 		request<Ban>('/admin/bans', { method: 'POST', body: { email, days, reason } }),
 	deleteBan: (id: string) => request<unknown>(`/admin/bans/${id}`, { method: 'DELETE' }),
-	// feed health
-	adminSources: () => request<SourceHealth[]>('/admin/sources'),
+	// curation (editors and admins)
+	adminSources: () => request<SourceHealth[]>('/curation/sources'),
 	pauseSource: (id: string, paused: boolean) =>
-		request<unknown>(`/admin/sources/${id}`, { method: 'PATCH', body: { paused } }),
+		request<unknown>(`/curation/sources/${id}`, { method: 'PATCH', body: { paused } }),
 	deleteOrphanSources: () =>
-		request<{ deleted: number }>('/admin/sources/delete-orphans', { method: 'POST' }),
+		request<{ deleted: number }>('/curation/sources/delete-orphans', { method: 'POST' }),
+	catalog: () => request<CatalogResponse>('/catalog'),
+	saveCatalog: (sections: CatalogSection[] | null) =>
+		request<CatalogResponse>('/curation/catalog', { method: 'PUT', body: { sections } }),
+	hiddenArticles: () => request<HiddenArticle[]>('/curation/hidden'),
+	hiddenIds: () => request<{ ids: string[] }>('/curation/hidden/ids'),
+	setHidden: (id: string, hidden: boolean) =>
+		request<unknown>(`/curation/articles/${id}/hidden`, { method: 'PUT', body: { hidden } }),
 
 	// folders
 	listFolders: () => request<Folder[]>('/folders'),

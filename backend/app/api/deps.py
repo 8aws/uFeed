@@ -117,6 +117,17 @@ async def require_admin(user: CurrentUser) -> User:
 AdminUser = Annotated[User, Depends(require_admin)]
 
 
+async def require_curator(user: CurrentUser) -> User:
+    """Editors curate shared content (starter catalogue, feed health, the
+    shared rankings); admins can do everything editors can."""
+    if user.role not in ("editor", "admin"):
+        raise AppError(403, "forbidden", "Editor access required.")
+    return user
+
+
+CuratorUser = Annotated[User, Depends(require_curator)]
+
+
 async def rate_limit_auth(request: Request) -> None:
     """Throttle auth endpoints per client IP to blunt brute-force attempts."""
     ip = request.client.host if request.client else "unknown"

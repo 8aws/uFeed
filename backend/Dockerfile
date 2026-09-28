@@ -15,6 +15,11 @@ RUN pip install --upgrade pip && pip install ".[dev]"
 
 COPY . .
 
+# Run unprivileged: the code and installed packages stay root-owned and
+# read-only for the app; a compromise can't rewrite them or touch the host.
+RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
+USER app
+
 EXPOSE 8000
 
 # Healthcheck via Python (already in the image) instead of curl.

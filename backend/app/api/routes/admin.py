@@ -9,12 +9,10 @@ from sqlalchemy import func, select, text
 
 from app.api.deps import AdminUser, DbSession
 from app.api.errors import AppError
-from app.api.routes.sources import health_out
 from app.core.config import settings
 from app.core.roles import ROLES, Role
 from app.models.article import Article
 from app.models.ban import Ban
-from app.models.source import Source
 from app.models.subscription import Subscription
 from app.models.user import User
 from app.schemas.admin import (
@@ -31,9 +29,8 @@ from app.schemas.admin import (
     TemporaryPassword,
 )
 from app.schemas.common import OkResponse
-from app.schemas.source import SourceHealthOut, SourcePauseRequest
 from app.services import auth as auth_service
-from app.services import moderation, source_health
+from app.services import moderation
 from app.services import retention as retention_service
 from app.services import site as site_service
 
@@ -291,30 +288,3 @@ async def run_inactivity_now(admin: AdminUser, db: DbSession) -> Maintenance:
     """Apply the inactivity policy now instead of waiting for the nightly run."""
     await moderation.run_inactivity_cleanup(db)
     return await maintenance(admin, db)
-
-
-# --- Feed health ----------------------------------------------------------------
-
-
-@router.get("/sources", response_model=list[SourceHealthOut])
-async def admin_sources(_: AdminUser, db: DbSession) -> list[SourceHealthOut]:
-    """Every feed on the instance, problems first, with subscriber counts."""
-    return [health_out(r) for r in await source_health.for_admin(db)]
-
-
-@router.patch("/sources/{source_id}", response_model=OkResponse)
-async def pause_source(
-    source_id: uuid.UUID, body: SourcePauseRequest, _: AdminUser, db: DbSession
-) -> OkResponse:
-    """Pause polling of a dead feed (or resume it, retrying soon)."""
-    src = await db.get(Source, source_id)
-    if src is None:
-        raise AppError(404, "not_found", "Source not found.")
-    await source_health.set_paused(db, src, body.paused)
-    return OkResponse()
-
-
-@router.post("/sources/delete-orphans")
-async def delete_orphan_sources(_: AdminUser, db: DbSession) -> dict[str, int]:
-    """Remove feeds nobody follows (keeps any with saved/favourite articles)."""
-    return {"deleted": await source_health.delete_orphans(db)}

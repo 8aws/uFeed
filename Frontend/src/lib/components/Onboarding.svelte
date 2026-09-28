@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import { locale, t } from '$lib/i18n';
-	import { CATALOG, LANG_FLAG, type CatalogFeed, type FeedLang } from '$lib/catalog';
+	import { CATALOG, LANG_FLAG, fetchCatalog, type CatalogFeed, type CatalogSection, type FeedLang } from '$lib/catalog';
+	import { onMount } from 'svelte';
 	import { addCatalogFeed, ensureFolder } from '$lib/catalogActions';
 
 	let { oncomplete }: { oncomplete: () => void } = $props();
@@ -13,10 +14,19 @@
 	// Pre-select the first few sections' feeds in the user's language so a new
 	// account gets readable content fast; the other language is one tap away.
 	const userLang: FeedLang = $locale === 'es' ? 'es' : 'en';
-	const preselected = new Set(
-		CATALOG.slice(0, 3).flatMap((s) => s.feeds.filter((f) => f.lang === userLang).map((f) => f.url))
-	);
-	let selected = $state<Set<string>>(new Set(preselected));
+	const defaults = (cat: CatalogSection[]) =>
+		new Set(cat.slice(0, 3).flatMap((s) => s.feeds.filter((f) => f.lang === userLang).map((f) => f.url)));
+	let catalog = $state<CatalogSection[]>(CATALOG);
+	let selected = $state<Set<string>>(defaults(CATALOG));
+	let touched = false;
+
+	// Use the list editors curated on this server (falls back to the built-in one).
+	onMount(async () => {
+		const cat = await fetchCatalog();
+		if (cat === catalog) return;
+		catalog = cat;
+		if (!touched) selected = defaults(cat);
+	});
 
 	// Within each section, list the user's language first.
 	function ordered(feeds: CatalogFeed[]): CatalogFeed[] {
@@ -24,13 +34,13 @@
 	}
 
 	function langSelected(lang: FeedLang): boolean {
-		return CATALOG.every((s) => s.feeds.filter((f) => f.lang === lang).every((f) => selected.has(f.url)));
+		return catalog.every((s) => s.feeds.filter((f) => f.lang === lang).every((f) => selected.has(f.url)));
 	}
 
 	function toggleLang(lang: FeedLang) {
 		const next = new Set(selected);
 		const on = !langSelected(lang);
-		for (const s of CATALOG) {
+		for (const s of catalog) {
 			for (const f of s.feeds) {
 				if (f.lang !== lang) continue;
 				if (on) next.add(f.url);
@@ -38,9 +48,10 @@
 			}
 		}
 		selected = next;
+		touched = true;
 	}
 
-	function sectionName(s: (typeof CATALOG)[number]): string {
+	function sectionName(s: CatalogSection): string {
 		return $locale === 'es' ? s.name_es : s.name_en;
 	}
 
@@ -49,14 +60,15 @@
 		if (next.has(url)) next.delete(url);
 		else next.add(url);
 		selected = next;
+		touched = true;
 	}
 
-	function sectionState(s: (typeof CATALOG)[number]): 'all' | 'some' | 'none' {
+	function sectionState(s: CatalogSection): 'all' | 'some' | 'none' {
 		const n = s.feeds.filter((f) => selected.has(f.url)).length;
 		return n === 0 ? 'none' : n === s.feeds.length ? 'all' : 'some';
 	}
 
-	function toggleSection(s: (typeof CATALOG)[number]) {
+	function toggleSection(s: CatalogSection) {
 		const next = new Set(selected);
 		const on = sectionState(s) !== 'all';
 		for (const f of s.feeds) {
@@ -64,6 +76,7 @@
 			else next.delete(f.url);
 		}
 		selected = next;
+		touched = true;
 	}
 
 	async function finish() {
@@ -72,7 +85,7 @@
 		try {
 			const folders = await api.listFolders().catch(() => []);
 			try {
-				for (const s of CATALOG) {
+				for (const s of catalog) {
 					const feeds = s.feeds.filter((f) => selected.has(f.url));
 					if (!feeds.length) continue;
 					progress = sectionName(s);
@@ -124,7 +137,7 @@
 				<button class="chip" onclick={() => (selected = new Set())}>{$t('select_none')}</button>
 			</div>
 			<div class="sections">
-				{#each CATALOG as s (s.id)}
+				{#each catalog as s (s.id)}
 					<div class="section">
 						<button
 							class="sechead"

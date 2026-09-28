@@ -135,7 +135,16 @@ Schedule it daily with cron:
 ```bash
 (crontab -l 2>/dev/null; echo "30 4 * * * cd $PWD && ./scripts/backup.sh >> backups/backup.log 2>&1") | crontab -
 ```
-Restore (local or mirrored file): `./scripts/restore.sh <path>/ufeed-YYYYmmdd-HHMMSS.sql.gz`
+Restore (local or mirrored file): `./scripts/restore.sh <path>/ufeed-YYYYmmdd-HHMMSS.sql.gz[.gpg]`
+
+**Encrypted off-box copies.** Set `BACKUP_MIRROR_PASSPHRASE` in `.env`
+(`openssl rand -base64 32`) and the copies on the share are written as
+`ufeed-*.sql.gz.gpg` (gpg, AES-256 with integrity check), each verified by
+decrypting it back; plaintext copies already on the share are encrypted in
+place on the next run. Local dumps stay plain but owner-only. **Keep the
+passphrase in a password manager as well** — if this box dies, it is the only
+way to open the QNAP copies. `restore.sh` decrypts `.gpg` files with the
+passphrase from `.env`, or gpg prompts for it.
 
 **Retention.** The worker purges old articles nightly (02:15 UTC) using the
 window set in Administration (default 90 days, 0 = keep forever). Saved and
@@ -204,7 +213,9 @@ UFEED_HTTPS_BIND=127.0.0.1        # uFeed's own HTTPS port unused behind Cosmos
 TRUSTED_PROXIES=<cosmos-ip>/32    # only the external proxy may set X-Forwarded-For
 ALLOW_PRIVATE_FEEDS=false
 ```
-and `chmod 600 .env` (backups are written owner-only by `backup.sh`).
+and `chmod 600 .env` (backups are written owner-only by `backup.sh`; the
+`backups/` directory is traverse-only so the backend, which runs as an
+unprivileged user, can read `status.json` but not list or open the dumps).
 Only `UFEED_HTTP_PORT` needs to be reachable, and only from the external
 proxy — firewall it to that IP if the host's other services allow it.
 

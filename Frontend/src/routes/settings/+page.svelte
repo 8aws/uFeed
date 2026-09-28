@@ -18,7 +18,7 @@
 		Subscription
 	} from '$lib/types';
 	import { safeUrl } from '$lib/safe';
-	import { CATALOG, LANG_FLAG, type CatalogFeed, type CatalogSection, type FeedLang } from '$lib/catalog';
+	import { CATALOG, LANG_FLAG, fetchCatalog, type CatalogFeed, type CatalogSection, type FeedLang } from '$lib/catalog';
 	import { addCatalogFeed, ensureFolder, feedKey } from '$lib/catalogActions';
 
 	const LABEL_MODES: ToolbarLabels[] = ['auto', 'both', 'icons', 'text'];
@@ -59,6 +59,7 @@
 		if ($user?.must_change_password || location.hash === '#password') open.password = true;
 	});
 
+	let catalog = $state<CatalogSection[]>(CATALOG);
 	let starterOpen = $state(false);
 	let starterLoaded = false;
 	let catSubs = $state<Subscription[]>([]);
@@ -91,7 +92,11 @@
 		if (starterOpen && !starterLoaded) {
 			starterLoaded = true;
 			try {
-				[catSubs, catFolders] = await Promise.all([api.listSources(), api.listFolders()]);
+				[catSubs, catFolders, catalog] = await Promise.all([
+					api.listSources(),
+					api.listFolders(),
+					fetchCatalog()
+				]);
 			} catch {
 				starterLoaded = false;
 			}
@@ -341,6 +346,9 @@
 	{#if $user?.role === 'admin'}
 		<a class="adminlink" href="/admin">🛡 {$t('admin')} →</a>
 	{/if}
+	{#if $user?.role === 'editor' || $user?.role === 'admin'}
+		<a class="adminlink" href="/curation">✎ {$t('curation')} →</a>
+	{/if}
 
 	<section>
 		<button class="collapse" onclick={() => toggle('language')} aria-expanded={!!open.language}>
@@ -485,7 +493,7 @@
 				<button class:active={catFilter === 'en'} onclick={() => (catFilter = 'en')}>{LANG_FLAG.en} {$t('lang_en')}</button>
 			</div>
 			{#if catMsg}<p class="errmsg">{catMsg}</p>{/if}
-			{#each CATALOG as s (s.id)}
+			{#each catalog as s (s.id)}
 				{@const feeds = catFeeds(s)}
 				{@const count = feeds.filter(isSub).length}
 				<div class="csec">

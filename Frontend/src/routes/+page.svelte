@@ -76,8 +76,6 @@
 	// Long-press bookkeeping: ignore the tap that ends the gesture, and delay
 	// removing a just-read post so a mis-press can be undone.
 	let lastLongPress = 0;
-	const pendingRemoval = new Map<string, ReturnType<typeof setTimeout>>();
-	const READ_REMOVE_DELAY = 1000;
 
 	function loadCollapsed(): Set<string> {
 		try {
@@ -461,32 +459,31 @@
 		}
 	}
 
+	// Editors keep spam or unsuitable posts out of the shared Trending/rankings.
+	const isCurator = $derived($user?.role === 'editor' || $user?.role === 'admin');
+	let hiddenIds = $state<Set<string>>(new Set());
+	async function toggleHidden(a: Article) {
+		const hide = !hiddenIds.has(a.id);
+		try {
+			await api.setHidden(a.id, hide);
+			const next = new Set(hiddenIds);
+			if (hide) next.add(a.id);
+			else next.delete(a.id);
+			hiddenIds = next;
+			loadInsights();
+		} catch {
+			/* ignore */
+		}
+	}
+
 	function openOriginal(a: Article) {
 		api.engage(a.id, 'open').catch(() => {});
 	}
 
 	async function markRead(a: Article, read: boolean) {
 		a.is_read = read;
-		// Any toggle cancels a pending removal (this is the "undo" path).
-		const pending = pendingRemoval.get(a.id);
-		if (pending) {
-			clearTimeout(pending);
-			pendingRemoval.delete(a.id);
-		}
-		if (read && filter.kind === 'unread') {
-			// Keep it visible (greyed) for a moment so the list doesn't jump under
-			// the finger and a mis-press can be undone; then drop it to free space.
-			articles = [...articles];
-			const timer = setTimeout(() => {
-				pendingRemoval.delete(a.id);
-				if (a.is_read && filter.kind === 'unread') {
-					articles = articles.filter((x) => x.id !== a.id);
-				}
-			}, READ_REMOVE_DELAY);
-			pendingRemoval.set(a.id, timer);
-		} else {
-			articles = [...articles];
-		}
+		// In Unread, a read post leaves the list at once (long-press, swipe, m key).
+		articles = read && filter.kind === 'unread' ? articles.filter((x) => x.id !== a.id) : [...articles];
 		// Marking read from the list without opening is a weak "skip" signal.
 		if (read && openArticle?.id !== a.id) api.engage(a.id, 'skip').catch(() => {});
 		try {
@@ -601,6 +598,25 @@
 		return { destroy: () => io.disconnect() };
 	}
 
+	// The long-pressed post may vanish while the finger is still down, leaving
+	// the next post under it: the release (wherever it lands) and the click
+	// right after it are swallowed so they can't open or toggle another post.
+	function guardRelease() {
+		const swallow = (e: Event) => {
+			e.stopPropagation();
+			e.preventDefault();
+		};
+		const release = () => {
+			lastLongPress = Date.now();
+			window.removeEventListener('pointerup', release, true);
+			window.removeEventListener('pointercancel', release, true);
+			window.addEventListener('click', swallow, { capture: true, once: true });
+			setTimeout(() => window.removeEventListener('click', swallow, true), 400);
+		};
+		window.addEventListener('pointerup', release, true);
+		window.addEventListener('pointercancel', release, true);
+	}
+
 	// Long-press a post (touch or mouse) to toggle read without opening it.
 	// The following click is suppressed (capture phase) so `open()` doesn't fire.
 	function longpress(node: HTMLElement, cb: () => void) {
@@ -620,6 +636,7 @@
 				fired = true;
 				timer = undefined;
 				lastLongPress = Date.now();
+				guardRelease();
 				try {
 					navigator.vibrate?.(15);
 				} catch {
@@ -859,6 +876,11 @@
 		if (!onboarded() && subs.length === 0) showOnboarding = true;
 		syncOnOpen();
 		warmOffline();
+		if (isCurator)
+			api
+				.hiddenIds()
+				.then((r) => (hiddenIds = new Set(r.ids)))
+				.catch(() => {});
 		window.addEventListener('offline', () => (offline = true));
 		window.addEventListener('online', () => {
 			offline = false;
@@ -1322,6 +1344,11 @@
 						{a.is_favorite ? '★' : '☆'} {a.is_favorite ? $t('unfavorite') : $t('favorite')}
 					</button>
 					{#if safeUrl(a.url)}<button onclick={() => shareArticle(a)}>{$t('share')}</button>{/if}
+					{#if isCurator}
+						<button class:active={hiddenIds.has(a.id)} onclick={() => toggleHidden(a)}>
+							{hiddenIds.has(a.id) ? `↺ ${$t('show_in_trending')}` : `🚫 ${$t('hide_from_trending')}`}
+						</button>
+					{/if}
 					{#if safeUrl(a.url)}
 						<a
 							class="btn"

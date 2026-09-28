@@ -33,7 +33,9 @@ EXPECTED_PATHS = {
     "/api/sync",
     "/api/filters/keywords",
     "/api/admin/plans",
-    "/api/admin/sources",
+    "/api/curation/sources",
+    "/api/curation/catalog",
+    "/api/catalog",
 }
 
 

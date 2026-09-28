@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.deps import DbSession
+from app.api.deps import CurrentUser, DbSession
+from app.api.routes.curation import load_catalog
 from app.schemas.admin import SiteConfig
+from app.schemas.curation import Catalog
 from app.services import site as site_service
 
 router = APIRouter(tags=["site"])
@@ -20,3 +22,10 @@ async def site_config(db: DbSession) -> SiteConfig:
         refresh_cooldown_s={r: int(p["refresh_cooldown_s"]) for r, p in plans.items()},
         plan_limits=plans,
     )
+
+
+@router.get("/catalog", response_model=Catalog)
+async def starter_catalog(_: CurrentUser, db: DbSession) -> Catalog:
+    """The starter suggestions curated by editors (sections=None: the app's
+    built-in list applies)."""
+    return await load_catalog(db)

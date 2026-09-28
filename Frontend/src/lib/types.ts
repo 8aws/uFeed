@@ -193,6 +193,7 @@ export interface BackupStatus {
 		error?: string | null;
 		count?: number;
 		keep?: number;
+		encrypted?: boolean;
 	};
 }
 
@@ -241,4 +242,16 @@ export interface Ban {
 	until: string | null;
 	reason: string | null;
 	created_at: string;
+}
+
+export interface CatalogResponse {
+	/** null: the app's built-in starter list applies. */
+	sections: import('$lib/catalog').CatalogSection[] | null;
+	updated_at: string | null;
+}
+
+export interface HiddenArticle {
+	article: Article;
+	hidden_at: string;
+	hidden_by: string | null;
 }
