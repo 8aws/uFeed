@@ -39,6 +39,12 @@ class ArticleOut(BaseModel):
     dup_count: int = 1
 
 
+class ArticleAudioOut(BaseModel):
+    url: str  # signed, short-lived
+    lang: str
+    cached: bool
+
+
 class MarkAllReadRequest(BaseModel):
     folder_id: uuid.UUID | None = None
     source_id: uuid.UUID | None = None

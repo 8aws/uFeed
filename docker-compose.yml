@@ -45,6 +45,8 @@ services:
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     volumes:
       - ./backend:/app
+      # Server-voice MP3 cache (LRU, see TTS_CACHE_MAX_MB).
+      - tts-cache:/data/tts
     ports:
       # Localhost-only, for debugging; prod traffic goes through the proxy.
       - "127.0.0.1:${BACKEND_HOST_PORT:-8000}:8000"
@@ -105,6 +107,7 @@ services:
       - "${UFEED_HTTPS_BIND:-0.0.0.0}:${UFEED_HTTPS_PORT:-443}:443"
 
 volumes:
+  tts-cache:
   pgdata:
   redis-data:
   caddy-data:

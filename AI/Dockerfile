@@ -4,7 +4,7 @@ ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 
 # Default build installs only the portable backend. Prod (NAS) builds with
-#   --build-arg AI_EXTRAS="[openvino]"
+#   --build-arg AI_EXTRAS="[openvino]"   (add ",tts" for the server voice)
 # to pull OpenVINO + optimum-intel for Intel iGPU/NPU inference.
 ARG AI_EXTRAS=""
 
@@ -22,7 +22,8 @@ ARG AI_EXTRAS=""
 # are installed below. If that directory has no .deb, we fall back to the apt
 # baseline, which is fine only for hardware already supported by the distro.
 COPY intel-debs/ /tmp/intel-debs/
-RUN if [ "${AI_EXTRAS}" = "[openvino]" ]; then \
+# (Any extras list that includes openvino, e.g. "[openvino,tts]".)
+RUN if echo "${AI_EXTRAS}" | grep -q openvino; then \
         apt-get update; \
         if ls /tmp/intel-debs/*.deb >/dev/null 2>&1; then \
             apt-get install -y --no-install-recommends ocl-icd-libopencl1 clinfo && \

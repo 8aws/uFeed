@@ -9,7 +9,7 @@ services:
       context: ./AI
       args:
         # Pulls OpenVINO + optimum-intel + transformers for on-device inference.
-        AI_EXTRAS: "[openvino]"
+        AI_EXTRAS: "[openvino,tts]"
     environment:
       AI_BACKEND: openvino
       AI_MODEL: ${AI_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
@@ -18,8 +18,11 @@ services:
       AI_LLM_MODEL: ${AI_LLM_MODEL:-OpenVINO/Qwen3-4B-int4-ov}
       AI_LLM_DEVICE: ${AI_LLM_DEVICE:-GPU}
       AI_MODELS_DIR: /models
+      # Server voice for "listen" (Piper, CPU). Empty = disabled.
+      AI_TTS_VOICES: ${AI_TTS_VOICES:-es:m=es_ES-davefx-medium,es:f=es_ES-sharvard-medium@F,en:f=en_US-lessac-medium,en:m=en_US-ryan-medium}
+      AI_TTS_THREADS: ${AI_TTS_THREADS:-3}
     volumes:
-      # Downloaded LLMs persist here (~2.5 GB for Qwen3-4B int4).
+      # Downloaded LLMs (~2.5 GB for Qwen3-4B int4) and Piper voices (~60 MB each).
       - ai-models:/models
     devices:
       - /dev/dri:/dev/dri                    # iGPU

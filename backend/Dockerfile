@@ -17,7 +17,8 @@ COPY . .
 
 # Run unprivileged: the code and installed packages stay root-owned and
 # read-only for the app; a compromise can't rewrite them or touch the host.
-RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
+RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /data/tts && chown app:app /data/tts  # server-voice MP3 cache (volume)
 USER app
 
 EXPOSE 8000

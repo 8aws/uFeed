@@ -4,7 +4,7 @@
 	import { api, ApiError } from '$lib/api';
 	import { clearTokens, user } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
-	import { toolbarLabels } from '$lib/prefs';
+	import { speechPrefs, toolbarLabels } from '$lib/prefs';
 	import {
 		applyPending,
 		flush,
@@ -14,10 +14,11 @@
 		setFolderLookup,
 		setState
 	} from '$lib/outbox';
-	import { safeHtml, safeUrl } from '$lib/safe';
+	import { embedOf, safeHtml, safeUrl } from '$lib/safe';
 	import { relativeTime, readingTime, stripHtml } from '$lib/format';
 	import Onboarding from '$lib/components/Onboarding.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
+	import ListenBar from '$lib/components/ListenBar.svelte';
 	import type { Article, DiscoveredFeed, Folder, Insights, Subscription } from '$lib/types';
 
 	type View = 'list' | 'cardlist' | 'cards' | 'masonry';
@@ -80,6 +81,11 @@
 	let offline = $state(typeof navigator !== 'undefined' && !navigator.onLine);
 	// Current plan's limits (hide AI entry points the plan doesn't include).
 	let aiAllowed = $state(true);
+	// Read aloud: the bar opens from the reader (or by itself in accessibility
+	// mode); the server voice depends on the plan.
+	let listenOpen = $state(false);
+	let ttsServerAllowed = $state(false);
+	let readerContentEl = $state<HTMLElement | null>(null);
 	// Mobile-only: the sidebar becomes an off-canvas drawer.
 	let sidebarOpen = $state(false);
 	// Long-press bookkeeping: ignore the tap that ends the gesture, and delay
@@ -639,6 +645,69 @@
 		return { destroy: () => io.disconnect() };
 	}
 
+	// YouTube/Vimeo in articles: a thumbnail card that loads the player (the
+	// privacy-enhanced one, sandboxed) only when tapped, so nothing is fetched
+	// from those sites just by opening the article. Links that stand alone in
+	// their paragraph get the same card.
+	function embeds(node: HTMLElement, _key: string) {
+		const build = () => {
+			for (const a of node.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+				const e = embedOf(a);
+				if (!e) continue;
+				// A paragraph holding only this link is replaced whole.
+				const block = a.parentElement;
+				const sole =
+					!!block &&
+					block !== node &&
+					(block.tagName === 'P' || block.tagName === 'DIV') &&
+					block.textContent?.trim() === a.textContent?.trim();
+				if (!a.dataset.embed && !sole) continue;
+				const card = document.createElement('div');
+				card.className = `embed embed-${e.provider}`;
+				const play = document.createElement('button');
+				play.type = 'button';
+				play.className = 'embed-play';
+				play.setAttribute('aria-label', `▶ ${e.provider === 'youtube' ? 'YouTube' : 'Vimeo'}`);
+				if (e.provider === 'youtube') {
+					const img = document.createElement('img');
+					img.src = `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`;
+					img.alt = '';
+					img.loading = 'lazy';
+					play.append(img);
+				}
+				const icon = document.createElement('span');
+				icon.className = 'embed-icon';
+				icon.textContent = '▶';
+				play.append(icon);
+				const link = document.createElement('a');
+				link.href = a.href;
+				link.target = '_blank';
+				link.rel = 'noopener noreferrer nofollow';
+				link.className = 'embed-link';
+				link.textContent = `${e.provider === 'youtube' ? 'YouTube' : 'Vimeo'} ↗`;
+				play.addEventListener('click', () => {
+					const f = document.createElement('iframe');
+					f.src =
+						e.provider === 'youtube'
+							? `https://www.youtube-nocookie.com/embed/${e.id}?autoplay=1&rel=0&playsinline=1`
+							: `https://player.vimeo.com/video/${e.id}?autoplay=1&dnt=1`;
+					f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+					f.allowFullscreen = true;
+					f.referrerPolicy = 'strict-origin-when-cross-origin';
+					f.setAttribute(
+						'sandbox',
+						'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox'
+					);
+					play.replaceWith(f);
+				});
+				card.append(play, link);
+				(sole ? block : a).replaceWith(card);
+			}
+		};
+		build();
+		return { update: () => tick().then(build) };
+	}
+
 	// The long-pressed post may vanish while the finger is still down, leaving
 	// the next post under it: the release (wherever it lands) and the click
 	// right after it are swallowed so they can't open or toggle another post.
@@ -947,6 +1016,7 @@
 			.then((c) => {
 				const role = ($user?.role ?? 'free') as keyof typeof c.plan_limits;
 				aiAllowed = c.plan_limits[role]?.ai_features ?? true;
+				ttsServerAllowed = c.plan_limits[role]?.tts_server ?? false;
 			})
 			.catch(() => {});
 	});
@@ -1406,6 +1476,9 @@
 					<button class:active={a.is_favorite} onclick={() => toggleFavorite(a)}>
 						{a.is_favorite ? '★' : '☆'} {a.is_favorite ? $t('unfavorite') : $t('favorite')}
 					</button>
+					<button class:active={listenOpen || $speechPrefs.autoRead} onclick={() => (listenOpen = !listenOpen)}>
+						🔊 {$t('listen')}
+					</button>
 					{#if safeUrl(a.url)}<button onclick={() => shareArticle(a)}>{$t('share')}</button>{/if}
 					{#if isCurator}
 						<button class:active={hiddenIds.has(a.id)} onclick={() => toggleHidden(a)}>
@@ -1425,6 +1498,18 @@
 					{/if}
 				</div>
 			</div>
+			{#if listenOpen || $speechPrefs.autoRead}
+				{#key a.id}
+					<ListenBar
+						article={a}
+						title={title(a)}
+						sourceName={sourceName(a.source_id)}
+						contentEl={readerContentEl}
+						serverAllowed={ttsServerAllowed}
+						autostart={$speechPrefs.autoRead}
+					/>
+				{/key}
+			{/if}
 			<h1>{title(a)}</h1>
 			{#if llm?.id === a.id && llm.title}
 				<p class="trtitle">🌐 {llm.title}</p>
@@ -1457,8 +1542,8 @@
 					{/if}
 				</div>
 			{/if}
-			<div class="content">
-				{@html safeHtml(a.content_html || a.summary)}
+			<div class="content" use:embeds={a.id} bind:this={readerContentEl}>
+				{@html safeHtml(a.content_html || a.summary, a.url)}
 			</div>
 			{#if similarList.length}
 				<div class="similar">
@@ -1936,6 +2021,56 @@
 		background: var(--surface);
 		border: 1px dashed var(--border);
 		font-size: 0.85rem;
+	}
+	.content :global(video),
+	.content :global(audio) {
+		width: 100%;
+		max-width: 100%;
+	}
+	.content :global(.embed) {
+		margin: 1rem 0;
+	}
+	.content :global(.embed-play),
+	.content :global(.embed iframe) {
+		position: relative;
+		display: block;
+		width: 100%;
+		aspect-ratio: 16 / 9;
+		border: none;
+		border-radius: 10px;
+		padding: 0;
+		overflow: hidden;
+		background: #111;
+		cursor: pointer;
+	}
+	.content :global(.embed-play img) {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		margin: 0;
+		opacity: 0.85;
+	}
+	.content :global(.embed-icon) {
+		position: absolute;
+		inset: 0;
+		margin: auto;
+		width: 64px;
+		height: 44px;
+		border-radius: 12px;
+		background: rgba(0, 0, 0, 0.7);
+		color: #fff;
+		font-size: 1.4rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.content :global(.embed-youtube .embed-icon) {
+		background: #e62117;
+	}
+	.content :global(.embed-link) {
+		display: inline-block;
+		margin-top: 0.3rem;
+		font-size: 0.8rem;
 	}
 	/* Thin bar while the cached snapshot is being refreshed. */
 	.updating {

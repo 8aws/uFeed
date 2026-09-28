@@ -20,6 +20,7 @@ from app.core.netguard import public_client
 from app.db.session import SessionLocal
 from app.models.article import Article
 from app.models.source import Source
+from app.services import media
 from app.services import retention as retention_service
 from app.services import site as site_service
 
@@ -80,8 +81,10 @@ def _entry_guid(entry: dict) -> str:
 def _entry_content_html(entry: dict) -> str | None:
     content = entry.get("content")
     if content and isinstance(content, list) and content[0].get("value"):
-        return content[0]["value"]
-    return entry.get("summary")
+        html_ = content[0]["value"]
+    else:
+        html_ = entry.get("summary")
+    return media.append_enclosures(media.rewrite_iframes(html_), entry)
 
 
 _TAG_RE = re.compile(r"<[^>]+>")
@@ -89,9 +92,9 @@ _IMG_RE = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']', re.IGNORECASE)
 
 
 def _entry_image(entry: dict, content_html: str | None) -> str | None:
-    for media in entry.get("media_content") or []:
-        if isinstance(media, dict) and media.get("url"):
-            return media["url"]
+    for mc in entry.get("media_content") or []:
+        if isinstance(mc, dict) and mc.get("url"):
+            return mc["url"]
     for thumb in entry.get("media_thumbnail") or []:
         if isinstance(thumb, dict) and thumb.get("url"):
             return thumb["url"]
@@ -150,9 +153,14 @@ def _feed_favicon(feed: dict, site_url: str | None) -> str | None:
     return None
 
 
-def parse_feed(content: bytes, feed_lang_fallback: str | None = None) -> ParsedFeed:
-    """Parse raw feed bytes into a normalised ParsedFeed (no network)."""
-    parsed = feedparser.parse(content)
+def parse_feed(
+    content: bytes, feed_lang_fallback: str | None = None, base_url: str | None = None
+) -> ParsedFeed:
+    """Parse raw feed bytes into a normalised ParsedFeed (no network).
+    `base_url` (the feed's address) resolves relative links and media paths
+    such as `/storage/clip.mp4`, which would otherwise point at uFeed itself."""
+    headers = {"content-location": base_url} if base_url else None
+    parsed = feedparser.parse(content, response_headers=headers)
     feed = parsed.get("feed", {})
     feed_lang = feed.get("language") or feed_lang_fallback
 
@@ -168,7 +176,7 @@ def parse_feed(content: bytes, feed_lang_fallback: str | None = None) -> ParsedF
                 title=entry.get("title"),
                 author=entry.get("author"),
                 content_html=content_html,
-                summary=entry.get("summary"),
+                summary=media.rewrite_iframes(entry.get("summary")),
                 lang=entry.get("language") or feed_lang,
                 published_at=published,
                 image_url=http_url(_entry_image(entry, content_html), link),
@@ -373,7 +381,7 @@ async def refresh_source(
         return result
 
     if result.status == "ok" and result.content is not None:
-        parsed = parse_feed(result.content)
+        parsed = parse_feed(result.content, base_url=source.feed_url)
         result.new_articles = await store_articles(db, source, parsed)
         await backfill_images(db, client, source)
         if not source.title and parsed.title:

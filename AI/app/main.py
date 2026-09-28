@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 
-from app import llm
+from app import llm, tts
 from app.embedders import DIM, build_embedder
 
 BACKEND = os.getenv("AI_BACKEND", "hashing")
@@ -16,6 +16,8 @@ app = FastAPI(title="uFeed AI", version="0.1.0")
 
 if BACKEND == "openvino" and llm.enabled():
     llm.warm_up_in_background()
+if tts.enabled():
+    tts.warm_up_in_background()
 _embedder = None
 
 
@@ -89,6 +91,7 @@ def health() -> dict:
         "device": DEVICE,
         **_openvino_devices(),
         "llm": llm.status(),
+        "tts": tts.status(),
     }
 
 
@@ -199,3 +202,29 @@ def generate_summary(body: LLMSummaryRequest) -> LLMSummaryResponse:
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=503, detail=f"LLM unavailable: {exc}"[:200]) from exc
     return LLMSummaryResponse(**out)
+
+
+class TTSRequest(BaseModel):
+    text: str
+    lang: str = "es"
+    gender: str = "f"  # "f" | "m": preferred voice
+
+
+@app.post("/tts")
+def text_to_speech(body: TTSRequest) -> Response:
+    """MP3 of the text read aloud by the voice for `lang` (sync: in a thread)."""
+    lang = (body.lang or "").split("-")[0].lower()
+    if not tts.enabled() or lang not in tts.LANGS:
+        raise HTTPException(status_code=422, detail="language not supported")
+    if not body.text.strip():
+        raise HTTPException(status_code=422, detail="empty text")
+    try:
+        gender = "m" if body.gender == "m" else "f"
+        mp3, seconds, ms = tts.synthesize(body.text, lang, gender)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail=f"TTS unavailable: {exc}"[:200]) from exc
+    return Response(
+        content=mp3,
+        media_type="audio/mpeg",
+        headers={"X-Audio-Seconds": f"{seconds:.1f}", "X-Synth-Ms": str(ms)},
+    )

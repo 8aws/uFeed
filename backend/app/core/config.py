@@ -67,6 +67,14 @@ class Settings(BaseSettings):
     # On-device LLM (abstractive summaries in the reader's language).
     ai_llm_timeout_s: float = Field(default=120.0)
     ai_llm_per_hour: int = Field(default=30)  # generations per user per hour
+    # Server voice ("listen"): languages with a voice in the AI service, MP3
+    # cache (LRU, shared by all readers), generations per user per hour.
+    tts_langs: str = Field(default="es,en")
+    tts_cache_dir: str = Field(default="/data/tts")
+    tts_cache_max_mb: int = Field(default=1024)
+    tts_per_hour: int = Field(default=30)
+    tts_timeout_s: float = Field(default=240.0)
+    tts_voice_tag: str = Field(default="v1")  # bump to regenerate cached audio
     # Allow fetching feeds on private/LAN addresses (SSRF guard off). Only for
     # trusted single-user installs.
     allow_private_feeds: bool = Field(default=False)

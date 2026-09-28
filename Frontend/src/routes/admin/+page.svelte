@@ -20,7 +20,13 @@
 	let tempPw = $state<{ id: string; pw: string } | null>(null);
 	let bans = $state<Ban[]>([]);
 	// Editable copy of the plan limits (minutes and blank = unlimited in the UI).
-	type Draft = { refresh_min: number; max_feeds: string; max_api_keys: string; ai_features: boolean };
+	type Draft = {
+		refresh_min: number;
+		max_feeds: string;
+		max_api_keys: string;
+		ai_features: boolean;
+		tts_server: boolean;
+	};
 	let plansDraft = $state<Record<string, Draft>>({});
 	let savingPlans = $state(false);
 
@@ -32,7 +38,8 @@
 					refresh_min: Math.round(p.refresh_cooldown_s / 60),
 					max_feeds: p.max_feeds === null ? '' : String(p.max_feeds),
 					max_api_keys: p.max_api_keys === null ? '' : String(p.max_api_keys),
-					ai_features: p.ai_features
+					ai_features: p.ai_features,
+					tts_server: p.tts_server ?? false
 				}
 			])
 		);
@@ -55,7 +62,8 @@
 						refresh_cooldown_s: Math.max(0, Math.round(Number(d.refresh_min) || 0) * 60),
 						max_feeds: num(d.max_feeds),
 						max_api_keys: num(d.max_api_keys),
-						ai_features: d.ai_features
+						ai_features: d.ai_features,
+						tts_server: d.tts_server
 					}
 				])
 			);
@@ -331,6 +339,10 @@
 							<label class="check small">
 								<input type="checkbox" bind:checked={plansDraft[r].ai_features} />
 								{$t('ai_features')}
+							</label>
+							<label class="check small">
+								<input type="checkbox" bind:checked={plansDraft[r].tts_server} />
+								🔊 {$t('tts_server_plan')}
 							</label>
 						</div>
 					{/if}

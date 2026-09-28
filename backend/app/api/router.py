@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     admin,
     articles,
+    audio,
     auth,
     curation,
     filters,
@@ -28,6 +29,7 @@ api_router.include_router(folders.router)
 api_router.include_router(filters.router)
 api_router.include_router(sources.router)
 api_router.include_router(articles.router)
+api_router.include_router(audio.router)
 api_router.include_router(trending.router)
 api_router.include_router(insights.router)
 api_router.include_router(foryou.router)

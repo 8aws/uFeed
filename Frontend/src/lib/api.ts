@@ -231,6 +231,12 @@ export const api = {
 	setFavorite: (id: string, favorite: boolean) =>
 		request<unknown>(`/articles/${id}/favorite`, { method: favorite ? 'POST' : 'DELETE' }),
 	// `before` / `at`: when it happened (changes made offline are sent later).
+	// Server voice: signed URL of the article read aloud (generated on demand).
+	articleAudio: (id: string, lang: string, voice: 'f' | 'm') =>
+		request<{ url: string; lang: string; cached: boolean }>(
+			`/articles/${id}/audio?lang=${encodeURIComponent(lang)}&voice=${voice}`,
+			{ method: 'POST' }
+		),
 	markAllRead: (folder_id?: string | null, source_id?: string | null, before?: string) =>
 		request<unknown>('/articles/mark-all-read', {
 			method: 'POST',

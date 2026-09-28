@@ -144,6 +144,7 @@ export interface PlanLimits {
 	max_feeds: number | null; // null = unlimited
 	max_api_keys: number | null; // null = unlimited
 	ai_features: boolean;
+	tts_server?: boolean; // "listen" with the server's neural voice
 }
 
 /** Unauthenticated instance info. */

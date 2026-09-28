@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Query
 
@@ -11,6 +12,7 @@ from app.core.ratelimit import check_rate
 from app.models.article_ai import ArticleAI
 from app.schemas.article import (
     AISummaryOut,
+    ArticleAudioOut,
     ArticleOut,
     EngageRequest,
     MarkAllReadRequest,
@@ -21,6 +23,7 @@ from app.schemas.user import Locale
 from app.services import ai as ai_service
 from app.services import articles as article_service
 from app.services import site as site_service
+from app.services import tts as tts_service
 from app.services.articles import ArticleRow
 
 router = APIRouter(prefix="/articles", tags=["articles"])
@@ -139,6 +142,38 @@ async def ai_summary(
     return AISummaryOut(
         lang=lang, summary=rec.summary, title=rec.title, model=rec.model, cached=False
     )
+
+
+@router.post("/{article_id}/audio", response_model=ArticleAudioOut)
+async def article_audio(
+    article_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    lang: str | None = None,
+    voice: Literal["f", "m"] = "f",
+) -> ArticleAudioOut:
+    """The article read aloud by the server's neural voice (plan feature).
+
+    Generated once per article and language (~25x real time on the NAS CPU)
+    and shared by every reader; returns a short-lived signed URL to play it.
+    """
+    if not (await site_service.limits_for(db, user.role)).get("tts_server"):
+        raise AppError(403, "plan_limit_tts", "Your plan doesn't include the server voice.")
+    row = await article_service.get_article(db, user.id, article_id)
+    if row is None:
+        raise AppError(404, "not_found", "Article not found.")
+    voice_lang = tts_service.lang_of(row.article, lang)
+    if voice_lang is None:
+        raise AppError(422, "tts_lang", "No server voice for this article's language.")
+    name = tts_service.cache_name(article_id, voice_lang, voice)
+    if tts_service.cached(name):
+        return ArticleAudioOut(url=tts_service.signed_url(name), lang=voice_lang, cached=True)
+    if not await check_rate(f"tts:{user.id}", settings.tts_per_hour, window_s=3600):
+        raise AppError(429, "rate_limited", "Too many audio requests this hour; try later.")
+    text = tts_service.speech_text(row.article)
+    if not await tts_service.generate(name, text, voice_lang, voice):
+        raise AppError(503, "ai_unavailable", "The server voice is not available right now.")
+    return ArticleAudioOut(url=tts_service.signed_url(name), lang=voice_lang, cached=False)
 
 
 async def _set_state(user, db, article_id, **kwargs) -> OkResponse:

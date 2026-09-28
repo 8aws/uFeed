@@ -22,7 +22,9 @@ const config = {
 				'connect-src': ['self'],
 				'worker-src': ['self'],
 				'manifest-src': ['self'],
-				'frame-src': ['none'],
+				// Only the privacy-enhanced YouTube and Vimeo players, created by the
+				// reader when a video card is tapped (feed HTML never gets iframes).
+				'frame-src': ['https://www.youtube-nocookie.com', 'https://player.vimeo.com'],
 				'object-src': ['none'],
 				'base-uri': ['self'],
 				'form-action': ['self'],

@@ -23,6 +23,13 @@ openvino = [
     "transformers>=4.44",
 ]
 
+# Server-side text-to-speech (Piper neural voices, CPU). Enabled on the NAS:
+#   pip install ".[openvino,tts]"  and set AI_TTS_VOICES.
+tts = [
+    "piper-tts>=1.3",
+    "lameenc>=1.7",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

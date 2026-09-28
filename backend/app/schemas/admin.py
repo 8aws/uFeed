@@ -14,6 +14,7 @@ class PlanLimits(BaseModel):
     max_feeds: int | None = Field(default=None, ge=0, le=100_000)  # None = unlimited
     max_api_keys: int | None = Field(default=None, ge=0, le=1_000)  # None = unlimited
     ai_features: bool = True
+    tts_server: bool = False  # server neural voice for "listen"
 
 
 class SiteConfig(BaseModel):

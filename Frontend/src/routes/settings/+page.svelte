@@ -4,7 +4,8 @@
 	import { api, ApiError, downloadOpml, importOpml } from '$lib/api';
 	import { clearTokens, setTokens, user } from '$lib/auth';
 	import { locale, setLocale, t } from '$lib/i18n';
-	import { toolbarLabels, type ToolbarLabels } from '$lib/prefs';
+	import { PACES, speechPrefs, toolbarLabels, type ToolbarLabels } from '$lib/prefs';
+	import { sampleVoice, speechSupported, voicesFor } from '$lib/speech';
 	import { relativeTime } from '$lib/format';
 	import type {
 		PlanLimits,
@@ -265,10 +266,35 @@
 				: $t('refresh_immediate'),
 			`${p.max_feeds === null ? $t('unlimited') : `${$t('up_to')} ${p.max_feeds}`} ${$t('feeds_short')}`,
 			`${p.max_api_keys === null ? $t('unlimited') : `${$t('up_to')} ${p.max_api_keys}`} ${$t('api_keys_short')}`,
-			p.ai_features ? $t('ai_yes') : $t('ai_no')
+			p.ai_features ? $t('ai_yes') : $t('ai_no'),
+			...(p.tts_server ? [`🔊 ${$t('tts_server_plan')}`] : [])
 		];
 		return parts.join(' · ');
 	}
+
+	// --- Read aloud -------------------------------------------------------------
+	const SPEECH_LANGS = ['es', 'en'] as const;
+	const SAMPLES: Record<string, string> = {
+		es: 'Hola, así sonarán tus artículos en uFeed.',
+		en: 'Hi, this is how your articles will sound in uFeed.'
+	};
+	let deviceVoices = $state<Record<string, string[]>>({ es: [], en: [] });
+	function loadVoices() {
+		deviceVoices = Object.fromEntries(SPEECH_LANGS.map((l) => [l, voicesFor(l).map((v) => `${v.name}|${v.lang}`)]));
+	}
+	function toggleSpeech() {
+		toggle('speech');
+		if (open.speech && speechSupported()) {
+			loadVoices();
+			// Chrome lists voices asynchronously.
+			speechSynthesis.addEventListener('voiceschanged', loadVoices, { once: true });
+		}
+	}
+	function setDeviceVoice(lang: string, name: string) {
+		speechPrefs.update((p) => ({ ...p, deviceVoice: { ...p.deviceVoice, [lang]: name } }));
+	}
+	const paceOf = (r: number) =>
+		(Object.entries(PACES).find(([, v]) => Math.abs(v - r) < 0.01)?.[0] ?? '') as string;
 
 	async function loadKeys() {
 		try {
@@ -379,6 +405,107 @@
 					{/each}
 				</div>
 			</div>
+		{/if}
+	</section>
+
+	<section>
+		<button class="collapse" onclick={toggleSpeech} aria-expanded={!!open.speech}>
+			<h2>🔊 {$t('speech_settings')}</h2>
+			<span class="chev" aria-hidden="true">{open.speech ? '▾' : '▸'}</span>
+		</button>
+		{#if open.speech}
+			<div class="field">
+				{$t('pace')}
+				<div class="row">
+					{#each Object.entries(PACES) as [name, r] (name)}
+						<button
+							class:active={paceOf($speechPrefs.rate) === name}
+							onclick={() => speechPrefs.update((p) => ({ ...p, rate: r }))}
+						>
+							{$t(`pace_${name}` as 'pace_calm')}
+						</button>
+					{/each}
+				</div>
+			</div>
+			{#if myPlan?.tts_server}
+				<div class="field">
+					{$t('speech_engine')}
+					<div class="row">
+						<button
+							class:active={$speechPrefs.mode === 'device'}
+							onclick={() => speechPrefs.update((p) => ({ ...p, mode: 'device' }))}
+						>
+							📱 {$t('device_voice')}
+						</button>
+						<button
+							class:active={$speechPrefs.mode === 'server'}
+							onclick={() => speechPrefs.update((p) => ({ ...p, mode: 'server' }))}
+						>
+							☁️ {$t('server_voice')}
+						</button>
+					</div>
+				</div>
+				<div class="field">
+					{$t('server_voice')}
+					<div class="row">
+						<button
+							class:active={$speechPrefs.gender === 'f'}
+							onclick={() => speechPrefs.update((p) => ({ ...p, gender: 'f' }))}
+						>
+							{$t('voice_female')}
+						</button>
+						<button
+							class:active={$speechPrefs.gender === 'm'}
+							onclick={() => speechPrefs.update((p) => ({ ...p, gender: 'm' }))}
+						>
+							{$t('voice_male')}
+						</button>
+					</div>
+					<span class="muted small">{$t('server_voice_hint')}</span>
+				</div>
+			{/if}
+			{#if speechSupported()}
+				<div class="field">
+					{$t('device_voice')}
+					{#each SPEECH_LANGS as l (l)}
+						<div class="row">
+							<span class="vlang">{LANG_FLAG[l]} {$t(`lang_${l}_name` as 'lang_es_name')}</span>
+							<select
+								value={$speechPrefs.deviceVoice[l] ?? ''}
+								onchange={(e) => setDeviceVoice(l, (e.currentTarget as HTMLSelectElement).value)}
+							>
+								<option value="">{$t('voice_auto')}</option>
+								{#each deviceVoices[l] as v (v)}
+									<option value={v.split('|')[0]}>{v.split('|')[0]} ({v.split('|')[1]})</option>
+								{/each}
+							</select>
+							<button onclick={() => sampleVoice(l, $speechPrefs.deviceVoice[l] ?? '', $speechPrefs.rate, SAMPLES[l])}>
+								▶ {$t('voice_try')}
+							</button>
+						</div>
+					{/each}
+					<span class="muted small">{$t('device_voice_hint')}</span>
+				</div>
+			{/if}
+		{/if}
+	</section>
+
+	<section>
+		<button class="collapse" onclick={() => toggle('a11y')} aria-expanded={!!open.a11y}>
+			<h2>♿ {$t('accessibility')}</h2>
+			<span class="chev" aria-hidden="true">{open.a11y ? '▾' : '▸'}</span>
+		</button>
+		{#if open.a11y}
+			<label class="check">
+				<input
+					type="checkbox"
+					checked={$speechPrefs.autoRead}
+					onchange={(e) =>
+						speechPrefs.update((p) => ({ ...p, autoRead: (e.currentTarget as HTMLInputElement).checked }))}
+				/>
+				{$t('auto_read')}
+			</label>
+			<p class="muted small">{$t('auto_read_hint')}</p>
 		{/if}
 	</section>
 
@@ -843,6 +970,15 @@
 	.errmsg {
 		color: var(--danger);
 		font-size: 0.85rem;
+	}
+	.vlang {
+		min-width: 6.5rem;
+		font-size: 0.85rem;
+	}
+	.field select {
+		flex: 1 1 10rem;
+		min-width: 0;
+		width: auto;
 	}
 	.adminlink {
 		align-self: flex-start;
