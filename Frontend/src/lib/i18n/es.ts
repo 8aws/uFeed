@@ -228,6 +228,7 @@ export const es: Dict = {
 	ai_summary_llm: 'Resumen IA',
 	ai_unavailable: 'La IA no está disponible ahora.',
 	ai_rate: 'Demasiados resúmenes IA esta hora; prueba más tarde.',
+	view: 'Vista',
 	appearance: 'Apariencia',
 	toolbar_labels: 'Botones de la barra',
 	labels_auto: 'Auto (texto en ancha, iconos en estrecha)',

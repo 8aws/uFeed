@@ -4,7 +4,29 @@ import type { User } from '$lib/types';
 const ACCESS = 'ufeed_access';
 const REFRESH = 'ufeed_refresh';
 
-export const user = writable<User | null>(null);
+const USER = 'ufeed_user';
+
+// Last known profile, so the app can paint at once on a cold start and
+// refresh it from the server in the background.
+function cachedUser(): User | null {
+	try {
+		const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(USER) : null;
+		return raw ? (JSON.parse(raw) as User) : null;
+	} catch {
+		return null;
+	}
+}
+
+export const user = writable<User | null>(cachedUser());
+user.subscribe((u) => {
+	if (typeof localStorage === 'undefined') return;
+	try {
+		if (u) localStorage.setItem(USER, JSON.stringify(u));
+		else localStorage.removeItem(USER);
+	} catch {
+		/* storage full or blocked: the cache is optional */
+	}
+});
 export const authed = writable<boolean>(
 	typeof localStorage !== 'undefined' && !!localStorage.getItem(ACCESS)
 );

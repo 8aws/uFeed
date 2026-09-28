@@ -148,6 +148,19 @@
 		}
 	}
 
+	const VIEWS: View[] = ['list', 'cardlist', 'cards', 'masonry'];
+	const VIEW_ICONS: Record<View, string> = { list: '☰', cardlist: '▤', cards: '▭', masonry: '▦' };
+	let viewOpen = $state(false);
+	let viewPos = $state({ top: 0, left: 0 });
+
+	function toggleViewMenu(e: MouseEvent) {
+		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		// Below the button, kept inside the viewport (the menu is ~200px wide).
+		const left = Math.min(Math.round(r.left), window.innerWidth - 208);
+		viewPos = { top: Math.round(r.bottom + 6), left: Math.max(8, left) };
+		viewOpen = !viewOpen;
+	}
+
 	function setView(v: View) {
 		view = v;
 		try {
@@ -190,35 +203,87 @@
 		[folders, subs] = await Promise.all([api.listFolders(), api.listSources()]);
 	}
 
+	// Cold-start snapshot: the sidebar and the first page of Unread from the
+	// last session, kept in the offline cache (cleared on logout). It's painted
+	// first and then replaced by fresh data, so the app never opens blank.
+	const SNAPSHOT_CACHE = 'ufeed-offline-api';
+	const SNAPSHOT_KEY = '/__offline/home';
+	type Snapshot = {
+		user: string;
+		folders: Folder[];
+		subs: Subscription[];
+		articles: Article[];
+		cursor: string | null;
+	};
+	let fromSnapshot = $state(false);
+
+	async function readSnapshot(): Promise<Snapshot | null> {
+		try {
+			const hit = await (await caches.open(SNAPSHOT_CACHE)).match(SNAPSHOT_KEY);
+			const snap = hit ? ((await hit.json()) as Snapshot) : null;
+			return snap && snap.user === $user?.id ? snap : null;
+		} catch {
+			return null;
+		}
+	}
+
+	function writeSnapshot() {
+		if (filter.kind !== 'unread' || !$user || typeof caches === 'undefined') return;
+		const snap: Snapshot = {
+			user: $user.id,
+			folders,
+			subs,
+			articles: articles.slice(0, 40),
+			cursor: articles.length > 40 ? null : cursor
+		};
+		caches
+			.open(SNAPSHOT_CACHE)
+			.then((c) =>
+				c.put(SNAPSHOT_KEY, new Response(JSON.stringify(snap), { headers: { 'content-type': 'application/json' } }))
+			)
+			.catch(() => {});
+	}
+
+	// A reset load (new filter, refresh) supersedes one still in flight, so a
+	// tap on a feed while the first load is slow isn't lost or overwritten.
+	let loadSeq = 0;
 	async function loadArticles(reset: boolean) {
-		if (loading) return;
+		if (loading && !reset) return;
+		const seq = ++loadSeq;
 		loading = true;
 		try {
 			if (filter.kind === 'foryou') {
-				articles = await api.forYou(40);
+				const items = await api.forYou(40);
+				if (seq !== loadSeq) return;
+				articles = items;
 				cursor = null;
 				hasMore = false;
 				if (reset) selected = 0;
 				return;
 			}
 			const page = await api.listArticles(buildParams(reset));
+			if (seq !== loadSeq) return;
 			articles = reset ? page.items : [...articles, ...page.items];
 			cursor = page.next_cursor;
 			hasMore = !!page.next_cursor;
-			if (reset) selected = 0;
+			if (reset) {
+				selected = 0;
+				fromSnapshot = false;
+				writeSnapshot();
+			}
 		} catch (e) {
+			if (seq !== loadSeq) return;
 			// No connection: fall back to the saved articles kept for offline use.
 			if (!navigator.onLine || (e instanceof ApiError && e.code === 'offline')) {
 				offline = true;
 				if (filter.kind !== 'saved') {
-					loading = false;
 					filter = { kind: 'saved' };
 					await loadArticles(true);
 					return;
 				}
 			}
 		} finally {
-			loading = false;
+			if (seq === loadSeq) loading = false;
 		}
 	}
 
@@ -604,19 +669,31 @@
 		};
 	}
 
-	// Swipe a post (touch only): right = toggle read, left = toggle saved.
-	// Vertical scrolling stays native (rows use touch-action: pan-y); a swipe
-	// suppresses the tap that ends it, like a long-press.
+	// Swipe a post: right = toggle read, left = toggle saved. Works with a finger
+	// (pointer events; vertical scrolling stays native via touch-action: pan-y)
+	// and with a two-finger trackpad swipe on desktop (horizontal wheel events).
+	// A swipe suppresses the tap that ends it, like a long-press.
 	function swipe(node: HTMLElement, handlers: { right: () => void; left: () => void }) {
 		let h = handlers;
-		let pid = -1;
-		let sx = 0;
-		let sy = 0;
-		let dx = 0;
-		let tracking = false;
-		let horizontal = false;
 		let armed: '' | 'right' | 'left' = '';
 		const threshold = () => Math.min(110, node.offsetWidth * 0.33);
+
+		const render = (dx: number) => {
+			node.style.transition = '';
+			node.style.transform = `translateX(${dx}px)`;
+			node.dataset.swipe = dx > 0 ? 'right' : 'left';
+			const now: typeof armed = Math.abs(dx) >= threshold() ? (dx > 0 ? 'right' : 'left') : '';
+			if (now && now !== armed) {
+				try {
+					navigator.vibrate?.(10);
+				} catch {
+					/* ignore */
+				}
+			}
+			armed = now;
+			if (armed) node.dataset.armed = '1';
+			else delete node.dataset.armed;
+		};
 		const reset = () => {
 			node.style.transition = 'transform 0.18s ease';
 			node.style.transform = '';
@@ -624,13 +701,26 @@
 			if (scroller) scroller.scrollLeft = 0;
 			delete node.dataset.swipe;
 			delete node.dataset.armed;
+			armed = '';
 		};
+		const commit = () => {
+			lastLongPress = Date.now(); // swallow the tap/click that ends the swipe
+			if (armed === 'right') h.right();
+			else if (armed === 'left') h.left();
+			reset();
+		};
+
+		// Touch.
+		let pid = -1;
+		let sx = 0;
+		let sy = 0;
+		let tracking = false;
+		let horizontal = false;
 		const down = (e: PointerEvent) => {
 			if (e.pointerType !== 'touch') return;
 			pid = e.pointerId;
 			sx = e.clientX;
 			sy = e.clientY;
-			dx = 0;
 			tracking = true;
 			horizontal = false;
 			armed = '';
@@ -646,50 +736,62 @@
 					return;
 				}
 				horizontal = true;
-				node.style.transition = '';
 			}
-			dx = mx;
-			node.style.transform = `translateX(${dx}px)`;
-			node.dataset.swipe = dx > 0 ? 'right' : 'left';
-			const now: typeof armed = Math.abs(dx) >= threshold() ? (dx > 0 ? 'right' : 'left') : '';
-			if (now && now !== armed) {
-				try {
-					navigator.vibrate?.(10);
-				} catch {
-					/* ignore */
-				}
-			}
-			armed = now;
-			if (armed) node.dataset.armed = '1';
-			else delete node.dataset.armed;
+			render(mx);
 		};
 		const up = () => {
 			if (!tracking) return;
 			tracking = false;
-			if (horizontal) {
-				lastLongPress = Date.now(); // swallow the tap that ends the swipe
-				if (armed === 'right') h.right();
-				else if (armed === 'left') h.left();
-			}
-			reset();
+			if (horizontal) commit();
+			else reset();
 		};
 		const cancel = () => {
 			tracking = false;
 			reset();
 		};
+
+		// Trackpad (desktop): accumulate horizontal wheel deltas; the gesture ends
+		// when the events (including momentum) stop.
+		let wheelDx = 0;
+		let wheeling = false;
+		let wheelEnd: ReturnType<typeof setTimeout> | undefined;
+		const wheel = (e: WheelEvent) => {
+			if (!wheeling) {
+				// Start only on a clearly horizontal, non-zoom gesture.
+				if (e.ctrlKey || Math.abs(e.deltaX) < 2 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) {
+					return;
+				}
+				wheeling = true;
+				wheelDx = 0;
+				armed = '';
+			}
+			e.preventDefault(); // no sideways scroll or browser back/forward swipe
+			const limit = node.offsetWidth * 0.6;
+			wheelDx = Math.max(-limit, Math.min(limit, wheelDx - e.deltaX));
+			render(wheelDx);
+			clearTimeout(wheelEnd);
+			wheelEnd = setTimeout(() => {
+				wheeling = false;
+				commit();
+			}, 140);
+		};
+
 		node.addEventListener('pointerdown', down);
 		node.addEventListener('pointermove', move);
 		node.addEventListener('pointerup', up);
 		node.addEventListener('pointercancel', cancel);
+		node.addEventListener('wheel', wheel, { passive: false });
 		return {
 			update(next: { right: () => void; left: () => void }) {
 				h = next;
 			},
 			destroy() {
+				clearTimeout(wheelEnd);
 				node.removeEventListener('pointerdown', down);
 				node.removeEventListener('pointermove', move);
 				node.removeEventListener('pointerup', up);
 				node.removeEventListener('pointercancel', cancel);
+				node.removeEventListener('wheel', wheel);
 			}
 		};
 	}
@@ -741,7 +843,16 @@
 	}
 
 	onMount(async () => {
-		await loadSidebar();
+		const snap = await readSnapshot();
+		if (snap) {
+			folders = snap.folders;
+			subs = snap.subs;
+			articles = snap.articles;
+			cursor = snap.cursor;
+			hasMore = !!snap.cursor;
+			fromSnapshot = true;
+		}
+		await loadSidebar().catch(() => {});
 		await loadArticles(true);
 		loadInsights();
 		// First run: no feeds yet and never onboarded → show the starter flow.
@@ -815,7 +926,33 @@
 	onDestroy(() => flushReadEvent());
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window
+	onkeydown={onKey}
+	onclick={(e) => {
+		const el = e.target as Element | null;
+		if (viewOpen && !el?.closest('.viewtrigger, .viewpop')) viewOpen = false;
+	}}
+/>
+
+{#if viewOpen}
+	<div class="viewpop" role="menu" style="top: {viewPos.top}px; left: {viewPos.left}px">
+		{#each VIEWS as v (v)}
+			<button
+				role="menuitemradio"
+				aria-checked={view === v}
+				class:active={view === v}
+				onclick={() => {
+					setView(v);
+					viewOpen = false;
+				}}
+			>
+				<span class="vico" aria-hidden="true">{VIEW_ICONS[v]}</span>
+				{$t(`view_${v}` as 'view_list')}
+				{#if view === v}<span class="vcheck">✓</span>{/if}
+			</button>
+		{/each}
+	</div>
+{/if}
 
 <InstallPrompt />
 {#if showOnboarding}
@@ -994,6 +1131,9 @@
 	</aside>
 
 	<main class="list" bind:this={listEl}>
+		{#if fromSnapshot && loading}
+			<div class="updating" role="progressbar" aria-label={$t('loading')}></div>
+		{/if}
 		{#if offline}
 			<p class="offlinebanner">📴 {$t('offline_banner')}</p>
 		{/if}
@@ -1020,20 +1160,16 @@
 				{#if pendingNew > 0}
 					<button class="newpill" onclick={showPending}>+{pendingNew} {$t('new_items')}</button>
 				{/if}
-				<div class="viewsel" role="group" aria-label="view">
-					<button class:active={view === 'list'} onclick={() => setView('list')} title={$t('view_list')}>
-						<span class="ico" aria-hidden="true">☰</span><span class="lbl">{$t('view_list')}</span>
-					</button>
-					<button class:active={view === 'cardlist'} onclick={() => setView('cardlist')} title={$t('view_cardlist')}>
-						<span class="ico" aria-hidden="true">▤</span><span class="lbl">{$t('view_cardlist')}</span>
-					</button>
-					<button class:active={view === 'cards'} onclick={() => setView('cards')} title={$t('view_cards')}>
-						<span class="ico" aria-hidden="true">▭</span><span class="lbl">{$t('view_cards')}</span>
-					</button>
-					<button class:active={view === 'masonry'} onclick={() => setView('masonry')} title={$t('view_masonry')}>
-						<span class="ico" aria-hidden="true">▦</span><span class="lbl">{$t('view_masonry')}</span>
-					</button>
-				</div>
+				<button
+					class="viewtrigger"
+					class:active={viewOpen}
+					onclick={toggleViewMenu}
+					title={$t('view')}
+					aria-haspopup="menu"
+					aria-expanded={viewOpen}
+				>
+					<span class="ico" aria-hidden="true">▦</span><span class="lbl">{$t('view')}</span>
+				</button>
 				<button
 					class:active={showTrending}
 					onclick={toggleTrending}
@@ -1165,7 +1301,7 @@
 			</div>
 		{/if}
 
-		{#if loading}<p class="muted center">{$t('loading')}</p>{/if}
+		{#if loading && !fromSnapshot}<p class="muted center">{$t('loading')}</p>{/if}
 		{#if hasMore}<div use:sentinel></div>{/if}
 		<p class="hint muted">{$t('shortcuts')}</p>
 	</main>
@@ -1304,23 +1440,6 @@
 		color: var(--accent);
 		border-color: var(--accent);
 	}
-	.viewsel {
-		display: inline-flex;
-	}
-	.viewsel button {
-		border-radius: 0;
-		padding: 0.4rem 0.55rem;
-	}
-	.viewsel button:first-child {
-		border-radius: var(--radius) 0 0 var(--radius);
-	}
-	.viewsel button:last-child {
-		border-radius: 0 var(--radius) var(--radius) 0;
-		border-left: none;
-	}
-	.viewsel button:nth-child(2) {
-		border-left: none;
-	}
 	.grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -1374,6 +1493,7 @@
 	}
 	.acard-body {
 		min-width: 0;
+		overflow-wrap: anywhere;
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
@@ -1727,6 +1847,66 @@
 		border: 1px dashed var(--border);
 		font-size: 0.85rem;
 	}
+	/* Thin bar while the cached snapshot is being refreshed. */
+	.updating {
+		position: sticky;
+		top: 0;
+		z-index: 5;
+		height: 2px;
+		margin-bottom: -2px;
+		overflow: hidden;
+	}
+	.updating::after {
+		content: '';
+		display: block;
+		width: 35%;
+		height: 100%;
+		background: var(--accent);
+		animation: updating-slide 1.1s ease-in-out infinite;
+	}
+	@keyframes updating-slide {
+		from {
+			transform: translateX(-100%);
+		}
+		to {
+			transform: translateX(300%);
+		}
+	}
+	.viewpop {
+		position: fixed;
+		z-index: 30;
+		display: flex;
+		flex-direction: column;
+		width: 200px;
+		padding: 0.3rem;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+	}
+	.viewpop button {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		border: none;
+		background: none;
+		text-align: left;
+		padding: 0.5rem 0.6rem;
+		border-radius: 7px;
+		font-size: 0.9rem;
+	}
+	.viewpop button:hover,
+	.viewpop button.active {
+		background: var(--accent-soft);
+	}
+	.vico {
+		width: 1.2rem;
+		text-align: center;
+	}
+	.vcheck {
+		margin-left: auto;
+		color: var(--accent);
+	}
 	.newpill {
 		flex: none;
 		border-radius: 999px;
@@ -2069,6 +2249,36 @@
 		}
 		.grid.cardlist {
 			display: flex;
+		}
+		/* Cards/masonry on phones: two narrow columns can't fit "image left,
+		   text right", so each card stacks image on top, text below. */
+		.grid:not(.cardlist) .acard {
+			flex-direction: column;
+			gap: 0.4rem;
+			padding: 0.45rem;
+		}
+		.grid:not(.cardlist) .thumb {
+			width: 100%;
+			height: auto;
+			aspect-ratio: 16 / 10;
+		}
+		.grid:not(.cardlist) .atitle {
+			font-size: 0.9rem;
+			line-height: 1.25;
+			display: -webkit-box;
+			-webkit-line-clamp: 4;
+			line-clamp: 4;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
+		.grid:not(.cardlist) .excerpt {
+			font-size: 0.8rem;
+			-webkit-line-clamp: 3;
+			line-clamp: 3;
+		}
+		.grid:not(.cardlist) .meta {
+			flex-wrap: wrap;
+			font-size: 0.72rem;
 		}
 		/* Card-list rows: image left, text right — cap the thumb so the text
 		   column is wide (fixes the one-word-per-line wrapping). */

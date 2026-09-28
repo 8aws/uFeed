@@ -24,7 +24,7 @@
 	const LABEL_MODES: ToolbarLabels[] = ['auto', 'both', 'icons', 'text'];
 
 	let importMsg = $state('');
-	let fileInput: HTMLInputElement;
+	let fileInput: HTMLInputElement | undefined = $state();
 	let displayName = $state($user?.display_name ?? '');
 	let nameSaved = $state(false);
 
@@ -49,6 +49,16 @@
 	}
 
 	// --- Starter suggestions: the onboarding catalogue, editable any time ---
+	// Every section starts collapsed so the page stays short; the password one
+	// opens itself when linked to (#password) or when a change is required.
+	let open = $state<Record<string, boolean>>({});
+	function toggle(key: string) {
+		open[key] = !open[key];
+	}
+	$effect(() => {
+		if ($user?.must_change_password || location.hash === '#password') open.password = true;
+	});
+
 	let starterOpen = $state(false);
 	let starterLoaded = false;
 	let catSubs = $state<Subscription[]>([]);
@@ -333,41 +343,56 @@
 	{/if}
 
 	<section>
-		<h2>{$t('language')}</h2>
-		<div class="row">
-			<button class:active={$locale === 'en'} onclick={() => changeLanguage('en')}>English</button>
-			<button class:active={$locale === 'es'} onclick={() => changeLanguage('es')}>Español</button>
-		</div>
-	</section>
-
-	<section>
-		<h2>{$t('appearance')}</h2>
-		<div class="field">
-			{$t('toolbar_labels')}
+		<button class="collapse" onclick={() => toggle('language')} aria-expanded={!!open.language}>
+			<h2>{$t('language')}</h2>
+			<span class="chev" aria-hidden="true">{open.language ? '▾' : '▸'}</span>
+		</button>
+		{#if open.language}
 			<div class="row">
-				{#each LABEL_MODES as m (m)}
-					<button class:active={$toolbarLabels === m} onclick={() => toolbarLabels.set(m)}>
-						{$t(`labels_${m}` as 'labels_auto')}
-					</button>
-				{/each}
+				<button class:active={$locale === 'en'} onclick={() => changeLanguage('en')}>English</button>
+				<button class:active={$locale === 'es'} onclick={() => changeLanguage('es')}>Español</button>
 			</div>
-		</div>
+		{/if}
 	</section>
 
 	<section>
-		<h2>{$t('feeds')}</h2>
-		<div class="row">
-			<button onclick={() => fileInput.click()}>{$t('import_opml')}</button>
-			<button onclick={downloadOpml}>{$t('export_opml')}</button>
-			<input
-				type="file"
-				accept=".opml,.xml,text/xml,application/xml"
-				bind:this={fileInput}
-				onchange={onImport}
-				hidden
-			/>
-			{#if importMsg}<span class="muted">{importMsg}</span>{/if}
-		</div>
+		<button class="collapse" onclick={() => toggle('appearance')} aria-expanded={!!open.appearance}>
+			<h2>{$t('appearance')}</h2>
+			<span class="chev" aria-hidden="true">{open.appearance ? '▾' : '▸'}</span>
+		</button>
+		{#if open.appearance}
+			<div class="field">
+				{$t('toolbar_labels')}
+				<div class="row">
+					{#each LABEL_MODES as m (m)}
+						<button class:active={$toolbarLabels === m} onclick={() => toolbarLabels.set(m)}>
+							{$t(`labels_${m}` as 'labels_auto')}
+						</button>
+					{/each}
+				</div>
+			</div>
+		{/if}
+	</section>
+
+	<section>
+		<button class="collapse" onclick={() => toggle('feeds')} aria-expanded={!!open.feeds}>
+			<h2>{$t('feeds')}</h2>
+			<span class="chev" aria-hidden="true">{open.feeds ? '▾' : '▸'}</span>
+		</button>
+		{#if open.feeds}
+			<div class="row">
+				<button onclick={() => fileInput?.click()}>{$t('import_opml')}</button>
+				<button onclick={downloadOpml}>{$t('export_opml')}</button>
+				<input
+					type="file"
+					accept=".opml,.xml,text/xml,application/xml"
+					bind:this={fileInput}
+					onchange={onImport}
+					hidden
+				/>
+				{#if importMsg}<span class="muted">{importMsg}</span>{/if}
+			</div>
+		{/if}
 	</section>
 
 	<section>
@@ -494,111 +519,126 @@
 	</section>
 
 	<section>
-		<h2>{$t('api_access')}</h2>
-		<p class="muted hint">{$t('api_access_hint')}</p>
-		<div class="field">
-			{$t('server_url')}
-			<div class="row">
-				<code class="mono">{serverUrl}</code>
-				<button onclick={() => copy(serverUrl, 'url')}>{copied === 'url' ? '✓ ' + $t('copied') : $t('copy')}</button>
-			</div>
-		</div>
-		<label class="field">
-			{$t('key_name')}
-			<div class="row">
-				<input bind:value={newKeyName} maxlength="120" />
-				<button class="primary" onclick={createKey} disabled={!newKeyName.trim()}>{$t('generate_key')}</button>
-			</div>
-			{#if keyMsg}<span class="errmsg">{keyMsg}</span>{/if}
-		</label>
-		<label class="check">
-			<input type="checkbox" bind:checked={allowState} />
-			{$t('key_allow_state')}
-		</label>
-		{#if created}
-			<div class="newkey">
-				<p><strong>{created.name}</strong> — {$t('key_created_once')}</p>
+		<button class="collapse" onclick={() => toggle('api')} aria-expanded={!!open.api}>
+			<h2>{$t('api_access')}</h2>
+			<span class="chev" aria-hidden="true">{open.api ? '▾' : '▸'}</span>
+		</button>
+		{#if open.api}
+			<p class="muted hint">{$t('api_access_hint')}</p>
+			<div class="field">
+				{$t('server_url')}
 				<div class="row">
-					<code class="mono secret">{created.key}</code>
-					<button onclick={() => copy(created!.key, 'key')}>{copied === 'key' ? '✓ ' + $t('copied') : $t('copy')}</button>
+					<code class="mono">{serverUrl}</code>
+					<button onclick={() => copy(serverUrl, 'url')}>{copied === 'url' ? '✓ ' + $t('copied') : $t('copy')}</button>
 				</div>
 			</div>
-		{/if}
-		{#if keys.length === 0}
-			<p class="muted">{$t('no_keys')}</p>
-		{:else}
-			<ul class="keys">
-				{#each keys as k (k.id)}
-					<li>
-						<div class="kinfo">
-							<strong>{k.name}</strong> <code class="mono">{k.prefix}…</code>
-							<span class="muted small">{scopeLabels(k)}</span>
-							<span class="muted small">
-								{$t('created')} {relativeTime(k.created_at, $locale)} ·
-								{k.last_used_at ? `${$t('last_used')} ${relativeTime(k.last_used_at, $locale)}` : $t('never_used')}
-							</span>
-						</div>
-						<button onclick={() => revokeKey(k)}>{$t('revoke')}</button>
-					</li>
-				{/each}
-			</ul>
+			<label class="field">
+				{$t('key_name')}
+				<div class="row">
+					<input bind:value={newKeyName} maxlength="120" />
+					<button class="primary" onclick={createKey} disabled={!newKeyName.trim()}>{$t('generate_key')}</button>
+				</div>
+				{#if keyMsg}<span class="errmsg">{keyMsg}</span>{/if}
+			</label>
+			<label class="check">
+				<input type="checkbox" bind:checked={allowState} />
+				{$t('key_allow_state')}
+			</label>
+			{#if created}
+				<div class="newkey">
+					<p><strong>{created.name}</strong> — {$t('key_created_once')}</p>
+					<div class="row">
+						<code class="mono secret">{created.key}</code>
+						<button onclick={() => copy(created!.key, 'key')}>{copied === 'key' ? '✓ ' + $t('copied') : $t('copy')}</button>
+					</div>
+				</div>
+			{/if}
+			{#if keys.length === 0}
+				<p class="muted">{$t('no_keys')}</p>
+			{:else}
+				<ul class="keys">
+					{#each keys as k (k.id)}
+						<li>
+							<div class="kinfo">
+								<strong>{k.name}</strong> <code class="mono">{k.prefix}…</code>
+								<span class="muted small">{scopeLabels(k)}</span>
+								<span class="muted small">
+									{$t('created')} {relativeTime(k.created_at, $locale)} ·
+									{k.last_used_at ? `${$t('last_used')} ${relativeTime(k.last_used_at, $locale)}` : $t('never_used')}
+								</span>
+							</div>
+							<button onclick={() => revokeKey(k)}>{$t('revoke')}</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		{/if}
 	</section>
 
 	<section id="password">
-		<h2>{$t('password')}</h2>
-		{#if $user?.must_change_password}
-			<p class="warn">{$t('temp_password_banner')}</p>
+		<button class="collapse" onclick={() => toggle('password')} aria-expanded={!!open.password}>
+			<h2>{$t('password')}</h2>
+			<span class="chev" aria-hidden="true">{open.password ? '▾' : '▸'}</span>
+		</button>
+		{#if open.password}
+			{#if $user?.must_change_password}
+				<p class="warn">{$t('temp_password_banner')}</p>
+			{/if}
+			<form class="pwform" onsubmit={changePassword}>
+				<input type="email" autocomplete="username" value={$user?.email ?? ''} hidden />
+				<input
+					type="password"
+					bind:value={curPw}
+					placeholder={$t('current_password')}
+					autocomplete="current-password"
+					required
+				/>
+				<input
+					type="password"
+					bind:value={newPw}
+					placeholder={$t('new_password')}
+					autocomplete="new-password"
+					minlength="8"
+					required
+				/>
+				<input
+					type="password"
+					bind:value={newPw2}
+					placeholder={$t('confirm_password')}
+					autocomplete="new-password"
+					minlength="8"
+					required
+				/>
+				<div class="row">
+					<button class="primary" type="submit" disabled={pwBusy}>{$t('change_password')}</button>
+					{#if pwMsg}<span class={pwOk ? 'okmsg' : 'errmsg'}>{pwMsg}</span>{/if}
+				</div>
+			</form>
 		{/if}
-		<form class="pwform" onsubmit={changePassword}>
-			<input type="email" autocomplete="username" value={$user?.email ?? ''} hidden />
-			<input
-				type="password"
-				bind:value={curPw}
-				placeholder={$t('current_password')}
-				autocomplete="current-password"
-				required
-			/>
-			<input
-				type="password"
-				bind:value={newPw}
-				placeholder={$t('new_password')}
-				autocomplete="new-password"
-				minlength="8"
-				required
-			/>
-			<input
-				type="password"
-				bind:value={newPw2}
-				placeholder={$t('confirm_password')}
-				autocomplete="new-password"
-				minlength="8"
-				required
-			/>
-			<div class="row">
-				<button class="primary" type="submit" disabled={pwBusy}>{$t('change_password')}</button>
-				{#if pwMsg}<span class={pwOk ? 'okmsg' : 'errmsg'}>{pwMsg}</span>{/if}
-			</div>
-		</form>
 	</section>
 
 	<section>
-		<h2>{$t('account')}</h2>
-		<label class="field">
-			{$t('display_name')}
-			<div class="row">
-				<input bind:value={displayName} maxlength="60" placeholder={$t('name_placeholder')} />
-				<button class="primary" onclick={saveName}>{nameSaved ? '✓' : $t('save')}</button>
-			</div>
-		</label>
-		{#if $user}
-			<p class="muted">{$user.email}</p>
-			<p class="muted small">
-				{$t('plan')}: <strong>{$t(`role_${$user.role}` as 'role_free')}</strong>
-				{#if myPlan}· {planSummary(myPlan)}{/if}
-			</p>
+		<button class="collapse" onclick={() => toggle('account')} aria-expanded={!!open.account}>
+			<h2>{$t('account')}</h2>
+			<span class="chev" aria-hidden="true">{open.account ? '▾' : '▸'}</span>
+		</button>
+		{#if open.account}
+			<label class="field">
+				{$t('display_name')}
+				<div class="row">
+					<input bind:value={displayName} maxlength="60" placeholder={$t('name_placeholder')} />
+					<button class="primary" onclick={saveName}>{nameSaved ? '✓' : $t('save')}</button>
+				</div>
+			</label>
+			{#if $user}
+				<p class="muted">{$user.email}</p>
+				<p class="muted small">
+					{$t('plan')}: <strong>{$t(`role_${$user.role}` as 'role_free')}</strong>
+					{#if myPlan}· {planSummary(myPlan)}{/if}
+				</p>
+			{/if}
+			<button onclick={logout}>{$t('logout')}</button>
 		{/if}
-		<button onclick={logout}>{$t('logout')}</button>
 	</section>
 </div>
 

@@ -226,6 +226,7 @@ export const en = {
 	ai_summary_llm: 'AI summary',
 	ai_unavailable: 'AI is not available right now.',
 	ai_rate: 'Too many AI summaries this hour; try later.',
+	view: 'View',
 	appearance: 'Appearance',
 	toolbar_labels: 'Toolbar buttons',
 	labels_auto: 'Auto (text on wide, icons on narrow)',

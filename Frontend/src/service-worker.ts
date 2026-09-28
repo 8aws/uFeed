@@ -47,17 +47,56 @@ function offlineError(): Response {
 	});
 }
 
+// A connection that is up but crawling (a cold start on mobile data, a
+// sleepy NAS proxy) must not leave the app blank: after this long the cached
+// copy is served and the network response still refreshes the cache.
+const NAV_TIMEOUT_MS = 3000;
+const API_TIMEOUT_MS = 4000;
+
+/** Resolve with the network response, or with the cached `fallback` if the
+ *  network fails or takes longer than `ms` (when a cached copy exists). */
+async function raceNetwork(
+	network: Promise<Response>,
+	cached: () => Promise<Response | undefined>,
+	ms: number
+): Promise<Response | undefined> {
+	return new Promise((resolve) => {
+		let done = false;
+		const finish = (r: Response | undefined) => {
+			if (!done && r) {
+				done = true;
+				resolve(r);
+			}
+		};
+		const timer = setTimeout(() => cached().then(finish), ms);
+		network.then(
+			(r) => {
+				clearTimeout(timer);
+				finish(r);
+			},
+			async () => {
+				clearTimeout(timer);
+				const c = await cached();
+				if (c) finish(c);
+				else if (!done) {
+					done = true;
+					resolve(undefined);
+				}
+			}
+		);
+	});
+}
+
 /** Network first; on success optionally refresh the cached copy under `store`,
- *  on failure serve the copy under `fallback`. */
-async function networkFirst(req: Request, fallback: string, store: string | null) {
+ *  on failure (or a very slow network) serve the copy under `fallback`. */
+async function networkFirst(event: FetchEvent, fallback: string, store: string | null) {
 	const cache = await caches.open(API_CACHE);
-	try {
-		const resp = await fetch(req);
+	const network = fetch(event.request).then(async (resp) => {
 		if (resp.ok && store) await cache.put(store, resp.clone());
 		return resp;
-	} catch {
-		return (await cache.match(fallback)) ?? offlineError();
-	}
+	});
+	event.waitUntil(network.catch(() => {}));
+	return (await raceNetwork(network, () => cache.match(fallback), API_TIMEOUT_MS)) ?? offlineError();
 }
 
 async function trim(cache: Cache, max: number) {
@@ -96,11 +135,11 @@ sw.addEventListener('fetch', (event) => {
 		// any saved list request falls back to it when there's no network.
 		if (url.pathname === '/api/articles' && url.searchParams.get('saved') === 'true') {
 			const store = url.searchParams.get('offline') === '1' ? SAVED_KEY : null;
-			event.respondWith(networkFirst(req, SAVED_KEY, store));
+			event.respondWith(networkFirst(event, SAVED_KEY, store));
 			return;
 		}
 		if (SHELL_API.has(url.pathname)) {
-			event.respondWith(networkFirst(req, url.pathname, url.pathname));
+			event.respondWith(networkFirst(event, url.pathname, url.pathname));
 			return;
 		}
 		return; // everything else: network only
@@ -118,9 +157,13 @@ sw.addEventListener('fetch', (event) => {
 	}
 
 	// Navigations: network-first so a new deploy is picked up immediately;
-	// fall back to the cached app shell only when offline.
+	// fall back to the cached app shell when offline or the network stalls.
 	if (req.mode === 'navigate') {
-		event.respondWith(fetch(req).catch(() => caches.match('/') as Promise<Response>));
+		const network = fetch(req);
+		event.waitUntil(network.catch(() => {}));
+		event.respondWith(
+			raceNetwork(network, () => caches.match('/'), NAV_TIMEOUT_MS).then((r) => r ?? network)
+		);
 		return;
 	}
 
