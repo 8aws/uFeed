@@ -569,6 +569,129 @@
         }
       }
     },
+    "/api/filters/keywords": {
+      "get": {
+        "tags": [
+          "filters"
+        ],
+        "summary": "List Keywords",
+        "operationId": "list_keywords_api_filters_keywords_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MutedKeywordOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Keywords Api Filters Keywords Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "filters"
+        ],
+        "summary": "Add Keyword",
+        "description": "Hide articles whose title or summary contains this word or phrase.",
+        "operationId": "add_keyword_api_filters_keywords_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutedKeywordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MutedKeywordOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/filters/keywords/{keyword_id}": {
+      "delete": {
+        "tags": [
+          "filters"
+        ],
+        "summary": "Remove Keyword",
+        "operationId": "remove_keyword_api_filters_keywords__keyword_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "keyword_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Keyword Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sources": {
       "get": {
         "tags": [
@@ -674,13 +797,40 @@
         ]
       }
     },
+    "/api/sync": {
+      "post": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "Sync",
+        "description": "Called when the app opens: fetch this user's feeds that are due.\n\nThis is what keeps content fresh for returning users (the worker only polls\nfeeds of recently active users). Doesn't spend the plan's manual-refresh\ncooldown; has its own short per-user cooldown and a time budget.",
+        "operationId": "sync_api_sync_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncResult"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/refresh": {
       "post": {
         "tags": [
           "sources"
         ],
         "summary": "Refresh",
-        "description": "Fetch the user's feeds now (or one source) and report what was found.\n\nRate-limited per plan (see app.core.roles.REFRESH_COOLDOWN_S); the worker\nkeeps polling in the background regardless.",
+        "description": "Fetch the user's feeds now (or one source) and report what was found.\n\nRate-limited per plan (admin-editable; defaults in app.core.roles).",
         "operationId": "refresh_api_refresh_post",
         "security": [
           {
@@ -1233,6 +1383,85 @@
                     "$ref": "#/components/schemas/ArticleOut"
                   },
                   "title": "Response Similar Api Articles  Article Id  Similar Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{article_id}/ai-summary": {
+      "get": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Ai Summary",
+        "description": "The article's AI summary in `lang` (default: yours).\n\nGenerated on demand (generate=true) by the on-device LLM and stored, so every\nlater reader in that language gets it instantly. Without generate=true only\nan existing summary is returned.",
+        "operationId": "ai_summary_api_articles__article_id__ai_summary_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "en",
+                    "es"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lang"
+            }
+          },
+          {
+            "name": "generate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Generate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AISummaryOut"
                 }
               }
             }
@@ -1968,6 +2197,66 @@
         ]
       }
     },
+    "/api/admin/plans": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update Plans",
+        "description": "Replace the limits of the given plans (others keep their values).",
+        "operationId": "update_plans_api_admin_plans_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/PlanLimits"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "free",
+                    "general",
+                    "vip",
+                    "editor",
+                    "admin"
+                  ]
+                },
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSettings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/admin/users": {
       "get": {
         "tags": [
@@ -2269,6 +2558,55 @@
         ],
         "summary": "Unsuspend User",
         "operationId": "unsuspend_user_api_admin_users__user_id__suspend_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{user_id}/reactivate": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Reactivate User",
+        "description": "Undo a deactivation for inactivity (stops the pending deletion).",
+        "operationId": "reactivate_user_api_admin_users__user_id__reactivate_post",
         "security": [
           {
             "HTTPBearer": []
@@ -3324,6 +3662,58 @@
   },
   "components": {
     "schemas": {
+      "AISummaryOut": {
+        "properties": {
+          "lang": {
+            "type": "string",
+            "title": "Lang"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "lang"
+        ],
+        "title": "AISummaryOut",
+        "description": "LLM summary of an article in one language (null until generated)."
+      },
       "AdminSettings": {
         "properties": {
           "registration_open": {
@@ -3349,6 +3739,10 @@
             "type": "integer",
             "title": "Inactivity Days"
           },
+          "dormant_delete_days": {
+            "type": "integer",
+            "title": "Dormant Delete Days"
+          },
           "roles": {
             "items": {
               "type": "string"
@@ -3362,6 +3756,13 @@
             },
             "type": "object",
             "title": "Refresh Cooldown S"
+          },
+          "plan_limits": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PlanLimits"
+            },
+            "type": "object",
+            "title": "Plan Limits"
           }
         },
         "type": "object",
@@ -3370,8 +3771,10 @@
           "default_role",
           "retention_days",
           "inactivity_days",
+          "dormant_delete_days",
           "roles",
-          "refresh_cooldown_s"
+          "refresh_cooldown_s",
+          "plan_limits"
         ],
         "title": "AdminSettings"
       },
@@ -3431,6 +3834,19 @@
               }
             ],
             "title": "Inactivity Days"
+          },
+          "dormant_delete_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3650.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dormant Delete Days"
           }
         },
         "type": "object",
@@ -3487,6 +3903,18 @@
               }
             ],
             "title": "Suspended Until"
+          },
+          "dormant_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dormant Since"
           },
           "last_activity_at": {
             "anyOf": [
@@ -4247,6 +4675,11 @@
             "title": "Inactivity Days",
             "default": 0
           },
+          "dormant_delete_days": {
+            "type": "integer",
+            "title": "Dormant Delete Days",
+            "default": 0
+          },
           "last_inactive_cleanup": {
             "anyOf": [
               {
@@ -4318,6 +4751,40 @@
         },
         "type": "object",
         "title": "MarkAllReadRequest"
+      },
+      "MutedKeywordIn": {
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Keyword"
+          }
+        },
+        "type": "object",
+        "required": [
+          "keyword"
+        ],
+        "title": "MutedKeywordIn"
+      },
+      "MutedKeywordOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "keyword": {
+            "type": "string",
+            "title": "Keyword"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "keyword"
+        ],
+        "title": "MutedKeywordOut"
       },
       "OkResponse": {
         "properties": {
@@ -4394,6 +4861,52 @@
           "new_password"
         ],
         "title": "PasswordChange"
+      },
+      "PlanLimits": {
+        "properties": {
+          "refresh_cooldown_s": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 0.0,
+            "title": "Refresh Cooldown S"
+          },
+          "max_feeds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Feeds"
+          },
+          "max_api_keys": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Api Keys"
+          },
+          "ai_features": {
+            "type": "boolean",
+            "title": "Ai Features",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_cooldown_s"
+        ],
+        "title": "PlanLimits"
       },
       "RankedArticle": {
         "properties": {
@@ -4537,15 +5050,23 @@
             },
             "type": "object",
             "title": "Refresh Cooldown S"
+          },
+          "plan_limits": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PlanLimits"
+            },
+            "type": "object",
+            "title": "Plan Limits"
           }
         },
         "type": "object",
         "required": [
           "registration_open",
-          "refresh_cooldown_s"
+          "refresh_cooldown_s",
+          "plan_limits"
         ],
         "title": "SiteConfig",
-        "description": "Public, unauthenticated instance info for the login screen."
+        "description": "Public, unauthenticated instance info (sign-up state, plan limits)."
       },
       "SourceHealthOut": {
         "properties": {
@@ -4795,6 +5316,11 @@
             "type": "integer",
             "title": "Unread Count",
             "default": 0
+          },
+          "muted": {
+            "type": "boolean",
+            "title": "Muted",
+            "default": false
           }
         },
         "type": "object",
@@ -4828,6 +5354,17 @@
               }
             ],
             "title": "Custom Title"
+          },
+          "muted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muted"
           }
         },
         "type": "object",
@@ -4847,6 +5384,35 @@
           "days"
         ],
         "title": "SuspendRequest"
+      },
+      "SyncResult": {
+        "properties": {
+          "checked": {
+            "type": "integer",
+            "title": "Checked"
+          },
+          "new_articles": {
+            "type": "integer",
+            "title": "New Articles"
+          },
+          "errors": {
+            "type": "integer",
+            "title": "Errors"
+          },
+          "skipped": {
+            "type": "boolean",
+            "title": "Skipped",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "checked",
+          "new_articles",
+          "errors"
+        ],
+        "title": "SyncResult",
+        "description": "Opportunistic refresh on app open; skipped=True when nothing was due or\nthe per-user sync cooldown applies."
       },
       "TemporaryPassword": {
         "properties": {
