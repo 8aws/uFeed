@@ -6,7 +6,16 @@
 	import { locale, setLocale, t } from '$lib/i18n';
 	import { toolbarLabels, type ToolbarLabels } from '$lib/prefs';
 	import { relativeTime } from '$lib/format';
-	import type { ApiKey, ApiKeyCreated, Folder, Locale, Role, SourceHealth, Subscription } from '$lib/types';
+	import type {
+		ApiKey,
+		ApiKeyCreated,
+		Folder,
+		Locale,
+		MutedKeyword,
+		Role,
+		SourceHealth,
+		Subscription
+	} from '$lib/types';
 	import { safeUrl } from '$lib/safe';
 	import { CATALOG, LANG_FLAG, type CatalogFeed, type CatalogSection, type FeedLang } from '$lib/catalog';
 	import { addCatalogFeed, ensureFolder, feedKey } from '$lib/catalogActions';
@@ -108,6 +117,56 @@
 
 	async function addAll(s: CatalogSection) {
 		for (const f of catFeeds(s)) if (!isSub(f)) await addFeed(s, f);
+	}
+
+	// --- Filters: muted keywords and muted sources (lazy) ---
+	let filtersOpen = $state(false);
+	let keywords = $state<MutedKeyword[]>([]);
+	let mutedSubs = $state<Subscription[]>([]);
+	let newKeyword = $state('');
+
+	async function toggleFilters() {
+		filtersOpen = !filtersOpen;
+		if (filtersOpen) {
+			try {
+				const [k, subs] = await Promise.all([api.listKeywords(), api.listSources()]);
+				keywords = k;
+				mutedSubs = subs.filter((x) => x.muted);
+			} catch {
+				/* ignore */
+			}
+		}
+	}
+
+	async function addKeyword(e: SubmitEvent) {
+		e.preventDefault();
+		const kw = newKeyword.trim();
+		if (!kw) return;
+		try {
+			const row = await api.addKeyword(kw);
+			if (!keywords.some((k) => k.id === row.id)) keywords = [...keywords, row];
+			newKeyword = '';
+		} catch {
+			/* ignore */
+		}
+	}
+
+	async function removeKeyword(k: MutedKeyword) {
+		try {
+			await api.removeKeyword(k.id);
+			keywords = keywords.filter((x) => x.id !== k.id);
+		} catch {
+			/* ignore */
+		}
+	}
+
+	async function unmuteSub(sub: Subscription) {
+		try {
+			await api.updateSubscription(sub.id, { muted: false });
+			mutedSubs = mutedSubs.filter((x) => x.id !== sub.id);
+		} catch {
+			/* ignore */
+		}
 	}
 
 	// --- Feed health (lazy, collapsed by default) ---
@@ -293,6 +352,44 @@
 			/>
 			{#if importMsg}<span class="muted">{importMsg}</span>{/if}
 		</div>
+	</section>
+
+	<section>
+		<button class="collapse" onclick={toggleFilters} aria-expanded={filtersOpen}>
+			<h2>🔇 {$t('filters')}</h2>
+			<span class="chev" aria-hidden="true">{filtersOpen ? '▾' : '▸'}</span>
+		</button>
+		{#if filtersOpen}
+			<p class="muted hint">{$t('filters_hint')}</p>
+			<form class="row" onsubmit={addKeyword}>
+				<input bind:value={newKeyword} maxlength="100" placeholder={$t('add_keyword')} />
+				<button type="submit" disabled={!newKeyword.trim()}>+</button>
+			</form>
+			{#if keywords.length}
+				<div class="chips">
+					{#each keywords as k (k.id)}
+						<span class="kchip">
+							{k.keyword}
+							<button class="chipx" aria-label="✕" onclick={() => removeKeyword(k)}>✕</button>
+						</span>
+					{/each}
+				</div>
+			{/if}
+			<h3 class="subh">{$t('muted_sources')}</h3>
+			<p class="muted small">{$t('muted_sources_hint')}</p>
+			{#if mutedSubs.length === 0}
+				<p class="muted small">{$t('no_muted')}</p>
+			{:else}
+				<ul class="cfeeds">
+					{#each mutedSubs as m (m.id)}
+						<li>
+							<span class="ftitle">🔇 {m.custom_title || m.source.title || m.source.feed_url}</span>
+							<button class="small-btn" onclick={() => unmuteSub(m)}>🔊 {$t('unmute')}</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		{/if}
 	</section>
 
 	<section>
@@ -590,6 +687,32 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+		margin: 0.6rem 0;
+	}
+	.kchip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		padding: 0.15rem 0.3rem 0.15rem 0.65rem;
+		font-size: 0.85rem;
+	}
+	.chipx {
+		border: none;
+		background: none;
+		padding: 0 0.25rem;
+		font-size: 0.75rem;
+		color: var(--muted);
+	}
+	.subh {
+		margin: 1rem 0 0.2rem;
+		font-size: 0.9rem;
 	}
 	.hrow {
 		align-items: flex-start !important;

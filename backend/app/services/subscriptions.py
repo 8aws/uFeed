@@ -10,8 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.article import Article
 from app.models.article_state import ArticleState
+from app.models.muted_keyword import MutedKeyword
 from app.models.source import Source
 from app.models.subscription import Subscription
+from app.services.filters import keyword_clause
 
 
 @dataclass(slots=True)
@@ -21,8 +23,8 @@ class SubscriptionRow:
     unread_count: int
 
 
-def _unread_subquery(user_id: uuid.UUID):
-    return (
+def _unread_subquery(user_id: uuid.UUID, keywords: list[str] | None = None):
+    stmt = (
         select(func.count(Article.id))
         .select_from(Article)
         .outerjoin(
@@ -37,12 +39,16 @@ def _unread_subquery(user_id: uuid.UUID):
             or_(ArticleState.is_read.is_(None), ArticleState.is_read.is_(False)),
         )
         .correlate(Subscription)
-        .scalar_subquery()
     )
+    # Muted keywords don't count: badges match what the lists show.
+    kw = keyword_clause(keywords or [])
+    if kw is not None:
+        stmt = stmt.where(kw)
+    return stmt.scalar_subquery()
 
 
 async def list_subscriptions(db: AsyncSession, user_id: uuid.UUID) -> list[SubscriptionRow]:
-    unread = _unread_subquery(user_id)
+    unread = _unread_subquery(user_id, await _keywords(db, user_id))
     stmt = (
         select(Subscription, Source, unread.label("unread"))
         .join(Source, Source.id == Subscription.source_id)
@@ -56,7 +62,7 @@ async def list_subscriptions(db: AsyncSession, user_id: uuid.UUID) -> list[Subsc
 async def get_subscription_row(
     db: AsyncSession, user_id: uuid.UUID, subscription_id: uuid.UUID
 ) -> SubscriptionRow | None:
-    unread = _unread_subquery(user_id)
+    unread = _unread_subquery(user_id, await _keywords(db, user_id))
     stmt = (
         select(Subscription, Source, unread.label("unread"))
         .join(Source, Source.id == Subscription.source_id)
@@ -92,6 +98,11 @@ async def due_source_ids_for(db: AsyncSession, user_id: uuid.UUID) -> list[uuid.
         )
     )
     return list(rows.scalars().all())
+
+
+async def _keywords(db: AsyncSession, user_id: uuid.UUID) -> list[str]:
+    rows = await db.execute(select(MutedKeyword.keyword).where(MutedKeyword.user_id == user_id))
+    return [k for k in rows.scalars() if k]
 
 
 def is_feed_url(url: str) -> bool:
@@ -147,6 +158,7 @@ async def update_subscription(
     fields: set[str],
     folder_id: uuid.UUID | None = None,
     custom_title: str | None = None,
+    muted: bool | None = None,
 ) -> Subscription | None:
     """Apply only the provided fields (fields = the keys actually sent)."""
     sub = (
@@ -162,6 +174,8 @@ async def update_subscription(
         sub.folder_id = folder_id
     if "custom_title" in fields:
         sub.custom_title = custom_title
+    if "muted" in fields and muted is not None:
+        sub.muted = muted
     await db.commit()
     await db.refresh(sub)
     return sub

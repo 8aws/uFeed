@@ -15,6 +15,7 @@ import type {
 	Insights,
 	Locale,
 	Maintenance,
+	MutedKeyword,
 	Page,
 	Role,
 	SiteConfig,
@@ -172,10 +173,18 @@ export const api = {
 
 	// sources
 	listSources: () => request<Subscription[]>('/sources'),
+	// muted keywords (hide matching articles)
+	listKeywords: () => request<MutedKeyword[]>('/filters/keywords'),
+	addKeyword: (keyword: string) =>
+		request<MutedKeyword>('/filters/keywords', { method: 'POST', body: { keyword } }),
+	removeKeyword: (id: string) => request<unknown>(`/filters/keywords/${id}`, { method: 'DELETE' }),
 	sourcesHealth: () => request<SourceHealth[]>('/sources/health'),
 	subscribe: (url: string, folder_id?: string | null) =>
 		request<Subscription>('/sources', { method: 'POST', body: { url, folder_id } }),
-	updateSubscription: (id: string, body: { folder_id?: string | null; custom_title?: string }) =>
+	updateSubscription: (
+		id: string,
+		body: { folder_id?: string | null; custom_title?: string; muted?: boolean }
+	) =>
 		request<Subscription>(`/sources/${id}`, { method: 'PATCH', body }),
 	unsubscribe: (id: string) => request<unknown>(`/sources/${id}`, { method: 'DELETE' }),
 	// Opportunistic fetch of this user's due feeds when the app opens.

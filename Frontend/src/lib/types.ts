@@ -45,6 +45,12 @@ export interface Subscription {
 	folder_id: string | null;
 	custom_title: string | null;
 	unread_count: number;
+	muted: boolean;
+}
+
+export interface MutedKeyword {
+	id: string;
+	keyword: string;
 }
 
 export interface Article {

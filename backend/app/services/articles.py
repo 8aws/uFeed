@@ -17,6 +17,7 @@ from app.models.article_state import ArticleState
 from app.models.read_event import ReadEvent
 from app.models.source import Source
 from app.models.subscription import Subscription
+from app.services import filters as filters_service
 from app.services.ai import embed_texts
 
 # Sort key: prefer published_at, fall back to fetched_at (always present).
@@ -161,6 +162,17 @@ async def list_articles(
         stmt = stmt.where(or_(ArticleState.is_saved.is_(None), ArticleState.is_saved.is_(False)))
     if favorite is True:
         stmt = stmt.where(ArticleState.is_favorite.is_(True))
+
+    # Mutes: hide muted feeds from aggregate views (a feed you open explicitly
+    # still shows) and articles matching muted keywords. Saved/favourites are
+    # never filtered — you kept them on purpose.
+    if not saved and not favorite:
+        mutes = await filters_service.load(db, user_id)
+        if source is None:
+            stmt = stmt.where(Subscription.muted.is_(False))
+        kw = filters_service.keyword_clause(mutes.keywords)
+        if kw is not None:
+            stmt = stmt.where(kw)
 
     # Semantic search: rank by embedding distance to the query vector. Falls
     # back to full-text below if the AI service is unavailable.
@@ -361,8 +373,11 @@ async def _articles_with_state(
         )
         .where(Article.id.in_(ids))
     )
+    mutes = await filters_service.load(db, user_id)
     out: dict[uuid.UUID, ArticleRow] = {}
     for a, r, s, f in (await db.execute(stmt)).all():
+        if not (s or f) and mutes.hides(a):  # trending/similar/for-you respect mutes
+            continue
         out[a.id] = ArticleRow(a, bool(r), bool(s), bool(f))
     return out
 

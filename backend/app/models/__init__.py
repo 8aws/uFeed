@@ -4,6 +4,7 @@ from app.models.article import Article
 from app.models.article_state import ArticleState
 from app.models.ban import Ban
 from app.models.folder import Folder
+from app.models.muted_keyword import MutedKeyword
 from app.models.read_event import ReadEvent
 from app.models.source import Source
 from app.models.subscription import Subscription
@@ -16,6 +17,7 @@ __all__ = [
     "ArticleState",
     "Ban",
     "Folder",
+    "MutedKeyword",
     "ReadEvent",
     "Source",
     "Subscription",

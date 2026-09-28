@@ -166,7 +166,7 @@
 	let discovering = $state(false);
 	let discoverMsg = $state('');
 
-	const totalUnread = $derived(subs.reduce((n, s) => n + s.unread_count, 0));
+	const totalUnread = $derived(subs.reduce((n, s) => n + (s.muted ? 0 : s.unread_count), 0));
 
 	function buildParams(reset: boolean): Record<string, string> {
 		const p: Record<string, string> = { limit: '30' };
@@ -323,7 +323,17 @@
 	}
 
 	function folderUnread(subsIn: Subscription[]): number {
-		return subsIn.reduce((n, s) => n + s.unread_count, 0);
+		return subsIn.reduce((n, s) => n + (s.muted ? 0 : s.unread_count), 0);
+	}
+
+	async function toggleMute(sub: Subscription) {
+		try {
+			const updated = await api.updateSubscription(sub.id, { muted: !sub.muted });
+			subs = subs.map((x) => (x.id === sub.id ? { ...x, muted: updated.muted } : x));
+			await loadArticles(true);
+		} catch {
+			/* ignore */
+		}
 	}
 
 	async function shareArticle(a: Article) {
@@ -538,6 +548,96 @@
 		};
 	}
 
+	// Swipe a post (touch only): right = toggle read, left = toggle saved.
+	// Vertical scrolling stays native (rows use touch-action: pan-y); a swipe
+	// suppresses the tap that ends it, like a long-press.
+	function swipe(node: HTMLElement, handlers: { right: () => void; left: () => void }) {
+		let h = handlers;
+		let pid = -1;
+		let sx = 0;
+		let sy = 0;
+		let dx = 0;
+		let tracking = false;
+		let horizontal = false;
+		let armed: '' | 'right' | 'left' = '';
+		const threshold = () => Math.min(110, node.offsetWidth * 0.33);
+		const reset = () => {
+			node.style.transition = 'transform 0.18s ease';
+			node.style.transform = '';
+			const scroller = node.closest('.list');
+			if (scroller) scroller.scrollLeft = 0;
+			delete node.dataset.swipe;
+			delete node.dataset.armed;
+		};
+		const down = (e: PointerEvent) => {
+			if (e.pointerType !== 'touch') return;
+			pid = e.pointerId;
+			sx = e.clientX;
+			sy = e.clientY;
+			dx = 0;
+			tracking = true;
+			horizontal = false;
+			armed = '';
+		};
+		const move = (e: PointerEvent) => {
+			if (!tracking || e.pointerId !== pid) return;
+			const mx = e.clientX - sx;
+			const my = e.clientY - sy;
+			if (!horizontal) {
+				if (Math.abs(mx) < 12 && Math.abs(my) < 12) return;
+				if (Math.abs(mx) < Math.abs(my) * 1.5) {
+					tracking = false; // it's a vertical scroll: let the browser have it
+					return;
+				}
+				horizontal = true;
+				node.style.transition = '';
+			}
+			dx = mx;
+			node.style.transform = `translateX(${dx}px)`;
+			node.dataset.swipe = dx > 0 ? 'right' : 'left';
+			const now: typeof armed = Math.abs(dx) >= threshold() ? (dx > 0 ? 'right' : 'left') : '';
+			if (now && now !== armed) {
+				try {
+					navigator.vibrate?.(10);
+				} catch {
+					/* ignore */
+				}
+			}
+			armed = now;
+			if (armed) node.dataset.armed = '1';
+			else delete node.dataset.armed;
+		};
+		const up = () => {
+			if (!tracking) return;
+			tracking = false;
+			if (horizontal) {
+				lastLongPress = Date.now(); // swallow the tap that ends the swipe
+				if (armed === 'right') h.right();
+				else if (armed === 'left') h.left();
+			}
+			reset();
+		};
+		const cancel = () => {
+			tracking = false;
+			reset();
+		};
+		node.addEventListener('pointerdown', down);
+		node.addEventListener('pointermove', move);
+		node.addEventListener('pointerup', up);
+		node.addEventListener('pointercancel', cancel);
+		return {
+			update(next: { right: () => void; left: () => void }) {
+				h = next;
+			},
+			destroy() {
+				node.removeEventListener('pointerdown', down);
+				node.removeEventListener('pointermove', move);
+				node.removeEventListener('pointerup', up);
+				node.removeEventListener('pointercancel', cancel);
+			}
+		};
+	}
+
 	function title(a: Article): string {
 		return a.title || a.url || '(untitled)';
 	}
@@ -708,7 +808,7 @@
 		</nav>
 
 		{#snippet feedRow(s: Subscription)}
-			<li class:active={filter.kind === 'source' && filter.id === s.source.id}>
+			<li class:active={filter.kind === 'source' && filter.id === s.source.id} class:muted={s.muted}>
 				<button class="feed" onclick={() => setFilter({ kind: 'source', id: s.source.id })}>
 					{#if s.source.favicon_url}
 						<img class="favicon" src={safeUrl(s.source.favicon_url)} alt="" loading="lazy" onerror={hideImg} />
@@ -719,7 +819,8 @@
 					{#if s.source.error_count >= 3}
 						<span class="feedwarn" title={$t('feed_problem')} aria-label={$t('feed_problem')}>⚠</span>
 					{/if}
-					{#if s.unread_count}<span class="badge">{s.unread_count}</span>{/if}
+					{#if s.muted}<span class="mutedicon" title={$t('muted')}>🔇</span>
+					{:else if s.unread_count}<span class="badge">{s.unread_count}</span>{/if}
 				</button>
 				<select
 					class="movesel"
@@ -731,6 +832,9 @@
 						<option value={f.id} selected={s.folder_id === f.id}>{f.name}</option>
 					{/each}
 				</select>
+				<button class="x" title={s.muted ? $t('unmute') : $t('mute')} onclick={() => toggleMute(s)}>
+					{s.muted ? '🔊' : '🔇'}
+				</button>
 				<button class="x" title={$t('unsubscribe')} onclick={() => unsubscribe(s)}>×</button>
 			</li>
 		{/snippet}
@@ -907,6 +1011,9 @@
 						onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(i))}
 						oncontextmenu={(e) => e.preventDefault()}
 						use:longpress={() => markRead(a, !a.is_read)}
+						use:swipe={{ right: () => markRead(a, !a.is_read), left: () => toggleSave(a) }}
+						data-right={a.is_read ? $t('swipe_unread') : $t('swipe_read')}
+						data-left={a.is_saved ? $t('swipe_unsave') : $t('swipe_save')}
 					>
 						<div class="row">
 							<span class="atitle">{title(a)}</span>
@@ -936,6 +1043,9 @@
 						onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(i))}
 						oncontextmenu={(e) => e.preventDefault()}
 						use:longpress={() => markRead(a, !a.is_read)}
+						use:swipe={{ right: () => markRead(a, !a.is_read), left: () => toggleSave(a) }}
+						data-right={a.is_read ? $t('swipe_unread') : $t('swipe_read')}
+						data-left={a.is_saved ? $t('swipe_unsave') : $t('swipe_save')}
 					>
 						{#if thumbUrl(a)}
 							<img class="thumb" src={thumbUrl(a)} alt="" loading="lazy" onerror={hideImg} />
@@ -1128,7 +1238,8 @@
 		user-select: none;
 		-webkit-user-select: none;
 		-webkit-touch-callout: none;
-		touch-action: manipulation;
+		touch-action: pan-y; /* vertical scroll native; horizontal = swipe */
+		position: relative;
 	}
 	.grid.masonry .acard {
 		break-inside: avoid;
@@ -1470,6 +1581,7 @@
 	.list {
 		border-right: 1px solid var(--border);
 		overflow-y: auto;
+		overflow-x: hidden; /* a swiped row must not scroll the list sideways */
 		padding: 0 0.5rem 2rem;
 	}
 	.list header {
@@ -1502,6 +1614,46 @@
 		color: #fff;
 		font-size: 0.8rem;
 		padding: 0.25rem 0.7rem;
+	}
+	/* A swiped row is clipped by its list (clip, unlike hidden, can't be
+	   scrolled sideways even programmatically). */
+	.grid,
+	.list ul {
+		overflow-x: clip;
+	}
+	/* Swipe hints travel with the row and appear in the gap it reveals. */
+	:global([data-swipe]::before) {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		padding: 0.3rem 0.65rem;
+		border-radius: 999px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		white-space: nowrap;
+		color: #fff;
+		opacity: 0.45;
+		pointer-events: none;
+	}
+	:global([data-swipe='right']::before) {
+		content: attr(data-right);
+		right: calc(100% + 12px);
+		background: var(--accent);
+	}
+	:global([data-swipe='left']::before) {
+		content: attr(data-left);
+		left: calc(100% + 12px);
+		background: #d97706;
+	}
+	:global([data-armed='1']::before) {
+		opacity: 1;
+	}
+	.feeds li.muted .feed {
+		opacity: 0.55;
+	}
+	.mutedicon {
+		flex: none;
+		font-size: 0.75rem;
 	}
 	.feedwarn {
 		flex: none;
@@ -1584,7 +1736,8 @@
 		user-select: none;
 		-webkit-user-select: none;
 		-webkit-touch-callout: none;
-		touch-action: manipulation;
+		touch-action: pan-y; /* vertical scroll native; horizontal = swipe */
+		position: relative;
 	}
 	.list li.selected {
 		background: var(--accent-soft);

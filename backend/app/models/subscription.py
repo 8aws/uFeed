@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin
@@ -27,3 +27,6 @@ class Subscription(Base, TimestampMixin):
         ForeignKey("folders.id", ondelete="SET NULL"), index=True, nullable=True
     )
     custom_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Muted: hidden from aggregate views (All/Unread/folders/For you/trending)
+    # but still readable by opening the feed itself.
+    muted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

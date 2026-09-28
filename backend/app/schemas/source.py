@@ -53,6 +53,18 @@ class SubscribeRequest(BaseModel):
 class SubscriptionUpdate(BaseModel):
     folder_id: uuid.UUID | None = None
     custom_title: str | None = None
+    muted: bool | None = None
+
+
+class MutedKeywordIn(BaseModel):
+    keyword: str = Field(min_length=1, max_length=100)
+
+
+class MutedKeywordOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    keyword: str
 
 
 class RefreshResult(BaseModel):
@@ -76,3 +88,4 @@ class SubscriptionOut(BaseModel):
     folder_id: uuid.UUID | None = None
     custom_title: str | None = None
     unread_count: int = 0
+    muted: bool = False

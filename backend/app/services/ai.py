@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.models.article import Article
 from app.models.article_state import ArticleState
 from app.models.subscription import Subscription
+from app.services import filters as filters_service
 
 _TAG_RE = re.compile(r"<[^>]+>")
 
@@ -227,10 +228,14 @@ async def for_you(db: AsyncSession, user_id: uuid.UUID, limit: int = 20) -> list
         )
         .where(
             Subscription.user_id == user_id,
+            Subscription.muted.is_(False),
             Article.embedding.isnot(None),
             or_(ArticleState.is_read.is_(None), ArticleState.is_read.is_(False)),
         )
         .order_by(Article.embedding.cosine_distance(profile))
         .limit(limit)
     )
+    kw = filters_service.keyword_clause((await filters_service.load(db, user_id)).keywords)
+    if kw is not None:
+        stmt = stmt.where(kw)
     return list((await db.execute(stmt)).scalars().all())

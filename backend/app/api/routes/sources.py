@@ -43,6 +43,7 @@ def _to_out(row: SubscriptionRow) -> SubscriptionOut:
         folder_id=row.subscription.folder_id,
         custom_title=row.subscription.custom_title,
         unread_count=row.unread_count,
+        muted=row.subscription.muted,
     )
 
 
@@ -170,6 +171,7 @@ async def update_source(
         fields=set(body.model_fields_set),
         folder_id=body.folder_id,
         custom_title=body.custom_title,
+        muted=body.muted,
     )
     if sub is None:
         raise AppError(404, "not_found", "Subscription not found.")
