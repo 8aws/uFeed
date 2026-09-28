@@ -182,7 +182,7 @@ async def read_event(
     article_id: uuid.UUID, body: ReadEventRequest, user: CurrentUser, db: DbSession
 ) -> OkResponse:
     ok = await article_service.record_read_event(
-        db, user.id, article_id, body.dwell_ms, body.completion
+        db, user.id, article_id, body.dwell_ms, body.completion, at=body.at
     )
     if not ok:
         raise AppError(404, "not_found", "Article not found.")
@@ -193,7 +193,7 @@ async def read_event(
 async def engage(
     article_id: uuid.UUID, body: EngageRequest, user: CurrentUser, db: DbSession
 ) -> OkResponse:
-    ok = await article_service.record_engagement(db, user.id, article_id, body.kind)
+    ok = await article_service.record_engagement(db, user.id, article_id, body.kind, at=body.at)
     if not ok:
         raise AppError(404, "not_found", "Article not found or invalid event.")
     return OkResponse()
@@ -201,5 +201,7 @@ async def engage(
 
 @router.post("/mark-all-read", response_model=OkResponse)
 async def mark_all_read(body: MarkAllReadRequest, user: CurrentUser, db: DbSession) -> OkResponse:
-    await article_service.mark_all_read(db, user.id, folder=body.folder_id, source=body.source_id)
+    await article_service.mark_all_read(
+        db, user.id, folder=body.folder_id, source=body.source_id, before=body.before
+    )
     return OkResponse()

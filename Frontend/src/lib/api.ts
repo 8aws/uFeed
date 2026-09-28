@@ -230,18 +230,19 @@ export const api = {
 		request<unknown>(`/articles/${id}/save`, { method: saved ? 'POST' : 'DELETE' }),
 	setFavorite: (id: string, favorite: boolean) =>
 		request<unknown>(`/articles/${id}/favorite`, { method: favorite ? 'POST' : 'DELETE' }),
-	markAllRead: (folder_id?: string | null, source_id?: string | null) =>
+	// `before` / `at`: when it happened (changes made offline are sent later).
+	markAllRead: (folder_id?: string | null, source_id?: string | null, before?: string) =>
 		request<unknown>('/articles/mark-all-read', {
 			method: 'POST',
-			body: { folder_id, source_id }
+			body: { folder_id, source_id, before }
 		}),
-	readEvent: (id: string, dwell_ms: number, completion: number) =>
+	readEvent: (id: string, dwell_ms: number, completion: number, at?: string) =>
 		request<unknown>(`/articles/${id}/read-event`, {
 			method: 'POST',
-			body: { dwell_ms, completion }
+			body: { dwell_ms, completion, at }
 		}),
-	engage: (id: string, kind: 'open' | 'share' | 'skip') =>
-		request<unknown>(`/articles/${id}/engage`, { method: 'POST', body: { kind } }),
+	engage: (id: string, kind: 'open' | 'share' | 'skip', at?: string) =>
+		request<unknown>(`/articles/${id}/engage`, { method: 'POST', body: { kind, at } }),
 	trending: (window_hours = 720, limit = 8) =>
 		request<TrendingItem[]>(`/trending?window_hours=${window_hours}&limit=${limit}`),
 	insights: (window_hours = 720, limit = 12) =>

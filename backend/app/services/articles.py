@@ -291,8 +291,11 @@ async def mark_all_read(
     *,
     folder: uuid.UUID | None = None,
     source: uuid.UUID | None = None,
+    before: datetime | None = None,
 ) -> int:
-    """Mark every matching subscribed article as read (set-based upsert)."""
+    """Mark every matching subscribed article as read (set-based upsert).
+    With `before`, only articles fetched up to then (an offline press synced
+    later must not swallow what arrived afterwards)."""
     sel = (
         select(
             sa.literal(user_id, type_=sa.Uuid()).label("user_id"),
@@ -308,6 +311,8 @@ async def mark_all_read(
         sel = sel.where(Article.source_id == source)
     if folder is not None:
         sel = sel.where(Subscription.folder_id == folder)
+    if before is not None:
+        sel = sel.where(Article.fetched_at <= min(_aware(before), datetime.now(UTC)))
 
     stmt = (
         pg_insert(ArticleState)
@@ -322,24 +327,48 @@ async def mark_all_read(
     return result.rowcount or 0
 
 
+# Events recorded offline arrive late; older than this they no longer matter
+# to any ranking window (max 30 days) and are accepted but not stored.
+EVENT_MAX_AGE = timedelta(days=30)
+
+
+def _aware(ts: datetime) -> datetime:
+    return ts if ts.tzinfo else ts.replace(tzinfo=UTC)
+
+
+def _event_time(at: datetime | None) -> tuple[bool, datetime | None]:
+    """(keep, created_at): client time clamped to now; None = server time."""
+    if at is None:
+        return True, None
+    now = datetime.now(UTC)
+    at = min(_aware(at), now)
+    return now - at <= EVENT_MAX_AGE, at
+
+
 async def record_read_event(
     db: AsyncSession,
     user_id: uuid.UUID,
     article_id: uuid.UUID,
     dwell_ms: int,
     completion: float,
+    *,
+    at: datetime | None = None,
 ) -> bool:
     """Record one anonymised reading event for cross-user trending."""
     if not await _user_owns_article(db, user_id, article_id):
         return False
-    db.add(
-        ReadEvent(
-            article_id=article_id,
-            user_id=user_id,
-            dwell_ms=max(0, dwell_ms),
-            completion=max(0.0, min(1.0, completion)),
-        )
+    keep, created = _event_time(at)
+    if not keep:
+        return True
+    ev = ReadEvent(
+        article_id=article_id,
+        user_id=user_id,
+        dwell_ms=max(0, dwell_ms),
+        completion=max(0.0, min(1.0, completion)),
     )
+    if created is not None:
+        ev.created_at = created
+    db.add(ev)
     await db.commit()
     return True
 
@@ -348,14 +377,25 @@ _ALLOWED_ENGAGE = {"open", "share", "skip"}
 
 
 async def record_engagement(
-    db: AsyncSession, user_id: uuid.UUID, article_id: uuid.UUID, kind: str
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    article_id: uuid.UUID,
+    kind: str,
+    *,
+    at: datetime | None = None,
 ) -> bool:
     """Record a non-reading engagement event (open original / share / skip)."""
     if kind not in _ALLOWED_ENGAGE:
         return False
     if not await _user_owns_article(db, user_id, article_id):
         return False
-    db.add(ReadEvent(article_id=article_id, user_id=user_id, kind=kind))
+    keep, created = _event_time(at)
+    if not keep:
+        return True
+    ev = ReadEvent(article_id=article_id, user_id=user_id, kind=kind)
+    if created is not None:
+        ev.created_at = created
+    db.add(ev)
     await db.commit()
     return True
 

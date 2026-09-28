@@ -76,6 +76,7 @@ export interface Article {
 	word_count: number | null;
 	tags: string[];
 	published_at: string | null;
+	fetched_at?: string | null;
 	is_read: boolean;
 	is_saved: boolean;
 	is_favorite: boolean;

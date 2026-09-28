@@ -32,6 +32,7 @@ class ArticleOut(BaseModel):
     word_count: int | None = None
     tags: list[str] = []
     published_at: datetime | None = None
+    fetched_at: datetime | None = None  # when uFeed got it (offline "mark all" cutoff)
     is_read: bool = False
     is_saved: bool = False
     is_favorite: bool = False
@@ -41,11 +42,16 @@ class ArticleOut(BaseModel):
 class MarkAllReadRequest(BaseModel):
     folder_id: uuid.UUID | None = None
     source_id: uuid.UUID | None = None
+    # Only articles fetched up to this moment (when the user pressed the button,
+    # possibly offline): later arrivals stay unread.
+    before: datetime | None = None
 
 
 class ReadEventRequest(BaseModel):
     dwell_ms: int = 0
     completion: float = 0.0
+    # When it happened (events recorded offline are sent later).
+    at: datetime | None = None
 
 
 class TrendingItem(BaseModel):
@@ -58,6 +64,7 @@ class TrendingItem(BaseModel):
 
 class EngageRequest(BaseModel):
     kind: str  # "open" | "share" | "skip"
+    at: datetime | None = None  # when it happened (offline events arrive late)
 
 
 class RankedArticle(BaseModel):

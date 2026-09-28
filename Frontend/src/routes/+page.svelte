@@ -5,7 +5,15 @@
 	import { clearTokens, user } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
 	import { toolbarLabels } from '$lib/prefs';
-	import { applyPending, flush, initOutbox, pendingCount, setState } from '$lib/outbox';
+	import {
+		applyPending,
+		flush,
+		initOutbox,
+		pendingCount,
+		runOp,
+		setFolderLookup,
+		setState
+	} from '$lib/outbox';
 	import { safeHtml, safeUrl } from '$lib/safe';
 	import { relativeTime, readingTime, stripHtml } from '$lib/format';
 	import Onboarding from '$lib/components/Onboarding.svelte';
@@ -321,7 +329,8 @@
 			completion = (readerEl.scrollTop + readerEl.clientHeight) / readerEl.scrollHeight;
 		}
 		readingStart = 0;
-		if (dwell > 1000) api.readEvent(a.id, dwell, Math.max(0, Math.min(1, completion))).catch(() => {});
+		if (dwell > 1000)
+			runOp({ type: 'readEvent', id: a.id, dwell_ms: dwell, completion: Math.max(0, Math.min(1, completion)) });
 	}
 
 	// On-demand LLM summary for the open article (in the reader's language).
@@ -475,7 +484,7 @@
 			} catch {
 				/* ignore */
 			}
-			api.engage(a.id, 'share').catch(() => {});
+			runOp({ type: 'engage', id: a.id, kind: 'share' });
 		}
 	}
 
@@ -497,7 +506,7 @@
 	}
 
 	function openOriginal(a: Article) {
-		api.engage(a.id, 'open').catch(() => {});
+		runOp({ type: 'engage', id: a.id, kind: 'open' });
 	}
 
 	async function markRead(a: Article, read: boolean) {
@@ -505,7 +514,7 @@
 		// In Unread, a read post leaves the list at once (long-press, swipe, m key).
 		articles = read && filter.kind === 'unread' ? articles.filter((x) => x.id !== a.id) : [...articles];
 		// Marking read from the list without opening is a weak "skip" signal.
-		if (read && openArticle?.id !== a.id) api.engage(a.id, 'skip').catch(() => {});
+		if (read && openArticle?.id !== a.id) runOp({ type: 'engage', id: a.id, kind: 'skip' });
 		try {
 			// Queued (and synced later) if there's no connection right now.
 			if ((await setState(a.id, 'read', read)) === 'sent') await refreshUnreadFor(a.source_id);
@@ -536,8 +545,20 @@
 	async function markAllRead() {
 		const source_id = filter.kind === 'source' ? filter.id : null;
 		const folder_id = filter.kind === 'folder' ? filter.id : null;
-		await api.markAllRead(folder_id, source_id);
-		await Promise.all([loadArticles(true), loadSidebar()]);
+		// Apply it here at once; without connection it's queued and synced later
+		// (only covering what had arrived by now).
+		const inScope = (sourceId: string) =>
+			source_id
+				? sourceId === source_id
+				: folder_id
+					? subs.find((x) => x.source.id === sourceId)?.folder_id === folder_id
+					: true;
+		for (const a of articles) if (inScope(a.source_id)) a.is_read = true;
+		articles = filter.kind === 'unread' ? articles.filter((a) => !a.is_read) : [...articles];
+		subs = subs.map((x) => (inScope(x.source.id) ? { ...x, unread_count: 0 } : x));
+		if ((await runOp({ type: 'markAll', folder_id, source_id })) === 'sent') {
+			await Promise.all([loadArticles(true), loadSidebar()]);
+		}
 	}
 
 	async function runDiscover() {
@@ -881,6 +902,7 @@
 
 	onMount(async () => {
 		initOutbox();
+		setFolderLookup((sourceId) => subs.find((x) => x.source.id === sourceId)?.folder_id ?? null);
 		const snap = await readSnapshot();
 		if (snap) {
 			folders = snap.folders;
