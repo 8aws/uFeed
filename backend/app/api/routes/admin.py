@@ -86,6 +86,7 @@ def _settings_out(cfg: dict, plans: dict) -> AdminSettings:
         retention_days=cfg["retention_days"],
         inactivity_days=cfg["inactivity_days"],
         dormant_delete_days=cfg["dormant_delete_days"],
+        contact_email=cfg.get("contact_email") or "",
         roles=list(ROLES),
         refresh_cooldown_s={r: int(p["refresh_cooldown_s"]) for r, p in plans.items()},
         plan_limits=plans,

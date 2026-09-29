@@ -155,6 +155,7 @@ export interface SiteConfig {
 	registration_open: boolean;
 	refresh_cooldown_s: Record<Role, number>;
 	plan_limits: Record<Role, PlanLimits>;
+	contact_email?: string; // public privacy/support pages
 }
 
 export interface AdminSettings {
@@ -163,6 +164,7 @@ export interface AdminSettings {
 	retention_days: number;
 	inactivity_days: number;
 	dormant_delete_days: number;
+	contact_email?: string;
 	roles: Role[];
 	refresh_cooldown_s: Record<Role, number>;
 	plan_limits: Record<Role, PlanLimits>;

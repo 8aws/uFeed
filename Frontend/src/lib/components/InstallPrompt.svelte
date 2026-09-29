@@ -39,7 +39,9 @@
 	}
 
 	onMount(() => {
-		if (dismissed() || standalone()) return;
+		// Inside the store app (native shell) there's nothing to install.
+		const nativeShell = /uFeedApp\//.test(navigator.userAgent);
+		if (dismissed() || standalone() || nativeShell) return;
 
 		const ua = navigator.userAgent || '';
 		// iOS (incl. iPadOS reporting as Mac with touch) has no beforeinstallprompt.

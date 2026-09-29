@@ -27,6 +27,10 @@ class UserUpdate(BaseModel):
     display_name: str | None = Field(default=None, max_length=60)
 
 
+class AccountDelete(BaseModel):
+    password: str
+
+
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str = Field(min_length=8, max_length=256)

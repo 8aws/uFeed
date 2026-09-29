@@ -51,7 +51,9 @@
 	$effect(() => {
 		if (!ready) return;
 		const path = $page.url.pathname;
-		if (!$authed && path !== '/login') goto('/login');
+		// Public pages (linked from the login screen and the app stores).
+		const isPublic = path === '/login' || path === '/privacy' || path === '/support';
+		if (!$authed && !isPublic) goto('/login');
 		if ($authed && path === '/login') goto('/');
 	});
 </script>

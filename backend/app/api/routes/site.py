@@ -21,6 +21,7 @@ async def site_config(db: DbSession) -> SiteConfig:
         registration_open=open_,
         refresh_cooldown_s={r: int(p["refresh_cooldown_s"]) for r, p in plans.items()},
         plan_limits=plans,
+        contact_email=cfg.get("contact_email") or "",
     )
 
 

@@ -26,6 +26,7 @@ class SiteConfig(BaseModel):
     registration_open: bool
     refresh_cooldown_s: dict[str, int]
     plan_limits: dict[str, PlanLimits]
+    contact_email: str = ""  # for the public privacy/support pages
 
 
 class AdminSettings(BaseModel):
@@ -34,6 +35,7 @@ class AdminSettings(BaseModel):
     retention_days: int
     inactivity_days: int
     dormant_delete_days: int
+    contact_email: str = ""
     roles: list[str]
     refresh_cooldown_s: dict[str, int]
     plan_limits: dict[str, PlanLimits]
@@ -45,6 +47,9 @@ class AdminSettingsUpdate(BaseModel):
     retention_days: int | None = Field(default=None, ge=0, le=3650)
     inactivity_days: int | None = Field(default=None, ge=0, le=3650)
     dormant_delete_days: int | None = Field(default=None, ge=0, le=3650)
+    contact_email: str | None = Field(
+        default=None, max_length=254, pattern=r"^$|^[^@\s]+@[^@\s]+\.[^@\s]+$"
+    )
 
 
 class AdminUserOut(BaseModel):

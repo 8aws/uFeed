@@ -288,6 +288,7 @@
 		retention_days?: number;
 		inactivity_days?: number;
 		dormant_delete_days?: number;
+		contact_email?: string;
 	}) {
 		try {
 			settings = await api.updateAdminSettings(body);
@@ -410,6 +411,16 @@
 				>
 					{#each settings.roles as r (r)}<option value={r}>{roleName(r)}</option>{/each}
 				</select>
+			</label>
+			<label class="field">
+				{$t('contact_email')}
+				<input
+					type="email"
+					value={settings.contact_email ?? ''}
+					placeholder="soporte@…"
+					onchange={(e) => saveSettings({ contact_email: e.currentTarget.value.trim() })}
+				/>
+				<span class="muted small">{$t('contact_email_hint')}</span>
 			</label>
 		</section>
 

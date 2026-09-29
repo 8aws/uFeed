@@ -390,6 +390,28 @@
 		clearTokens();
 		goto('/login');
 	}
+
+	// Delete my account (asks for the password; app stores require it in-app).
+	let delOpen = $state(false);
+	let delPw = $state('');
+	let delMsg = $state('');
+	let delBusy = $state(false);
+	async function deleteMyAccount(e: SubmitEvent) {
+		e.preventDefault();
+		if (!confirm($t('delete_me_confirm'))) return;
+		delBusy = true;
+		delMsg = '';
+		try {
+			await api.deleteAccount(delPw);
+			clearTokens();
+			goto('/login');
+		} catch (err) {
+			const code = err instanceof ApiError ? err.code : '';
+			delMsg = code === 'wrong_password' ? $t('wrong_password') : code === 'last_admin' ? $t('delete_me_last_admin') : '⚠';
+		} finally {
+			delBusy = false;
+		}
+	}
 </script>
 
 <div class="page">
@@ -891,7 +913,28 @@
 					{#if myPlan}· {planSummary(myPlan)}{/if}
 				</p>
 			{/if}
-			<button onclick={logout}>{$t('logout')}</button>
+			<div class="row">
+				<button onclick={logout}>{$t('logout')}</button>
+				<button class="danger-btn" onclick={() => (delOpen = !delOpen)}>{$t('delete_me')}</button>
+			</div>
+			{#if delOpen}
+				<form class="delform" onsubmit={deleteMyAccount}>
+					<p class="small">{$t('delete_me_hint')}</p>
+					<input type="email" autocomplete="username" value={$user?.email ?? ''} hidden />
+					<input
+						type="password"
+						bind:value={delPw}
+						placeholder={$t('password')}
+						autocomplete="current-password"
+						required
+					/>
+					<div class="row">
+						<button class="danger-btn" type="submit" disabled={delBusy || !delPw}>{$t('delete_me')}</button>
+						{#if delMsg}<span class="errmsg">{delMsg}</span>{/if}
+					</div>
+				</form>
+			{/if}
+			<p class="small legal"><a href="/privacy">{$t('privacy')}</a> · <a href="/support">{$t('support')}</a></p>
 		{/if}
 	</section>
 </div>
@@ -1092,6 +1135,22 @@
 	}
 	.atkinson {
 		font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+	}
+	.danger-btn {
+		color: var(--danger);
+		border-color: var(--danger);
+	}
+	.delform {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+		padding: 0.75rem;
+		border: 1px solid var(--danger);
+		border-radius: 10px;
+	}
+	.legal {
+		margin-top: 1rem;
 	}
 	.vlang {
 		min-width: 6.5rem;

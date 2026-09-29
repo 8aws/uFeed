@@ -122,6 +122,8 @@ export const api = {
 	// Returns fresh tokens: other sessions are signed out.
 	changePassword: (current_password: string, new_password: string) =>
 		request<Tokens>('/me/password', { method: 'POST', body: { current_password, new_password } }),
+	// Deletes the account and all its data (asks for the password).
+	deleteAccount: (password: string) => request<unknown>('/me/delete', { method: 'POST', body: { password } }),
 
 	// API keys (for the public /api/v1 read-only API)
 	listKeys: () => request<ApiKey[]>('/keys'),
@@ -139,6 +141,7 @@ export const api = {
 		retention_days?: number;
 		inactivity_days?: number;
 		dormant_delete_days?: number;
+		contact_email?: string;
 	}) =>
 		request<AdminSettings>('/admin/settings', { method: 'PATCH', body }),
 	adminUsers: () => request<AdminUser[]>('/admin/users'),

@@ -108,10 +108,16 @@
 		{:else}
 			<p class="muted switch">{$t('registration_closed')}</p>
 		{/if}
+		<p class="legal"><a href="/privacy">{$t('privacy')}</a> · <a href="/support">{$t('support')}</a></p>
 	</form>
 </div>
 
 <style>
+	.legal {
+		margin: 0.5rem 0 0;
+		text-align: center;
+		font-size: 0.8rem;
+	}
 	.wrap {
 		min-height: 100vh;
 		display: grid;

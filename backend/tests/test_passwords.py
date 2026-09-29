@@ -88,3 +88,29 @@ async def test_reset_unknown_user(api: AsyncClient, db_session: AsyncSession) ->
     await _set_role(db_session, admin.json()["user"]["id"], "admin")
     r = await api.post(f"/api/admin/users/{uuid.uuid4()}/reset-password", headers=_h(admin))
     assert r.status_code == 404
+
+
+async def test_delete_own_account(api, db_session) -> None:
+    from tests.test_admin import _h, _register, _set_role
+
+    r = await _register(api)
+    h = _h(r)
+    bad = await api.post("/api/me/delete", headers=h, json={"password": "nope-nope"})
+    assert bad.status_code == 400 and bad.json()["error"]["code"] == "wrong_password"
+    ok = await api.post("/api/me/delete", headers=h, json={"password": "supersecret1"})
+    assert ok.status_code == 200
+    assert (await api.get("/api/me", headers=h)).status_code == 401
+
+    # The only admin can't leave the instance without one.
+    a = await _register(api)
+    await _set_role(db_session, a.json()["user"]["id"], "admin")
+    from sqlalchemy import func, select
+
+    from app.models.user import User
+
+    if (
+        await db_session.scalar(select(func.count()).select_from(User).where(User.role == "admin"))
+        == 1
+    ):
+        r2 = await api.post("/api/me/delete", headers=_h(a), json={"password": "supersecret1"})
+        assert r2.status_code == 400 and r2.json()["error"]["code"] == "last_admin"

@@ -22,6 +22,8 @@ DEFAULTS: dict[str, Any] = {
     # Stage 2: delete deactivated accounts nobody reclaimed after this many
     # more days (0 = never delete).
     "dormant_delete_days": 180,
+    # Shown on the public privacy and support pages (required by app stores).
+    "contact_email": "",
 }
 
 
