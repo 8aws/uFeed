@@ -74,5 +74,29 @@ def main() -> None:
     print("wrote", ", ".join(sorted(p.name for p in OUT.glob("*.png"))))
 
 
+
+
+def ios() -> None:
+    """iOS app (mobile/): the 1024 px store icon (opaque, full bleed: iOS
+    rounds it) and the launch screen (logo centred on the app background)."""
+    base = ROOT / "mobile" / "ios" / "App" / "App" / "Assets.xcassets"
+    if not base.exists():
+        return
+    art = full_bleed()
+    art.resize((1024, 1024), Image.LANCZOS).convert("RGB").save(
+        base / "AppIcon.appiconset" / "AppIcon-512@2x.png", optimize=True
+    )
+    splash = Image.new("RGB", (2732, 2732), (247, 247, 248))
+    logo = art.resize((560, 560), Image.LANCZOS)
+    mask = Image.new("L", logo.size, 0)
+    from PIL import ImageDraw
+
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, *logo.size), radius=120, fill=255)
+    splash.paste(logo, ((2732 - 560) // 2, (2732 - 560) // 2), mask)
+    for name in ("splash-2732x2732.png", "splash-2732x2732-1.png", "splash-2732x2732-2.png"):
+        splash.save(base / "Splash.imageset" / name, optimize=True)
+
+
 if __name__ == "__main__":
     main()
+    ios()
