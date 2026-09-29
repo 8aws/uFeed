@@ -94,6 +94,8 @@ async def test_delete_own_account(api, db_session) -> None:
     from tests.test_admin import _h, _register, _set_role
 
     r = await _register(api)
+    # (On an empty database the first account becomes admin; make it a user.)
+    await _set_role(db_session, r.json()["user"]["id"], "free")
     h = _h(r)
     bad = await api.post("/api/me/delete", headers=h, json={"password": "nope-nope"})
     assert bad.status_code == 400 and bad.json()["error"]["code"] == "wrong_password"
