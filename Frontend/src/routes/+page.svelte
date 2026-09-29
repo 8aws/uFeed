@@ -15,7 +15,9 @@
 		setState
 	} from '$lib/outbox';
 	import { embedOf, safeHtml, safeUrl } from '$lib/safe';
-	import { warmAudio } from '$lib/offlineAudio';
+	import { offlineAudioUrl, warmAudio } from '$lib/offlineAudio';
+	import { playJingle } from '$lib/player';
+	import { unlockSpeech } from '$lib/speech';
 	import { relativeTime, readingTime, stripHtml } from '$lib/format';
 	import Onboarding from '$lib/components/Onboarding.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
@@ -405,7 +407,9 @@
 		else loadTranslation(a);
 	}
 
-	function openArticleObj(a: Article) {
+	function openArticleObj(a: Article, markOnOpen = true) {
+		// Opening another post by hand ends Post radio.
+		if (radio && radio.queue[radio.pos]?.id !== a.id) radio = null;
 		flushReadEvent();
 		openArticle = a;
 		showTr = false;
@@ -426,7 +430,89 @@
 				if (openArticle?.id === a.id) similarList = r;
 			})
 			.catch(() => {});
-		if (!a.is_read) markRead(a, true);
+		// Post radio marks a post read only once 70 % of it was heard.
+		if (markOnOpen && !a.is_read) markRead(a, true);
+	}
+
+	// --- Post radio: the posts of the current list read one after another -----
+	let radioAllowed = $state(false);
+	let radioPlan = { posts: null as number | null, minutes: null as number | null };
+	let radio = $state<{
+		queue: Article[];
+		pos: number;
+		startedAt: number;
+		limit: number | null;
+		minutes: number | null;
+	} | null>(null);
+	const radioUrls = new Map<string, Promise<string | null>>();
+	const capTo = (pref: number, max: number | null) => (!pref ? max : max == null ? pref : Math.min(pref, max));
+
+	// Ask for the next post's server audio while this one plays: it starts
+	// generating (live) so the chain doesn't pause between posts.
+	function prefetchAudio(a: Article | undefined) {
+		if (!a || radioUrls.has(a.id) || !ttsServerAllowed || $speechPrefs.mode !== 'server') return;
+		const translated = $speechPrefs.myLanguage && canTranslate(a);
+		const lang = translated ? $locale : baseLang(a.lang);
+		if (!['es', 'en'].includes(lang)) return;
+		const g = $speechPrefs.gender;
+		radioUrls.set(
+			a.id,
+			offlineAudioUrl(a.id, lang, g)
+				.then((u) => u ?? api.articleAudio(a.id, lang, g, translated).then((r) => r.url))
+				.catch(() => null)
+		);
+	}
+
+	function startRadio() {
+		if (!radioAllowed) return;
+		const from = openArticle ? articles.findIndex((x) => x.id === openArticle!.id) : 0;
+		const queue = articles.slice(Math.max(0, from));
+		if (!queue.length) return;
+		// Inside the tap: unlocks speech and the shared audio element on iOS,
+		// so the whole chain can play (even with the screen locked).
+		if ($speechPrefs.mode === 'device') unlockSpeech();
+		playJingle();
+		radioUrls.clear();
+		prefetchAudio(queue[0]);
+		prefetchAudio(queue[1]);
+		radio = {
+			queue,
+			pos: 0,
+			startedAt: Date.now(),
+			limit: capTo($speechPrefs.radioPosts, radioPlan.posts),
+			minutes: capTo($speechPrefs.radioMinutes, radioPlan.minutes)
+		};
+		listenOpen = true;
+		if (openArticle?.id !== queue[0].id) openArticleObj(queue[0], false);
+	}
+
+	async function radioAdvance(heard: number) {
+		const r = radio;
+		if (!r) return;
+		const cur = r.queue[r.pos];
+		if (heard >= 0.7 && !cur.is_read) markRead(cur, true);
+		const next = r.queue[r.pos + 1];
+		const done =
+			!next ||
+			(r.limit != null && r.pos + 1 >= r.limit) ||
+			(r.minutes != null && Date.now() - r.startedAt >= r.minutes * 60000);
+		await playJingle();
+		if (radio !== r) return; // stopped meanwhile
+		if (done) {
+			radio = null;
+			refreshMsg = `📻 ${$t('radio_done')}`;
+			setTimeout(() => (refreshMsg = ''), 5000);
+			return;
+		}
+		radio = { ...r, pos: r.pos + 1 };
+		openArticleObj(next, false);
+		prefetchAudio(r.queue[r.pos + 2]);
+	}
+
+	function radioStop(heard: number) {
+		const r = radio;
+		radio = null;
+		if (r && heard >= 0.7 && !r.queue[r.pos].is_read) markRead(r.queue[r.pos], true);
 	}
 
 	async function open(i: number) {
@@ -438,6 +524,7 @@
 	}
 
 	function closeReader() {
+		radio = null;
 		flushReadEvent();
 		openArticle = null;
 		similarList = [];
@@ -1108,6 +1195,11 @@
 			const role = ($user?.role ?? 'free') as keyof typeof c.plan_limits;
 			aiAllowed = c.plan_limits[role]?.ai_features ?? true;
 			ttsServerAllowed = c.plan_limits[role]?.tts_server ?? false;
+			radioAllowed = c.plan_limits[role]?.post_radio ?? false;
+			radioPlan = {
+				posts: c.plan_limits[role]?.radio_max_posts ?? null,
+				minutes: c.plan_limits[role]?.radio_max_minutes ?? null
+			};
 		})
 		.catch(() => {});
 
@@ -1426,6 +1518,11 @@
 				>
 					<span class="ico" aria-hidden="true">🔥</span><span class="lbl">{$t('trending_bar')}</span>
 				</button>
+				{#if radioAllowed && articles.length}
+					<button onclick={startRadio} title={$t('post_radio_start')} aria-label={$t('post_radio_start')}>
+						<span class="ico" aria-hidden="true">📻</span><span class="lbl">{$t('post_radio')}</span>
+					</button>
+				{/if}
 				<button onclick={refresh} disabled={refreshing} title={$t('refresh')}>
 					<span class="ico" class:spin={refreshing} aria-hidden="true">↻</span><span class="lbl">{$t('refresh')}</span>
 				</button>
@@ -1685,6 +1782,17 @@
 							autostart={$speechPrefs.autoRead}
 							myLang={$speechPrefs.myLanguage && canTranslate(a) ? $locale : null}
 							getTranslation={() => loadTranslation(a)}
+							onradio={radioAllowed && !radio ? startRadio : undefined}
+							radio={radio && radio.queue[radio.pos]?.id === a.id
+								? {
+										position: radio.pos + 1,
+										limit: Math.min(radio.limit ?? Infinity, radio.queue.length),
+										url: radioUrls.get(a.id),
+										onfinish: radioAdvance,
+										onskip: radioAdvance,
+										onstop: radioStop
+									}
+								: null}
 						/>
 					{/key}
 				{/if}

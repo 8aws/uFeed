@@ -26,6 +26,9 @@
 		max_api_keys: string;
 		ai_features: boolean;
 		tts_server: boolean;
+		post_radio: boolean;
+		radio_max_posts: string;
+		radio_max_minutes: string;
 	};
 	let plansDraft = $state<Record<string, Draft>>({});
 	let savingPlans = $state(false);
@@ -39,7 +42,10 @@
 					max_feeds: p.max_feeds === null ? '' : String(p.max_feeds),
 					max_api_keys: p.max_api_keys === null ? '' : String(p.max_api_keys),
 					ai_features: p.ai_features,
-					tts_server: p.tts_server ?? false
+					tts_server: p.tts_server ?? false,
+					post_radio: p.post_radio ?? false,
+					radio_max_posts: p.radio_max_posts == null ? '' : String(p.radio_max_posts),
+					radio_max_minutes: p.radio_max_minutes == null ? '' : String(p.radio_max_minutes)
 				}
 			])
 		);
@@ -63,7 +69,10 @@
 						max_feeds: num(d.max_feeds),
 						max_api_keys: num(d.max_api_keys),
 						ai_features: d.ai_features,
-						tts_server: d.tts_server
+						tts_server: d.tts_server,
+						post_radio: d.post_radio,
+						radio_max_posts: num(d.radio_max_posts) || null,
+						radio_max_minutes: num(d.radio_max_minutes) || null
 					}
 				])
 			);
@@ -344,6 +353,19 @@
 								<input type="checkbox" bind:checked={plansDraft[r].tts_server} />
 								🔊 {$t('tts_server_plan')}
 							</label>
+							<label class="check small">
+								<input type="checkbox" bind:checked={plansDraft[r].post_radio} />
+								📻 {$t('post_radio')}
+							</label>
+							{#if plansDraft[r].post_radio}
+								<label>
+									{$t('radio_plan')}
+									<span class="pair">
+										<input type="number" min="1" placeholder="∞" bind:value={plansDraft[r].radio_max_posts} />
+										<input type="number" min="1" placeholder="∞" bind:value={plansDraft[r].radio_max_minutes} />
+									</span>
+								</label>
+							{/if}
 						</div>
 					{/if}
 				{/each}
@@ -721,6 +743,14 @@
 		flex-direction: column;
 		gap: 0.15rem;
 		color: var(--muted);
+	}
+	.plan .pair {
+		display: flex;
+		gap: 0.3rem;
+	}
+	.plan .pair input {
+		min-width: 0;
+		width: 50%;
 	}
 	.plan input[type='number'] {
 		padding: 0.25rem 0.4rem;

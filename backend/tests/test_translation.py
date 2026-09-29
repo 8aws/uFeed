@@ -38,7 +38,7 @@ def fake_mt(monkeypatch, tmp_path):
         return True
 
     monkeypatch.setattr(translation, "translate", fake_translate)
-    monkeypatch.setattr(tts, "generate", fake_voice)
+    monkeypatch.setattr(tts, "start_live", fake_voice)
     monkeypatch.setattr(settings, "tts_cache_dir", str(tmp_path))
     return calls
 

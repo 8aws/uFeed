@@ -145,6 +145,9 @@ export interface PlanLimits {
 	max_api_keys: number | null; // null = unlimited
 	ai_features: boolean;
 	tts_server?: boolean; // "listen" with the server's neural voice
+	post_radio?: boolean; // Post radio (posts read one after another)
+	radio_max_posts?: number | null; // per session; null = unlimited
+	radio_max_minutes?: number | null;
 }
 
 /** Unauthenticated instance info. */

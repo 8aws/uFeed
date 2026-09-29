@@ -26,7 +26,7 @@ def fake_voice(monkeypatch, tmp_path):
         (tmp_path / name).write_bytes(FAKE_MP3)
         return True
 
-    monkeypatch.setattr(tts, "generate", fake_generate)
+    monkeypatch.setattr(tts, "start_live", fake_generate)
     return calls
 
 
@@ -85,3 +85,32 @@ async def test_server_voice_language(
     h, aid = await _reader(api, db_session, "vip", lang="fr")
     r = await api.post(f"/api/articles/{aid}/audio", headers=h)
     assert r.status_code == 422 and r.json()["error"]["code"] == "tts_lang"
+
+
+async def test_follow_live_streams_a_growing_file(monkeypatch, tmp_path) -> None:
+    """Playback follows the .part while it grows and ends with the final file."""
+    import asyncio
+
+    monkeypatch.setattr(settings, "tts_cache_dir", str(tmp_path))
+    name = f"{uuid.uuid4()}-esf-v1.mp3"
+    part = tts.part_path(name)
+    part.write_bytes(b"AAA")
+    got: list[bytes] = []
+
+    async def writer():
+        await asyncio.sleep(0.3)
+        with part.open("ab") as f:
+            f.write(b"BBB")
+        await asyncio.sleep(0.3)
+        with part.open("ab") as f:
+            f.write(b"CC")
+        part.rename(tts.cache_path(name))
+
+    async def reader():
+        async for chunk in tts.follow_live(name):
+            got.append(chunk)
+
+    assert tts.in_progress(name)
+    await asyncio.wait_for(asyncio.gather(writer(), reader()), timeout=5)
+    assert b"".join(got) == b"AAABBBCC"
+    assert not tts.in_progress(name)

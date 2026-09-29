@@ -7,6 +7,7 @@ the Authorization header, and a JWT must never sit in a URL).
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import os
@@ -18,6 +19,7 @@ from pathlib import Path
 import httpx
 
 from app.core.config import settings
+from app.core.ratelimit import get_redis
 from app.core.text import plain
 from app.models.article import Article
 
@@ -113,6 +115,122 @@ async def generate(name: str, text: str, lang: str, gender: str) -> bool:
     os.replace(tmp, path)
     prune()
     return True
+
+
+# --- Live generation: play while the article is still being read out ----------
+#
+# The request that asks for audio starts the generation in the background
+# (AI /tts/stream) and gets its URL at once. The MP3 is written to <name>.part
+# as it arrives and renamed to <name>.mp3 when complete. Every playback request
+# -- the first, a retry, or the duplicate probe iOS sends -- streams whatever
+# is written and follows the file until it's done, in any backend worker.
+# A Redis lock makes sure one article/voice is generated once.
+
+LIVE_IDLE_S = 60  # give up following a .part that stopped growing
+_tasks: set[asyncio.Task] = set()
+
+
+def part_path(name: str) -> Path:
+    return cache_path(name).with_suffix(".part")
+
+
+def _err_path(name: str) -> Path:
+    return cache_path(name).with_suffix(".err")
+
+
+def in_progress(name: str) -> bool:
+    """Being generated: a .part that is still growing (a stale one, left by a
+    restarted worker, doesn't count and gets regenerated)."""
+    try:
+        return time.time() - part_path(name).stat().st_mtime < LIVE_IDLE_S
+    except FileNotFoundError:
+        return False
+
+
+async def start_live(name: str, text: str, lang: str, gender: str) -> bool:
+    """Kick off background generation unless it's done or already running.
+    False if the server voice can't be used at all."""
+    if not settings.ai_enabled or not text:
+        return False
+    if cached(name):
+        return True
+    try:
+        got = await get_redis().set(f"ttsgen:{name}", "1", nx=True, ex=int(settings.tts_timeout_s))
+    except Exception:  # noqa: BLE001 - no Redis: fall back to this worker only
+        got = not in_progress(name)
+    if not got:
+        return True  # someone is generating it right now
+    part = part_path(name)
+    part.parent.mkdir(parents=True, exist_ok=True)
+    part.write_bytes(b"")
+    _err_path(name).unlink(missing_ok=True)
+    task = asyncio.create_task(_generate_live(name, text, lang, gender))
+    _tasks.add(task)
+    task.add_done_callback(_tasks.discard)
+    return True
+
+
+async def _generate_live(name: str, text: str, lang: str, gender: str) -> None:
+    part = part_path(name)
+    ok = False
+    try:
+        async with httpx.AsyncClient(timeout=settings.tts_timeout_s) as client:
+            async with client.stream(
+                "POST",
+                f"{settings.ai_url}/tts/stream",
+                json={"text": text, "lang": lang, "gender": gender},
+            ) as resp:
+                if resp.status_code == 200:
+                    with part.open("ab") as f:
+                        async for chunk in resp.aiter_bytes():
+                            f.write(chunk)
+                            f.flush()
+                    ok = part.stat().st_size > 0
+    except (httpx.HTTPError, OSError):
+        ok = False
+    if ok:
+        os.replace(part, cache_path(name))
+        prune()
+    else:
+        _err_path(name).write_text("failed")
+        part.unlink(missing_ok=True)
+    try:
+        await get_redis().delete(f"ttsgen:{name}")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+async def follow_live(name: str):
+    """Yield the MP3 as it's being written, until complete (or stalled)."""
+    part, final, err = part_path(name), cache_path(name), _err_path(name)
+    offset, idle = 0, 0.0
+    while True:
+        src = part if part.exists() else final if final.exists() else None
+        if src is None:
+            if err.exists():
+                return
+            await asyncio.sleep(0.2)
+            idle += 0.2
+            if idle > 10:
+                return
+            continue
+        try:
+            with src.open("rb") as f:
+                f.seek(offset)
+                data = f.read()
+        except FileNotFoundError:
+            continue  # renamed between exists() and open(): read the final file
+        if data:
+            offset += len(data)
+            idle = 0.0
+            yield data
+        elif src == final:
+            return  # complete
+        else:
+            await asyncio.sleep(0.2)
+            idle += 0.2
+            if idle > LIVE_IDLE_S:
+                return
 
 
 def prune() -> None:

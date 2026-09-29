@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 from fastapi import FastAPI, HTTPException, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app import llm, translate, tts
@@ -254,3 +255,16 @@ def translate_texts(body: TranslateRequest) -> TranslateResponse:
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=503, detail=f"MT unavailable: {exc}"[:200]) from exc
     return TranslateResponse(texts=texts, ms=ms)
+
+
+@app.post("/tts/stream")
+def text_to_speech_stream(body: TTSRequest) -> StreamingResponse:
+    """Same as /tts, but the MP3 is sent as it's produced (first bytes after
+    the first sentence)."""
+    lang = (body.lang or "").split("-")[0].lower()
+    if not tts.enabled() or lang not in tts.LANGS:
+        raise HTTPException(status_code=422, detail="language not supported")
+    if not body.text.strip():
+        raise HTTPException(status_code=422, detail="empty text")
+    gender = "m" if body.gender == "m" else "f"
+    return StreamingResponse(tts.synthesize_stream(body.text, lang, gender), media_type="audio/mpeg")

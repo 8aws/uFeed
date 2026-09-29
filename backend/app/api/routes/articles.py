@@ -226,10 +226,13 @@ async def article_audio(
     name = tts_service.cache_name(article_id, voice_lang, voice)
     if tts_service.cached(name):
         return ArticleAudioOut(url=tts_service.signed_url(name), lang=voice_lang, cached=True)
+    if tts_service.in_progress(name):
+        return ArticleAudioOut(url=tts_service.signed_url(name), lang=voice_lang, cached=False)
     if not await check_rate(f"tts:{user.id}", settings.tts_per_hour, window_s=3600):
         raise AppError(429, "rate_limited", "Too many audio requests this hour; try later.")
     text = translation_service.speech_text(tr) if tr else tts_service.speech_text(row.article)
-    if not await tts_service.generate(name, text, voice_lang, voice):
+    # Generated in the background; the URL plays it live while it's produced.
+    if not await tts_service.start_live(name, text, voice_lang, voice):
         raise AppError(503, "ai_unavailable", "The server voice is not available right now.")
     return ArticleAudioOut(url=tts_service.signed_url(name), lang=voice_lang, cached=False)
 

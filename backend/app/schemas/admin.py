@@ -15,6 +15,9 @@ class PlanLimits(BaseModel):
     max_api_keys: int | None = Field(default=None, ge=0, le=1_000)  # None = unlimited
     ai_features: bool = True
     tts_server: bool = False  # server neural voice for "listen"
+    post_radio: bool = False  # read posts one after another
+    radio_max_posts: int | None = Field(default=20, ge=1, le=500)  # None = unlimited
+    radio_max_minutes: int | None = Field(default=60, ge=1, le=1440)  # None = unlimited
 
 
 class SiteConfig(BaseModel):

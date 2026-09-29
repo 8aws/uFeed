@@ -14,6 +14,7 @@
 	import { speechPrefs } from '$lib/prefs';
 	import { offlineAudioUrl } from '$lib/offlineAudio';
 	import { chunkAt, SentenceHighlighter } from '$lib/highlight';
+	import { sharedAudio } from '$lib/player';
 	import type { Article } from '$lib/types';
 
 	// Read the open article aloud: the device's voice (everyone, free, offline)
@@ -27,7 +28,9 @@
 		serverAllowed,
 		autostart = false,
 		myLang = null,
-		getTranslation
+		getTranslation,
+		radio = null,
+		onradio
 	}: {
 		article: Article;
 		title: string;
@@ -39,6 +42,17 @@
 		// translated first, and how to get (and show) that translation.
 		myLang?: string | null;
 		getTranslation?: () => Promise<{ title: string | null; paragraphs: string[] } | null>;
+		// Post radio: this post is one of a chain. The bar reports how much was
+		// heard (0..1) when it ends, is skipped or the radio is stopped.
+		radio?: {
+			position: number; // 1-based
+			limit: number | null; // posts in this session (null = until the list ends)
+			url?: Promise<string | null>; // server audio requested ahead of time
+			onfinish: (heard: number) => void;
+			onskip: (heard: number) => void;
+			onstop: (heard: number) => void;
+		} | null;
+		onradio?: () => void; // start Post radio from this post (plan feature)
 	} = $props();
 
 	const SERVER_LANGS = ['es', 'en'];
@@ -84,6 +98,7 @@
 	let dState = $state<SpeechState>('idle');
 	let dIndex = $state(0);
 	let dTotal = $state(0);
+	let dMax = 0; // furthest chunk reached (for "heard")
 
 	async function devicePlay() {
 		msg = '';
@@ -116,8 +131,11 @@
 				dState = s;
 				dIndex = i;
 				dTotal = n;
-				if (s === 'playing') hl?.show(speech?.part(i) ?? '');
-				else if (s === 'ended' || s === 'idle') hl?.clear();
+				if (s === 'playing') {
+					dMax = Math.max(dMax, i);
+					hl?.show(speech?.part(i) ?? '');
+				} else if (s === 'ended' || s === 'idle') hl?.clear();
+				if (s === 'ended') radio?.onfinish(1);
 			},
 			$speechPrefs.deviceVoice[lang]
 		);
@@ -126,7 +144,13 @@
 	// --- Server voice -------------------------------------------------------------
 	let sState = $state<'idle' | 'loading' | 'ready'>('idle');
 	let url = $state('');
+	// The app-wide element (see lib/player): this bar only acts on it while it
+	// "owns" it, i.e. while it's playing this article.
+	const me = Math.random().toString(36).slice(2);
 	let audioEl = $state<HTMLAudioElement | null>(null);
+	const owned = () => !!audioEl && audioEl.dataset.owner === me;
+	let sMax = 0; // furthest position reached (s)
+	let estSeconds = 0; // length estimate while the live stream has no duration
 	// Recordings carry no sentence timing: estimate it from the position.
 	let serverChunks: string[] = [];
 	let serverIdx = -1;
@@ -142,10 +166,15 @@
 	function serverSeek(delta: number) {
 		if (audioEl) audioEl.currentTime = Math.max(0, Math.min(sDur || 0, audioEl.currentTime + delta));
 	}
+	// Live streams report no duration until done: use the estimate meanwhile.
+	const durationOf = (a: HTMLAudioElement) => (Number.isFinite(a.duration) && a.duration > 0 ? a.duration : estSeconds);
 	function onTimeUpdate() {
-		if (audioEl) sTime = audioEl.currentTime;
-		if (!audioEl || !hl || !audioEl.duration || !serverChunks.length) return;
-		const i = chunkAt(serverChunks, audioEl.currentTime / audioEl.duration);
+		if (!owned() || !audioEl) return;
+		sTime = audioEl.currentTime;
+		sDur = durationOf(audioEl);
+		sMax = Math.max(sMax, sTime);
+		if (!hl || !sDur || !serverChunks.length) return;
+		const i = chunkAt(serverChunks, Math.min(1, audioEl.currentTime / sDur));
 		if (i !== serverIdx) {
 			serverIdx = i;
 			hl.show(serverChunks[i]);
@@ -161,17 +190,24 @@
 			const stored = await offlineAudioUrl(article.id, lang, $speechPrefs.gender);
 			const tr = myLang && getTranslation ? await getTranslation().catch(() => null) : null; // also shows it
 			await highlighter();
-			serverChunks = chunks(tr ? translationText(tr.title, tr.paragraphs) : readableText(title, contentEl));
+			const spoken = tr ? translationText(tr.title, tr.paragraphs) : readableText(title, contentEl);
+			serverChunks = chunks(spoken);
 			serverIdx = -1;
-			url = stored ?? (await api.articleAudio(article.id, lang, $speechPrefs.gender, !!myLang)).url;
+			// Piper reads ~14.5 characters per second of audio at normal speed.
+			estSeconds = spoken.length / 14.5;
+			url =
+				stored ??
+				(radio?.url ? await radio.url : null) ??
+				(await api.articleAudio(article.id, lang, $speechPrefs.gender, !!myLang)).url;
 			sState = 'ready';
-			await tick(); // the <audio> element mounts once url is set
-			if (audioEl) {
-				audioEl.playbackRate = rate;
-				// After a long generation the tap no longer counts as a gesture
-				// (iOS): then the player's own ▶ starts it.
-				audioEl.play().catch(() => (msg = $t('listen_ready_tap')));
-			}
+			audioEl = sharedAudio();
+			audioEl.dataset.owner = me;
+			audioEl.src = url;
+			audioEl.defaultPlaybackRate = rate;
+			audioEl.playbackRate = rate;
+			// Live audio starts after the first sentence. If a tap no longer
+			// counts (long wait on iOS), the ▶ button starts it.
+			audioEl.play().catch(() => (msg = $t('listen_ready_tap')));
 		} catch (e) {
 			sState = 'idle';
 			const code = e instanceof ApiError ? e.code : '';
@@ -185,6 +221,8 @@
 	}
 
 	function onServerPlay() {
+		if (!owned()) return;
+		sPlaying = true;
 		if (!('mediaSession' in navigator)) return;
 		navigator.mediaSession.metadata = new MediaMetadata({
 			title,
@@ -206,8 +244,50 @@
 		if (audioEl) audioEl.playbackRate = r;
 	}
 
+	// Listeners on the shared element, for as long as this bar exists.
+	const onPause = () => owned() && (sPlaying = false);
+	const onMeta = () => {
+		if (owned() && audioEl) {
+			audioEl.playbackRate = rate;
+			sDur = durationOf(audioEl);
+		}
+	};
+	const onEnded = () => {
+		if (!owned()) return;
+		sPlaying = false;
+		hl?.clear();
+		radio?.onfinish(1);
+	};
+	onMount(() => {
+		const a = sharedAudio();
+		a.addEventListener('play', onServerPlay);
+		a.addEventListener('pause', onPause);
+		a.addEventListener('timeupdate', onTimeUpdate);
+		a.addEventListener('loadedmetadata', onMeta);
+		a.addEventListener('ended', onEnded);
+		// Lock screen / headphones "next" skips to the next post.
+		if (radio && 'mediaSession' in navigator) {
+			navigator.mediaSession.setActionHandler('nexttrack', () => radio?.onskip(heard()));
+		}
+		return () => {
+			a.removeEventListener('play', onServerPlay);
+			a.removeEventListener('pause', onPause);
+			a.removeEventListener('timeupdate', onTimeUpdate);
+			a.removeEventListener('loadedmetadata', onMeta);
+			a.removeEventListener('ended', onEnded);
+			if (radio && 'mediaSession' in navigator) navigator.mediaSession.setActionHandler('nexttrack', null);
+		};
+	});
+
+	/** How much of this post was heard (0..1): Post radio marks it read at 70 %. */
+	function heard(): number {
+		if (mode === 'device') return dTotal ? (dMax + 1) / dTotal : 0;
+		const d = audioEl && owned() ? durationOf(audioEl) : 0;
+		return d ? Math.min(1, sMax / d) : 0;
+	}
+
 	onMount(async () => {
-		if (!autostart) return;
+		if (!autostart && !radio) return;
 		await tick(); // the article body (below this bar) is bound by now
 		// Content is rendered by now; the tap that opened the article still
 		// counts as the gesture browsers require to start speaking.
@@ -216,11 +296,11 @@
 	});
 	function stopAll() {
 		speech?.stop();
-		audioEl?.pause();
+		if (owned()) audioEl?.pause();
 	}
 	onDestroy(() => {
 		speech?.stop();
-		audioEl?.pause();
+		if (owned()) audioEl?.pause();
 		hl?.destroy();
 	});
 </script>
@@ -267,29 +347,14 @@
 				<span class="muted small time">{mmss(sTime)}/{mmss(sDur)}</span>
 			{/if}
 		</span>
-		{#if url}
-			<audio
-				bind:this={audioEl}
-				src={url}
-				preload="auto"
-				onplay={() => {
-					sPlaying = true;
-					onServerPlay();
-				}}
-				onpause={() => (sPlaying = false)}
-				ontimeupdate={onTimeUpdate}
-				onloadedmetadata={() => {
-					if (audioEl) {
-						audioEl.playbackRate = rate;
-						sDur = audioEl.duration;
-					}
-				}}
-				onended={() => {
-					sPlaying = false;
-					hl?.clear();
-				}}
-			></audio>
-		{/if}
+	{/if}
+	{#if onradio && !radio}
+		<button onclick={onradio} title={$t('post_radio_start')} aria-label={$t('post_radio_start')}>📻</button>
+	{/if}
+	{#if radio}
+		<span class="radio" title={$t('post_radio')}>📻 {radio.position}{radio.limit ? `/${radio.limit}` : ''}</span>
+		<button onclick={() => radio?.onskip(heard())} title={$t('radio_next')} aria-label={$t('radio_next')}>⏭📰</button>
+		<button onclick={() => radio?.onstop(heard())} title={$t('radio_stop')} aria-label={$t('radio_stop')}>⏹</button>
 	{/if}
 	<select
 		value={rate}
@@ -334,6 +399,11 @@
 	}
 	.pbtn {
 		min-width: 2.4rem;
+	}
+	.radio {
+		font-size: 0.8rem;
+		color: var(--accent);
+		font-variant-numeric: tabular-nums;
 	}
 	.prog {
 		flex: 1 1 5rem;

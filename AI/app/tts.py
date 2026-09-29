@@ -159,3 +159,36 @@ def synthesize(text: str, lang: str, gender: str = "f") -> tuple[bytes, float, i
     enc.set_quality(5)
     mp3 = enc.encode(bytes(pcm)) + enc.flush()
     return bytes(mp3), len(pcm) / 2 / rate, int((time.time() - t0) * 1000)
+
+
+def synthesize_stream(text: str, lang: str, gender: str = "f"):
+    """Yield MP3 bytes sentence by sentence, so playback can start after the
+    first sentence (~0.4 s) instead of after the whole article. Holds the
+    synthesis lock while iterating (one article at a time)."""
+    import lameenc  # type: ignore
+    from piper.config import SynthesisConfig  # type: ignore
+
+    model, speaker = _resolve(lang, gender)
+    voice = _load(model)
+    syn = None
+    if speaker is not None:
+        ids = voice.config.speaker_id_map or {}
+        syn = SynthesisConfig(speaker_id=ids.get(speaker, int(speaker) if speaker.isdigit() else 0))
+    enc = lameenc.Encoder()
+    enc.set_bit_rate(BITRATE)
+    enc.set_in_sample_rate(voice.config.sample_rate)
+    enc.set_channels(1)
+    enc.set_quality(5)
+    with _gen_lock:
+        for sentence in _SENT.split(text[:MAX_CHARS]):
+            if not sentence.strip():
+                continue
+            pcm = bytearray()
+            for chunk in voice.synthesize(sentence.strip(), syn_config=syn):
+                pcm += chunk.audio_int16_bytes
+            out = enc.encode(bytes(pcm))
+            if out:
+                yield bytes(out)
+        tail = enc.flush()
+        if tail:
+            yield bytes(tail)

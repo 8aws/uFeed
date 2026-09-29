@@ -511,6 +511,34 @@
 				</label>
 				<p class="muted small">{audioMsg || $t('offline_audio_hint')}</p>
 			{/if}
+			{#if myPlan?.post_radio}
+				<div class="field">
+					📻 {$t('post_radio')} · {$t('radio_stop_after')}
+					<div class="row">
+						<select
+							value={$speechPrefs.radioPosts}
+							onchange={(e) =>
+								speechPrefs.update((p) => ({ ...p, radioPosts: Number((e.currentTarget as HTMLSelectElement).value) }))}
+							aria-label={$t('radio_posts')}
+						>
+							{#each [5, 10, 20, 50, 0].filter((n) => n === 0 || myPlan?.radio_max_posts == null || n <= myPlan.radio_max_posts) as n (n)}
+								<option value={n}>{n === 0 ? (myPlan?.radio_max_posts ?? $t('radio_unlimited')) : n} {$t('radio_posts')}</option>
+							{/each}
+						</select>
+						<select
+							value={$speechPrefs.radioMinutes}
+							onchange={(e) =>
+								speechPrefs.update((p) => ({ ...p, radioMinutes: Number((e.currentTarget as HTMLSelectElement).value) }))}
+							aria-label={$t('radio_minutes')}
+						>
+							{#each [15, 30, 60, 120, 0].filter((n) => n === 0 || myPlan?.radio_max_minutes == null || n <= myPlan.radio_max_minutes) as n (n)}
+								<option value={n}>{n === 0 ? (myPlan?.radio_max_minutes ?? $t('radio_unlimited')) : n} {$t('radio_minutes')}</option>
+							{/each}
+						</select>
+					</div>
+					<span class="muted small">{$t('radio_hint')}</span>
+				</div>
+			{/if}
 			{#if speechSupported()}
 				<div class="field">
 					{$t('device_voice')}

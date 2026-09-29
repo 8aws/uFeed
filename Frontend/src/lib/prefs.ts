@@ -35,6 +35,8 @@ export interface SpeechPrefs {
 	myLanguage: boolean; // translate articles in another language before reading
 	offlineAudio: boolean; // keep server-voice recordings of saved articles
 	highlight: boolean; // highlight the sentence being read (reading difficulties)
+	radioPosts: number; // Post radio: stop after this many posts (0 = plan max)
+	radioMinutes: number; // ...or after this many minutes (0 = plan max)
 }
 
 export const PACES = { calm: 0.85, normal: 1, fast: 1.25 } as const;
@@ -47,7 +49,9 @@ const SPEECH_DEFAULTS: SpeechPrefs = {
 	autoRead: false,
 	myLanguage: false,
 	offlineAudio: false,
-	highlight: true
+	highlight: true,
+	radioPosts: 10,
+	radioMinutes: 30
 };
 
 function initialSpeechPrefs(): SpeechPrefs {
