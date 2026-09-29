@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 
 from app.api.deps import CurrentUser, DbSession
 from app.api.errors import AppError
+from app.core.config import settings
 from app.core.ratelimit import check_rate
 from app.core.security import verify_password
 from app.models.user import User
@@ -37,6 +38,8 @@ async def update_me(body: UserUpdate, user: CurrentUser, db: DbSession) -> UserO
 @router.post("/me/password", response_model=Tokens)
 async def change_password(body: PasswordChange, user: CurrentUser, db: DbSession) -> Tokens:
     """Change your password. Other sessions are signed out; this one gets new tokens."""
+    if settings.is_protected(user.email):
+        raise AppError(403, "demo_account", "The demo account can't change its password.")
     if not await check_rate(f"pwd:{user.id}", 10):
         raise AppError(429, "rate_limited", "Too many attempts; try again shortly.")
     if not verify_password(body.current_password, user.password_hash):
@@ -50,6 +53,8 @@ async def delete_account(body: AccountDelete, user: CurrentUser, db: DbSession) 
     """Delete your own account and all its data (feeds, folders, saved and
     read state, API keys). Asks for the password; the last administrator
     can't delete themselves (the instance would be left without one)."""
+    if settings.is_protected(user.email):
+        raise AppError(403, "demo_account", "The demo account can't be deleted.")
     if not await check_rate(f"delacct:{user.id}", 5):
         raise AppError(429, "rate_limited", "Too many attempts; try again shortly.")
     if not verify_password(body.password, user.password_hash):

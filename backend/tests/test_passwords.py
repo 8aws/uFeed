@@ -116,3 +116,20 @@ async def test_delete_own_account(api, db_session) -> None:
     ):
         r2 = await api.post("/api/me/delete", headers=_h(a), json={"password": "supersecret1"})
         assert r2.status_code == 400 and r2.json()["error"]["code"] == "last_admin"
+
+
+async def test_demo_account_is_protected(api, db_session, monkeypatch) -> None:
+    from app.core.config import settings
+    from tests.test_admin import _h, _register
+
+    r = await _register(api)
+    monkeypatch.setattr(settings, "protected_accounts", r.json()["user"]["email"])
+    h = _h(r)
+    a = await api.post(
+        "/api/me/password",
+        headers=h,
+        json={"current_password": "supersecret1", "new_password": "another-pass-1"},
+    )
+    b = await api.post("/api/me/delete", headers=h, json={"password": "supersecret1"})
+    assert a.status_code == 403 and b.status_code == 403
+    assert b.json()["error"]["code"] == "demo_account"

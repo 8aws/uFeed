@@ -81,6 +81,15 @@ class Settings(BaseSettings):
     mt_per_hour: int = Field(default=60)
     # Full article text fetched from the publisher's page (per user per hour).
     full_per_hour: int = Field(default=120)
+    # Shared demo accounts (e.g. for app store review): their credentials are
+    # public, so they can't change the password or delete themselves.
+    protected_accounts: str = Field(default="demo@demo.com")
+
+    def is_protected(self, email: str) -> bool:
+        return email.lower() in {
+            e.strip().lower() for e in self.protected_accounts.split(",") if e.strip()
+        }
+
     # Allow fetching feeds on private/LAN addresses (SSRF guard off). Only for
     # trusted single-user installs.
     allow_private_feeds: bool = Field(default=False)
