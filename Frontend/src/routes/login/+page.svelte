@@ -108,7 +108,10 @@
 		{:else}
 			<p class="muted switch">{$t('registration_closed')}</p>
 		{/if}
-		<p class="legal"><a href="/privacy">{$t('privacy')}</a> · <a href="/support">{$t('support')}</a></p>
+		<p class="legal">
+			<a href="/info">{$t('about_app')}</a> · <a href="/privacy">{$t('privacy')}</a> ·
+			<a href="/support">{$t('support')}</a>
+		</p>
 	</form>
 </div>
 

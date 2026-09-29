@@ -52,7 +52,7 @@
 		if (!ready) return;
 		const path = $page.url.pathname;
 		// Public pages (linked from the login screen and the app stores).
-		const isPublic = path === '/login' || path === '/privacy' || path === '/support';
+		const isPublic = ['/login', '/privacy', '/support', '/info', '/features'].includes(path);
 		if (!$authed && !isPublic) goto('/login');
 		if ($authed && path === '/login') goto('/');
 	});

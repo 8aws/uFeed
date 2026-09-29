@@ -1961,7 +1961,7 @@
 	.shell {
 		display: grid;
 		grid-template-columns: 260px minmax(320px, 1fr) minmax(0, 1.4fr);
-		height: 100vh;
+		height: 100%; /* body's box, inside the safe areas */
 		overflow: hidden;
 	}
 	.shell:not(.reading) {
@@ -2901,6 +2901,8 @@
 			top: 0;
 			left: 0;
 			bottom: 0;
+			padding-top: env(safe-area-inset-top);
+			padding-bottom: env(safe-area-inset-bottom);
 			width: min(84vw, 320px);
 			z-index: 20;
 			transform: translateX(-100%);
@@ -3004,11 +3006,26 @@
 			inset: 0;
 			background: var(--bg);
 			z-index: 25;
-			padding: 1rem 1rem 3rem;
+			padding: calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right))
+				calc(3rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left));
 			/* No sideways scroll: content is clipped to the viewport so vertical
 			   scrolling can't wobble the page left-right ("flan"). */
 			overflow-x: hidden;
 			overscroll-behavior: contain;
+		}
+		/* Pinned below the status bar in the store app; the strip above it
+		   hides the text scrolling underneath. */
+		.reader-head {
+			top: env(safe-area-inset-top);
+		}
+		.reader-head::before {
+			content: '';
+			position: absolute;
+			left: -1rem;
+			right: -1rem;
+			bottom: 100%;
+			height: env(safe-area-inset-top);
+			background: var(--bg);
 		}
 		/* Action bar must not exceed the right edge: wrap onto more rows and use
 		   compact buttons instead of spilling off-screen. */

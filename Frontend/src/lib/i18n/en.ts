@@ -340,6 +340,7 @@ export const en = {
 	full_unavailable: "Couldn't load the full article from the website.",
 	auto_full: 'Load the full article when the feed only has an excerpt',
 	auto_full_hint: 'uFeed fetches it from the website once; it is then also used for listening, translating and Post radio.',
+	about_app: 'About uFeed',
 	view: 'View',
 	appearance: 'Appearance',
 	toolbar_labels: 'Toolbar buttons',

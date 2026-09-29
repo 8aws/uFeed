@@ -342,6 +342,7 @@ export const es: Dict = {
 	full_unavailable: 'No se pudo cargar el artículo completo desde la web.',
 	auto_full: 'Cargar el artículo completo cuando la fuente solo da un extracto',
 	auto_full_hint: 'uFeed lo trae de la web una vez; también se usa al escuchar, traducir y en Post radio.',
+	about_app: 'Qué es uFeed',
 	view: 'Vista',
 	appearance: 'Apariencia',
 	toolbar_labels: 'Botones de la barra',

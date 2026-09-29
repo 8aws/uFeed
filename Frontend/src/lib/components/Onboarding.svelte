@@ -189,7 +189,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 1rem;
+		padding: calc(1rem + env(safe-area-inset-top)) 1rem calc(1rem + env(safe-area-inset-bottom));
 		overflow: hidden;
 		touch-action: none;
 		overscroll-behavior: contain;

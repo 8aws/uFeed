@@ -39,7 +39,12 @@ html {
 	font-size: calc(100% * var(--text-scale, 1));
 }
 
+/* iPhone safe areas (status bar, Dynamic Island, home bar): 0 in Safari and
+   the installed PWA, real values inside the store app (edge-to-edge web view).
+   Full-screen fixed panels (reader, drawer, onboarding) add them themselves. */
 body {
+	padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+		env(safe-area-inset-left);
 	background: var(--bg);
 	color: var(--text);
 	font:
