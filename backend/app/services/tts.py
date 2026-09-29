@@ -22,6 +22,7 @@ from app.core.config import settings
 from app.core.ratelimit import get_redis
 from app.core.text import plain
 from app.models.article import Article
+from app.services import metrics
 
 URL_TTL_S = 6 * 3600
 MAX_WORDS = 6000  # ~40 min of speech
@@ -173,6 +174,7 @@ async def start_live(name: str, text: str, lang: str, gender: str) -> bool:
 async def _generate_live(name: str, text: str, lang: str, gender: str) -> None:
     part = part_path(name)
     ok = False
+    t0 = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=settings.tts_timeout_s) as client:
             async with client.stream(
@@ -189,8 +191,10 @@ async def _generate_live(name: str, text: str, lang: str, gender: str) -> None:
     except (httpx.HTTPError, OSError):
         ok = False
     if ok:
+        size = part.stat().st_size
         os.replace(part, cache_path(name))
         prune()
+        await metrics.count("tts", int((time.monotonic() - t0) * 1000), size)
     else:
         _err_path(name).write_text("failed")
         part.unlink(missing_ok=True)

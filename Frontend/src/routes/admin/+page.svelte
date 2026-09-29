@@ -5,11 +5,13 @@
 	import { user } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
 	import { relativeTime } from '$lib/format';
+	import Sparkline from '$lib/components/Sparkline.svelte';
 	import type {
 		AdminSettings,
 		AdminUser,
 		Ban,
 		Maintenance,
+		Metrics,
 		PlanLimits,
 		Role
 	} from '$lib/types';
@@ -243,6 +245,29 @@
 		setTimeout(() => (error = ''), 4000);
 	}
 
+	// --- Resource monitor ------------------------------------------------------
+	const RANGES = [1, 7, 30, 90];
+	let mDays = $state(7);
+	let mets = $state<Metrics | null>(null);
+	async function loadMetrics(days = mDays) {
+		mDays = days;
+		try {
+			mets = await api.adminMetrics(days);
+		} catch {
+			mets = null;
+		}
+	}
+	const last = $derived(mets?.samples.at(-1) ?? null);
+	const series = (f: (p: Metrics['samples'][number]) => number | null | undefined) =>
+		(mets?.samples ?? []).map((p) => f(p) ?? null);
+	const dayVals = (k: string) => (mets?.daily ?? []).map((d) => Number(d[k] ?? 0));
+	const sum = (k: string) => dayVals(k).reduce((a, b) => a + b, 0);
+	const avgS = (kind: string) => {
+		const n = sum(`${kind}_n`);
+		return n ? (sum(`${kind}_ms`) / n / 1000).toFixed(1) : '—';
+	};
+	const pct = (a?: number, b?: number) => (a != null && b ? Math.round((a / b) * 100) : null);
+
 	async function load() {
 		try {
 			[settings, users, maint, bans] = await Promise.all([
@@ -284,6 +309,9 @@
 		}
 	}
 
+	onMount(() => {
+		loadMetrics();
+	});
 	onMount(async () => {
 		// Check the live role (the cached profile may predate a role change).
 		const me = await api.me().catch(() => null);
@@ -302,6 +330,66 @@
 	<a class="pill" href="/curation">✎ {$t('curation')} →</a>
 	{#if flash}<p class="flash">✓ {flash}</p>{/if}
 	{#if error}<p class="err">{error}</p>{/if}
+
+	<section>
+		<div class="mhead">
+			<h2>📈 {$t('resources')}</h2>
+			<span class="ranges">
+				{#each RANGES as d (d)}
+					<button class="small-btn" class:on={mDays === d} onclick={() => loadMetrics(d)}>
+						{d === 1 ? '24 h' : `${d} d`}
+					</button>
+				{/each}
+			</span>
+		</div>
+		{#if !mets || !mets.samples.length}
+			<p class="muted small">{$t('resources_empty')}</p>
+		{:else}
+			<div class="mgrid">
+				<div class="mcard">
+					<span class="mlabel">{$t('m_cpu')}</span>
+					<strong>{pct(last?.load1, last?.cpus) ?? '—'} %</strong>
+					<Sparkline values={series((p) => pct(p.load1, p.cpus))} max={100} label={$t('m_cpu')} />
+					<span class="muted small">{$t('m_cpu_hint')}</span>
+				</div>
+				<div class="mcard">
+					<span class="mlabel">{$t('m_memory')}</span>
+					<strong>{pct(last?.mem_used_mb, last?.mem_total_mb) ?? '—'} %</strong>
+					<Sparkline values={series((p) => pct(p.mem_used_mb, p.mem_total_mb))} max={100} label={$t('m_memory')} />
+					<span class="muted small">{last?.mem_used_mb ?? '—'} / {last?.mem_total_mb ?? '—'} MB</span>
+				</div>
+				<div class="mcard">
+					<span class="mlabel">{$t('m_ai_memory')}</span>
+					<strong>{last?.ai_rss_mb != null ? `${(last.ai_rss_mb / 1024).toFixed(2)} GB` : '—'}</strong>
+					<Sparkline values={series((p) => p.ai_rss_mb)} label={$t('m_ai_memory')} />
+					<span class="muted small">{last?.ai_ok === false ? `⚠ ${$t('m_ai_down')}` : $t('m_ai_hint')}</span>
+				</div>
+				<div class="mcard">
+					<span class="mlabel">{$t('users')}</span>
+					<strong>{last?.users ?? '—'}</strong>
+					<Sparkline values={series((p) => p.active_24h)} label={$t('m_active')} />
+					<span class="muted small">{$t('m_active')}: {last?.active_24h ?? 0} (24 h) · {last?.active_7d ?? 0} (7 d)</span>
+				</div>
+				<div class="mcard">
+					<span class="mlabel">{$t('m_storage')}</span>
+					<strong>{last?.db_mb ?? '—'} MB</strong>
+					<Sparkline values={series((p) => p.db_mb)} label={$t('m_storage')} />
+					<span class="muted small">{$t('m_voice_cache')}: {last?.tts_cache_mb ?? 0} MB · {last?.articles ?? 0} {$t('articles_count')}</span>
+				</div>
+			</div>
+			<h3 class="msub">{$t('m_work')}</h3>
+			<div class="mgrid">
+				{#each [['tts', '🔊', 'm_voices'], ['mt', '🌐', 'm_translations'], ['llm', '✨', 'm_summaries']] as [k, ico, lbl] (k)}
+					<div class="mcard">
+						<span class="mlabel">{ico} {$t(lbl as 'm_voices')}</span>
+						<strong>{sum(`${k}_n`)}</strong>
+						<Sparkline kind="bars" values={dayVals(`${k}_n`)} label={$t(lbl as 'm_voices')} />
+						<span class="muted small">{$t('m_avg')}: {avgS(k)} s</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</section>
 
 	{#if settings}
 		<section>
@@ -804,6 +892,52 @@
 		.row input[type='email'] {
 			flex: 1 1 100%;
 		}
+	}
+	.mhead {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+	.mhead h2 {
+		margin: 0;
+	}
+	.ranges {
+		display: flex;
+		gap: 0.25rem;
+	}
+	.small-btn.on {
+		background: var(--accent-soft);
+		color: var(--accent);
+		border-color: var(--accent);
+	}
+	.mgrid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+		gap: 0.6rem;
+		margin-top: 0.75rem;
+	}
+	.mcard {
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 0.55rem 0.65rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		min-width: 0;
+	}
+	.mcard strong {
+		font-size: 1.15rem;
+		font-variant-numeric: tabular-nums;
+	}
+	.mlabel {
+		font-size: 0.78rem;
+		color: var(--muted);
+	}
+	.msub {
+		margin: 1rem 0 0;
+		font-size: 0.85rem;
 	}
 	.pill {
 		align-self: flex-start;

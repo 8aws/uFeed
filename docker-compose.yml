@@ -67,6 +67,8 @@ services:
       disable: true
     volumes:
       - ./backend:/app
+      # Read-only: the resource monitor reports the voice cache size.
+      - tts-cache:/data/tts:ro
 
   ai:
     build: ./AI

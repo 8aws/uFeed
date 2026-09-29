@@ -7,6 +7,7 @@ import type {
 	Ban,
 	SourceHealth,
 	CatalogResponse,
+	Metrics,
 	Translation,
 	HiddenArticle,
 	AdminSettings,
@@ -150,6 +151,7 @@ export const api = {
 			method: 'POST'
 		}),
 	adminMaintenance: () => request<Maintenance>('/admin/maintenance'),
+	adminMetrics: (days: number) => request<Metrics>(`/admin/metrics?days=${days}`),
 	runRetention: () => request<Maintenance>('/admin/retention/run', { method: 'POST' }),
 	runInactivity: () => request<Maintenance>('/admin/inactivity/run', { method: 'POST' }),
 	// moderation

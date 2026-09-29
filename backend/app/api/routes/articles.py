@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 from typing import Literal
 
@@ -24,6 +25,7 @@ from app.schemas.common import OkResponse, Page
 from app.schemas.user import Locale
 from app.services import ai as ai_service
 from app.services import articles as article_service
+from app.services import metrics
 from app.services import site as site_service
 from app.services import translation as translation_service
 from app.services import tts as tts_service
@@ -128,9 +130,12 @@ async def ai_summary(
         raise AppError(429, "rate_limited", "Too many AI summaries this hour; try later.")
     art = row.article
     translate = bool(art.lang) and not art.lang.lower().startswith(lang)
+    t0 = time.monotonic()
     out = await ai_service.llm_summary(
         art.title or "", art.content_html or art.summary or "", lang, translate
     )
+    if out is not None:
+        await metrics.count("llm", int((time.monotonic() - t0) * 1000))
     if out is None:
         raise AppError(503, "ai_unavailable", "The AI model is not available right now.")
     rec = ArticleAI(

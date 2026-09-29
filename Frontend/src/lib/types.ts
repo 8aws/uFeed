@@ -269,3 +269,29 @@ export interface Translation {
 	paragraphs: string[] | null; // null until generated
 	cached: boolean;
 }
+
+/** Admin resource monitor (samples every 15 min + daily heavy-work usage). */
+export interface MetricPoint {
+	ts: string;
+	cpus?: number;
+	load1?: number;
+	mem_total_mb?: number;
+	mem_used_mb?: number;
+	ai_rss_mb?: number | null;
+	ai_ok?: boolean;
+	db_mb?: number;
+	tts_cache_mb?: number;
+	users?: number;
+	active_24h?: number;
+	active_7d?: number;
+	articles?: number;
+}
+export interface UsageDay {
+	day: string;
+	[key: string]: number | string; // tts_n, tts_ms, tts_bytes, mt_n, mt_ms, llm_n, llm_ms
+}
+export interface Metrics {
+	samples: MetricPoint[];
+	daily: UsageDay[];
+	now: { cpus?: number; load1?: number; mem_total_mb?: number; mem_used_mb?: number };
+}

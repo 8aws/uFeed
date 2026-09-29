@@ -30,7 +30,7 @@ from app.schemas.admin import (
 )
 from app.schemas.common import OkResponse
 from app.services import auth as auth_service
-from app.services import moderation
+from app.services import metrics, moderation
 from app.services import retention as retention_service
 from app.services import site as site_service
 
@@ -176,6 +176,13 @@ def _backup_status() -> dict | None:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+
+
+@router.get("/metrics")
+async def resource_metrics(_: AdminUser, db: DbSession, days: int = 7) -> dict:
+    """Resource monitor: load/memory/storage/users samples and daily usage of
+    the heavy features (voice, translation, AI summaries)."""
+    return await metrics.series(db, max(1, min(days, 180)))
 
 
 @router.get("/maintenance", response_model=Maintenance)

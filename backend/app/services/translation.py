@@ -7,6 +7,7 @@ of that language; ~3-4 s for a 750-word article on the NAS CPU.
 from __future__ import annotations
 
 import re
+import time
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,7 @@ from app.core.config import settings
 from app.core.text import plain
 from app.models.article import Article
 from app.models.article_translation import ArticleTranslation
+from app.services import metrics
 
 MODEL = "opus-mt"
 MAX_PARAGRAPHS = 400
@@ -56,6 +58,7 @@ async def translate(db: AsyncSession, article: Article, lang: str) -> ArticleTra
     title = (plain(article.title) or "").strip()
     if not settings.ai_enabled or not (paras or title):
         return None
+    t0 = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=settings.mt_timeout_s) as client:
             resp = await client.post(
@@ -76,6 +79,7 @@ async def translate(db: AsyncSession, article: Article, lang: str) -> ArticleTra
     )
     await db.merge(rec)
     await db.commit()
+    await metrics.count("mt", int((time.monotonic() - t0) * 1000))
     return rec
 
 

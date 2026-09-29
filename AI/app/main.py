@@ -84,9 +84,21 @@ def _openvino_devices() -> dict:
         return {"available_devices_error": str(exc)}
 
 
+def _rss_mb() -> float | None:
+    """This process's resident memory (all loaded models), for the monitor."""
+    try:
+        for line in open("/proc/self/status"):
+            if line.startswith("VmRSS:"):
+                return round(int(line.split()[1]) / 1024, 1)
+    except OSError:
+        pass
+    return None
+
+
 @app.get("/health")
 def health() -> dict:
     return {
+        "rss_mb": _rss_mb(),
         "status": "ok",
         "backend": BACKEND,
         "dim": DIM,
