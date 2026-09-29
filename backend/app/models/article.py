@@ -43,6 +43,11 @@ class Article(Base):
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     lang: Mapped[str | None] = mapped_column(String(5), nullable=True)
     word_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Full text fetched from the article page when the feed only has an
+    # excerpt (see services/fulltext): "ok" | "failed", fetched on demand.
+    full_html: Mapped[str | None] = mapped_column(Text, nullable=True)
+    full_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    full_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, nullable=False)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(

@@ -452,6 +452,15 @@
 						</button>
 					{/each}
 				</div>
+			<label class="check">
+				<input
+					type="checkbox"
+					checked={$displayPrefs.autoFull}
+					onchange={(e) => displayPrefs.update((p) => ({ ...p, autoFull: (e.currentTarget as HTMLInputElement).checked }))}
+				/>
+				📰 {$t('auto_full')}
+			</label>
+			<p class="muted small">{$t('auto_full_hint')}</p>
 			</div>
 		{/if}
 	</section>

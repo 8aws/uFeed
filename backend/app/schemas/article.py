@@ -33,6 +33,7 @@ class ArticleOut(BaseModel):
     tags: list[str] = []
     published_at: datetime | None = None
     fetched_at: datetime | None = None  # when uFeed got it (offline "mark all" cutoff)
+    full_status: str | None = None  # "ok" when the full article text is available
     is_read: bool = False
     is_saved: bool = False
     is_favorite: bool = False
@@ -47,6 +48,14 @@ class TranslationOut(BaseModel):
     title: str | None = None
     paragraphs: list[str] | None = None
     cached: bool = False
+
+
+class FullTextOut(BaseModel):
+    """The article's full text (from its web page), when the feed had only an excerpt."""
+
+    html: str | None = None
+    words: int = 0
+    status: str | None = None  # "ok" | "failed"
 
 
 class ArticleAudioOut(BaseModel):

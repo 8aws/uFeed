@@ -81,12 +81,13 @@ speechPrefs.subscribe((value) => {
 export interface DisplayPrefs {
 	textScale: number; // 1 = default; scales the whole interface (rem-based)
 	font: 'system' | 'atkinson'; // Atkinson Hyperlegible: designed for low vision
+	autoFull: boolean; // load the full article when the feed only has an excerpt
 }
 
 export const TEXT_SCALES = [1, 1.15, 1.3, 1.5] as const;
 
 function initialDisplayPrefs(): DisplayPrefs {
-	const d: DisplayPrefs = { textScale: 1, font: 'system' };
+	const d: DisplayPrefs = { textScale: 1, font: 'system', autoFull: true };
 	try {
 		const raw = localStorage.getItem('display_prefs');
 		if (raw) return { ...d, ...(JSON.parse(raw) as Partial<DisplayPrefs>) };
@@ -97,7 +98,9 @@ function initialDisplayPrefs(): DisplayPrefs {
 }
 
 export const displayPrefs = writable<DisplayPrefs>(
-	typeof localStorage !== 'undefined' ? initialDisplayPrefs() : { textScale: 1, font: 'system' }
+	typeof localStorage !== 'undefined'
+		? initialDisplayPrefs()
+		: { textScale: 1, font: 'system', autoFull: true }
 );
 
 displayPrefs.subscribe((value) => {

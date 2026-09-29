@@ -4,7 +4,7 @@
 	import { api, ApiError } from '$lib/api';
 	import { clearTokens, user } from '$lib/auth';
 	import { locale, t } from '$lib/i18n';
-	import { speechPrefs, toolbarLabels } from '$lib/prefs';
+	import { displayPrefs, speechPrefs, toolbarLabels } from '$lib/prefs';
 	import {
 		applyPending,
 		flush,
@@ -352,9 +352,13 @@
 		error: string;
 	} | null>(null);
 
+	let llmSecs = $state(0); // shown while the on-device LLM works (~15-20 s)
 	async function generateLLM(a: Article) {
 		if (!llm || llm.id !== a.id || llm.loading) return;
+		summaryOpen = true; // the result shows in the (unfolded) box
 		llm = { ...llm, loading: true, error: '' };
+		llmSecs = 0;
+		const tick = setInterval(() => llmSecs++, 1000);
 		try {
 			const r = await api.aiSummary(a.id, $locale, true);
 			if (llm?.id === a.id) llm = { ...llm, ...r, loading: false };
@@ -367,6 +371,8 @@
 						? $t('plan_limit_ai')
 						: $t('ai_unavailable');
 			if (llm?.id === a.id) llm = { ...llm, loading: false, error: msg };
+		} finally {
+			clearInterval(tick);
 		}
 	}
 
@@ -407,6 +413,52 @@
 		else loadTranslation(a);
 	}
 
+	// --- Full article (feeds that only publish an excerpt) ----------------------
+	// The server fetches the page once and extracts the article; it's shown
+	// instead of the teaser and used by the voice, translation and Post radio.
+	const fullHtml = new Map<string, string>();
+	const fullPending = new Map<string, Promise<void>>();
+	let fullShown = $state<Record<string, boolean>>({});
+	let fullBusy = $state<string | null>(null);
+	let fullMsg = $state('');
+	const isExcerpt = (a: Article) => (a.word_count ?? 0) < 200 || a.full_status === 'ok';
+	function loadFull(a: Article, manual = false): Promise<void> {
+		if (fullHtml.has(a.id)) {
+			fullShown = { ...fullShown, [a.id]: true };
+			return Promise.resolve();
+		}
+		if (!safeUrl(a.url)) return Promise.resolve();
+		let p = fullPending.get(a.id);
+		if (!p) {
+			fullBusy = a.id;
+			fullMsg = '';
+			p = api
+				.fullText(a.id)
+				.then((r) => {
+					if (r.html) {
+						fullHtml.set(a.id, r.html);
+						a.full_status = 'ok';
+						if (tr?.id === a.id) tr = null; // translated from the teaser
+						fullShown = { ...fullShown, [a.id]: true };
+					} else if (manual) fullMsg = $t('full_unavailable');
+				})
+				.catch(() => {
+					if (manual) fullMsg = $t('full_unavailable');
+				})
+				.finally(() => {
+					fullPending.delete(a.id);
+					if (fullBusy === a.id) fullBusy = null;
+				});
+			fullPending.set(a.id, p);
+		}
+		return p;
+	}
+	function toggleFull(a: Article) {
+		moreOpen = false;
+		if (fullShown[a.id]) fullShown = { ...fullShown, [a.id]: false };
+		else loadFull(a, true);
+	}
+
 	function openArticleObj(a: Article, markOnOpen = true) {
 		// Opening another post by hand ends Post radio.
 		if (radio && radio.queue[radio.pos]?.id !== a.id) radio = null;
@@ -415,6 +467,8 @@
 		showTr = false;
 		trError = '';
 		moreOpen = false;
+		fullMsg = '';
+		if ($displayPrefs.autoFull && isExcerpt(a)) loadFull(a);
 		// Each article opens at its top, close button in reach.
 		tick().then(() => readerEl?.scrollTo(0, 0));
 		readingStart = Date.now();
@@ -1715,6 +1769,17 @@
 						{@render act('🔊', $t('listen'))}
 					</button>
 					{#if safeUrl(a.url)}
+						{@const fOn = !!fullShown[a.id]}
+						<button
+							class="secondary"
+							class:active={fOn}
+							onclick={() => toggleFull(a)}
+							disabled={fullBusy === a.id}
+							title={fOn ? $t('show_excerpt') : $t('full_article')}
+							aria-label={fOn ? $t('show_excerpt') : $t('full_article')}
+						>
+							{@render act(fullBusy === a.id ? '⏳' : '📰', fOn ? $t('show_excerpt') : $t('full_article'))}
+						</button>
 						<button class="secondary" onclick={() => shareArticle(a)} title={$t('share')} aria-label={$t('share')}>
 							{@render act(copiedId === a.id ? '✓' : '📤', copiedId === a.id ? $t('link_copied') : $t('share'))}
 						</button>
@@ -1751,6 +1816,10 @@
 				{#if moreOpen}
 					<div class="morepop" role="menu" style="top: {morePos.top}px; right: {morePos.right}px">
 						{#if safeUrl(a.url)}
+							<button role="menuitem" onclick={() => toggleFull(a)} disabled={fullBusy === a.id}>
+								{fullBusy === a.id ? '⏳' : '📰'}
+								{fullShown[a.id] ? $t('show_excerpt') : $t('full_article')}
+							</button>
 							<button role="menuitem" onclick={() => shareArticle(a)}>
 								📤 {copiedId === a.id ? $t('link_copied') : $t('share')}
 							</button>
@@ -1793,6 +1862,7 @@
 							autostart={$speechPrefs.autoRead}
 							myLang={$speechPrefs.myLanguage && canTranslate(a) ? $locale : null}
 							getTranslation={() => loadTranslation(a)}
+							prepare={() => fullPending.get(a.id) ?? Promise.resolve()}
 							onradio={radioAllowed && !radio ? startRadio : undefined}
 							radio={radio && radio.queue[radio.pos]?.id === a.id
 								? {
@@ -1826,17 +1896,25 @@
 			{#if a.ai_summary || aiAllowed}
 				{@const gen = llm?.id === a.id ? llm : null}
 				<div class="ai-summary" class:folded={!summaryOpen}>
-					<button class="ai-summary-label" onclick={toggleSummary} aria-expanded={summaryOpen}>
-						✨ {gen?.summary ? `${$t('ai_summary_llm')} · ${gen.model}` : $t('summary_label')}
-						<span class="chev" aria-hidden="true">{summaryOpen ? '▾' : '▸'}</span>
-					</button>
+					<div class="ai-summary-head">
+						<button class="ai-summary-label" onclick={toggleSummary} aria-expanded={summaryOpen}>
+							✨ {gen?.summary ? `${$t('ai_summary_llm')} · ${gen.model}` : $t('summary_label')}
+							<span class="chev" aria-hidden="true">{summaryOpen ? '▾' : '▸'}</span>
+						</button>
+						<!-- Folded: the AI summary stays one tap away. -->
+						{#if !summaryOpen && aiAllowed && !gen?.summary}
+							<button class="llm-mini" onclick={() => generateLLM(a)} disabled={gen?.loading}>
+								{gen?.loading ? `⏳ ${llmSecs} s` : `✨ ${$t('ai_generate_short')}`}
+							</button>
+						{/if}
+					</div>
 					{#if summaryOpen}
 						{gen?.summary ?? a.ai_summary ?? ''}
 					{/if}
 					{#if summaryOpen && aiAllowed && !gen?.summary}
 						<div class="llm-row">
 							<button class="llm-btn" onclick={() => generateLLM(a)} disabled={gen?.loading}>
-								{gen?.loading ? $t('ai_generating') : $t('ai_generate')}
+								{gen?.loading ? `${$t('ai_generating')} ${llmSecs} s` : $t('ai_generate')}
 							</button>
 							{#if gen?.error}<span class="llm-err">{gen.error}</span>{/if}
 						</div>
@@ -1850,8 +1928,13 @@
 					{#each tr.paragraphs as para, i (i)}<p>{para}</p>{/each}
 				</div>
 			{:else}
-				<div class="content" use:embeds={a.id} bind:this={readerContentEl}>
-					{@html safeHtml(a.content_html || a.summary, a.url)}
+				{#if fullBusy === a.id}<p class="fullnote">⏳ {$t('full_loading')}</p>{/if}
+				{#if fullMsg}<p class="muted small">{fullMsg}</p>{/if}
+				{#if fullShown[a.id] && fullHtml.has(a.id)}
+					<p class="fullnote">📰 {$t('full_note')}</p>
+				{/if}
+				<div class="content" use:embeds={`${a.id}:${fullShown[a.id] ? 'full' : 'feed'}`} bind:this={readerContentEl}>
+					{@html safeHtml(fullShown[a.id] && fullHtml.get(a.id) ? fullHtml.get(a.id) : a.content_html || a.summary, a.url)}
 				</div>
 			{/if}
 			{#if similarList.length}
@@ -2331,6 +2414,12 @@
 		border: 1px dashed var(--border);
 		font-size: 0.85rem;
 	}
+	.fullnote {
+		font-size: 0.78rem;
+		color: var(--muted);
+		border-left: 3px solid var(--border);
+		padding-left: 0.5rem;
+	}
 	.trnote {
 		font-size: 0.78rem;
 		color: var(--muted);
@@ -2726,7 +2815,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.35rem;
-		width: 100%;
+		flex: 1;
+		min-width: 0;
 		background: none;
 		border: none;
 		padding: 0;
@@ -2737,6 +2827,20 @@
 		letter-spacing: 0.04em;
 		color: var(--accent);
 		margin-bottom: 0.25rem;
+	}
+	.ai-summary-head {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.llm-mini {
+		flex: none;
+		font-size: 0.75rem;
+		padding: 0.15rem 0.55rem;
+		border-radius: 999px;
+		border-color: var(--accent);
+		color: var(--accent);
+		background: none;
 	}
 	.ai-summary.folded .ai-summary-label {
 		margin-bottom: 0;

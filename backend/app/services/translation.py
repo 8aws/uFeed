@@ -41,7 +41,9 @@ def source_lang(article: Article) -> str:
 
 def paragraphs(article: Article) -> list[str]:
     """Plain-text paragraphs of the body (no code, captions, tables, media)."""
-    body = _DROP.sub(" ", article.content_html or article.summary or "")
+    from app.services.fulltext import body_html
+
+    body = _DROP.sub(" ", body_html(article))
     parts = _BLOCK_END.sub("\n\n", body).split("\n\n")
     out = []
     for p in parts:

@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     mt_pairs: str = Field(default="en-es,es-en")
     mt_timeout_s: float = Field(default=120.0)
     mt_per_hour: int = Field(default=60)
+    # Full article text fetched from the publisher's page (per user per hour).
+    full_per_hour: int = Field(default=120)
     # Allow fetching feeds on private/LAN addresses (SSRF guard off). Only for
     # trusted single-user installs.
     allow_private_feeds: bool = Field(default=False)

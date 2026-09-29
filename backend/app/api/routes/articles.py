@@ -17,6 +17,7 @@ from app.schemas.article import (
     ArticleAudioOut,
     ArticleOut,
     EngageRequest,
+    FullTextOut,
     MarkAllReadRequest,
     ReadEventRequest,
     TranslationOut,
@@ -25,7 +26,7 @@ from app.schemas.common import OkResponse, Page
 from app.schemas.user import Locale
 from app.services import ai as ai_service
 from app.services import articles as article_service
-from app.services import metrics
+from app.services import fulltext, metrics
 from app.services import site as site_service
 from app.services import translation as translation_service
 from app.services import tts as tts_service
@@ -150,6 +151,22 @@ async def ai_summary(
     return AISummaryOut(
         lang=lang, summary=rec.summary, title=rec.title, model=rec.model, cached=False
     )
+
+
+@router.post("/{article_id}/full", response_model=FullTextOut)
+async def full_text(article_id: uuid.UUID, user: CurrentUser, db: DbSession) -> FullTextOut:
+    """Fetch (once) and return the full article from its web page, for feeds
+    that only publish an excerpt. Shared by every reader."""
+    row = await article_service.get_article(db, user.id, article_id)
+    if row is None:
+        raise AppError(404, "not_found", "Article not found.")
+    art = row.article
+    if art.full_status != "ok" and not await check_rate(
+        f"full:{user.id}", settings.full_per_hour, window_s=3600
+    ):
+        raise AppError(429, "rate_limited", "Too many full articles this hour; try later.")
+    html = await fulltext.fetch(db, art)
+    return FullTextOut(html=html, words=fulltext.words(html), status=art.full_status)
 
 
 async def _translation(

@@ -30,7 +30,8 @@
 		myLang = null,
 		getTranslation,
 		radio = null,
-		onradio
+		onradio,
+		prepare
 	}: {
 		article: Article;
 		title: string;
@@ -53,6 +54,8 @@
 			onstop: (heard: number) => void;
 		} | null;
 		onradio?: () => void; // start Post radio from this post (plan feature)
+		// Resolves when the article body is final (e.g. the full text is loading).
+		prepare?: () => Promise<unknown>;
 	} = $props();
 
 	const SERVER_LANGS = ['es', 'en'];
@@ -124,6 +127,11 @@
 			return;
 		}
 		if (!speech) {
+			if (prepare) {
+				unlockSpeech(); // keep the tap's permission to speak across the await
+				await prepare().catch(() => null);
+				await tick();
+			}
 			await highlighter();
 			titleParts = titleChunks(title);
 		}
@@ -197,6 +205,8 @@
 		sState = 'loading';
 		try {
 			// A recording kept for offline use plays at once (and without connection).
+			// The full text (if loading) changes what the server voice reads.
+			if (prepare) await prepare().catch(() => null);
 			const stored = await offlineAudioUrl(article.id, lang, $speechPrefs.gender);
 			const tr = myLang && getTranslation ? await getTranslation().catch(() => null) : null; // also shows it
 			await highlighter();

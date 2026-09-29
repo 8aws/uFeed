@@ -77,6 +77,7 @@ export interface Article {
 	tags: string[];
 	published_at: string | null;
 	fetched_at?: string | null;
+	full_status?: string | null; // "ok": full text from the web page available
 	is_read: boolean;
 	is_saved: boolean;
 	is_favorite: boolean;

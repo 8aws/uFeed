@@ -244,6 +244,11 @@ export const api = {
 			`/articles/${id}/audio?lang=${encodeURIComponent(lang)}&voice=${voice}&translated=${translated}`,
 			{ method: 'POST' }
 		),
+	// Full article from its web page (feeds that only publish an excerpt).
+	fullText: (id: string) =>
+		request<{ html: string | null; words: number; status: string | null }>(`/articles/${id}/full`, {
+			method: 'POST'
+		}),
 	// Machine translation into `lang` (generate=true creates it, ~3-4 s).
 	translation: (id: string, lang: string, generate = false) =>
 		request<Translation>(

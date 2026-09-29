@@ -51,7 +51,9 @@ def lang_of(article: Article, requested: str | None) -> str | None:
 def speech_text(article: Article) -> str:
     """Plain text to read: title, then the body without code, captions,
     tables or media; block ends become pauses."""
-    body = article.content_html or article.summary or ""
+    from app.services.fulltext import body_html
+
+    body = body_html(article)
     body = _DROP.sub(" ", body)
     body = _BLOCK_END.sub(". ", body)
     text = plain(_TAG.sub(" ", body)) or ""

@@ -21,6 +21,8 @@ dependencies = [
     "apscheduler>=3.10",
     "redis>=5.2",
     "pgvector>=0.3.6",
+    # Full article text for feeds that only publish an excerpt.
+    "trafilatura>=2.0",
 ]
 
 [project.optional-dependencies]
