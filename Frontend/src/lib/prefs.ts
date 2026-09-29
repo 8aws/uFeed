@@ -32,6 +32,7 @@ export interface SpeechPrefs {
 	rate: number; // 0.85 calm · 1 normal · 1.25 fast (fine-tuned in the player)
 	deviceVoice: Record<string, string>; // lang -> installed voice name ('' = automatic)
 	autoRead: boolean; // accessibility: start reading when an article opens
+	myLanguage: boolean; // translate articles in another language before reading
 }
 
 export const PACES = { calm: 0.85, normal: 1, fast: 1.25 } as const;
@@ -41,7 +42,8 @@ const SPEECH_DEFAULTS: SpeechPrefs = {
 	gender: 'f',
 	rate: 1,
 	deviceVoice: {},
-	autoRead: false
+	autoRead: false,
+	myLanguage: false
 };
 
 function initialSpeechPrefs(): SpeechPrefs {

@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     tts_per_hour: int = Field(default=30)
     tts_timeout_s: float = Field(default=240.0)
     tts_voice_tag: str = Field(default="v1")  # bump to regenerate cached audio
+    # Machine translation ("read in my language"): pairs with an exported model.
+    mt_pairs: str = Field(default="en-es,es-en")
+    mt_timeout_s: float = Field(default=120.0)
+    mt_per_hour: int = Field(default=60)
     # Allow fetching feeds on private/LAN addresses (SSRF guard off). Only for
     # trusted single-user installs.
     allow_private_feeds: bool = Field(default=False)

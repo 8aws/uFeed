@@ -7,6 +7,7 @@ import type {
 	Ban,
 	SourceHealth,
 	CatalogResponse,
+	Translation,
 	HiddenArticle,
 	AdminSettings,
 	AdminUser,
@@ -232,10 +233,16 @@ export const api = {
 		request<unknown>(`/articles/${id}/favorite`, { method: favorite ? 'POST' : 'DELETE' }),
 	// `before` / `at`: when it happened (changes made offline are sent later).
 	// Server voice: signed URL of the article read aloud (generated on demand).
-	articleAudio: (id: string, lang: string, voice: 'f' | 'm') =>
+	// `translated`: read the article translated into `lang` ("read in my language").
+	articleAudio: (id: string, lang: string, voice: 'f' | 'm', translated = false) =>
 		request<{ url: string; lang: string; cached: boolean }>(
-			`/articles/${id}/audio?lang=${encodeURIComponent(lang)}&voice=${voice}`,
+			`/articles/${id}/audio?lang=${encodeURIComponent(lang)}&voice=${voice}&translated=${translated}`,
 			{ method: 'POST' }
+		),
+	// Machine translation into `lang` (generate=true creates it, ~3-4 s).
+	translation: (id: string, lang: string, generate = false) =>
+		request<Translation>(
+			`/articles/${id}/translation?lang=${encodeURIComponent(lang)}&generate=${generate}`
 		),
 	markAllRead: (folder_id?: string | null, source_id?: string | null, before?: string) =>
 		request<unknown>('/articles/mark-all-read', {

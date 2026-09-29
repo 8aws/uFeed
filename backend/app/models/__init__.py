@@ -3,6 +3,7 @@ from app.models.app_setting import AppSetting
 from app.models.article import Article
 from app.models.article_ai import ArticleAI
 from app.models.article_state import ArticleState
+from app.models.article_translation import ArticleTranslation
 from app.models.ban import Ban
 from app.models.folder import Folder
 from app.models.hidden_article import HiddenArticle
@@ -18,6 +19,7 @@ __all__ = [
     "Article",
     "ArticleAI",
     "ArticleState",
+    "ArticleTranslation",
     "Ban",
     "Folder",
     "HiddenArticle",

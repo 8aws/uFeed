@@ -75,6 +75,18 @@ export function readableText(title: string, content: HTMLElement | null): string
 	return title ? `${title}. ${body}` : body;
 }
 
+/** Text to read from a translation (title + paragraphs). */
+export function translationText(title: string | null, paragraphs: string[]): string {
+	const body = paragraphs.map((p) => (/[.!?…:;]$/.test(p) ? p : `${p}.`)).join(' ');
+	return title ? `${title}. ${body}` : body;
+}
+
+/** iOS only lets speech start inside a tap: speaking an empty utterance right
+ *  away "unlocks" it, so real text can follow after an await (translation). */
+export function unlockSpeech() {
+	if (speechSupported()) speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+}
+
 export class DeviceSpeech {
 	private parts: string[];
 	private index = 0;

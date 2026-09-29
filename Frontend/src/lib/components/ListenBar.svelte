@@ -2,7 +2,14 @@
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { api, ApiError } from '$lib/api';
 	import { locale, t } from '$lib/i18n';
-	import { DeviceSpeech, readableText, speechSupported, type SpeechState } from '$lib/speech';
+	import {
+		DeviceSpeech,
+		readableText,
+		speechSupported,
+		translationText,
+		unlockSpeech,
+		type SpeechState
+	} from '$lib/speech';
 	import { speechPrefs } from '$lib/prefs';
 	import type { Article } from '$lib/types';
 
@@ -15,7 +22,9 @@
 		sourceName,
 		contentEl,
 		serverAllowed,
-		autostart = false
+		autostart = false,
+		myLang = null,
+		getTranslation
 	}: {
 		article: Article;
 		title: string;
@@ -23,11 +32,16 @@
 		contentEl: HTMLElement | null;
 		serverAllowed: boolean;
 		autostart?: boolean; // accessibility: read as soon as the article opens
+		// "Read in my language": target language when the article must be
+		// translated first, and how to get (and show) that translation.
+		myLang?: string | null;
+		getTranslation?: () => Promise<{ title: string | null; paragraphs: string[] } | null>;
 	} = $props();
 
 	const SERVER_LANGS = ['es', 'en'];
 	const RATES = [0.75, 0.85, 1, 1.1, 1.25, 1.5, 1.75, 2];
-	const lang = $derived((article.lang || $locale || 'es').split(/[-_]/)[0].toLowerCase());
+	// Voice language: the translation's when reading in my language.
+	const lang = $derived((myLang || article.lang || $locale || 'es').split(/[-_]/)[0].toLowerCase());
 	const serverAvailable = $derived(serverAllowed && SERVER_LANGS.includes(lang));
 	const deviceAvailable = speechSupported();
 
@@ -53,10 +67,29 @@
 	let dIndex = $state(0);
 	let dTotal = $state(0);
 
-	function devicePlay() {
+	async function devicePlay() {
 		msg = '';
-		speech ??= new DeviceSpeech(
-			readableText(title, contentEl),
+		if (!speech && myLang && getTranslation) {
+			unlockSpeech(); // keep the tap's permission to speak across the await
+			dState = 'playing';
+			const tr = await getTranslation().catch(() => null);
+			if (!tr) {
+				dState = 'idle';
+				msg = $t('translate_unavailable');
+				return;
+			}
+			speech = makeSpeech(translationText(tr.title, tr.paragraphs));
+			speech.play();
+			return;
+		}
+		speech ??= makeSpeech(readableText(title, contentEl));
+		if (dState === 'playing') speech.pause();
+		else speech.play();
+	}
+
+	function makeSpeech(text: string) {
+		return new DeviceSpeech(
+			text,
 			lang,
 			rate,
 			(s, i, n) => {
@@ -66,8 +99,6 @@
 			},
 			$speechPrefs.deviceVoice[lang]
 		);
-		if (dState === 'playing') speech.pause();
-		else speech.play();
 	}
 
 	// --- Server voice -------------------------------------------------------------
@@ -80,7 +111,8 @@
 		msg = '';
 		sState = 'loading';
 		try {
-			const r = await api.articleAudio(article.id, lang, $speechPrefs.gender);
+			if (myLang && getTranslation) await getTranslation(); // also shows it
+			const r = await api.articleAudio(article.id, lang, $speechPrefs.gender, !!myLang);
 			url = r.url;
 			sState = 'ready';
 			await Promise.resolve();

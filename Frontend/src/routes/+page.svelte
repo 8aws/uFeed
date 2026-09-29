@@ -367,9 +367,48 @@
 		}
 	}
 
+	// Machine translation of the open article into the reader's language
+	// (EN<->ES, ~3-4 s, stored and shared); also used by "read in my language".
+	const MT_LANGS = ['es', 'en'];
+	let tr = $state<{ id: string; title: string | null; paragraphs: string[] } | null>(null);
+	let showTr = $state(false);
+	let trLoading = $state(false);
+	let trError = $state('');
+	const baseLang = (l: string | null | undefined) => (l || '').split(/[-_]/)[0].toLowerCase();
+	function canTranslate(a: Article): boolean {
+		const src = baseLang(a.lang);
+		return aiAllowed && MT_LANGS.includes(src) && MT_LANGS.includes($locale) && src !== $locale;
+	}
+	async function loadTranslation(a: Article) {
+		if (tr?.id === a.id) {
+			showTr = true;
+			return tr;
+		}
+		trLoading = true;
+		trError = '';
+		try {
+			const r = await api.translation(a.id, $locale, true);
+			if (!r.paragraphs || openArticle?.id !== a.id) return null;
+			tr = { id: a.id, title: r.title, paragraphs: r.paragraphs };
+			showTr = true;
+			return tr;
+		} catch {
+			trError = $t('translate_unavailable');
+			return null;
+		} finally {
+			trLoading = false;
+		}
+	}
+	function toggleTranslation(a: Article) {
+		if (showTr && tr?.id === a.id) showTr = false;
+		else loadTranslation(a);
+	}
+
 	function openArticleObj(a: Article) {
 		flushReadEvent();
 		openArticle = a;
+		showTr = false;
+		trError = '';
 		readingStart = Date.now();
 		similarList = [];
 		llm = { id: a.id, summary: null, title: null, model: null, loading: false, error: '' };
@@ -1476,6 +1515,15 @@
 					<button class:active={a.is_favorite} onclick={() => toggleFavorite(a)}>
 						{a.is_favorite ? '★' : '☆'} {a.is_favorite ? $t('unfavorite') : $t('favorite')}
 					</button>
+					{#if canTranslate(a)}
+						<button class:active={showTr && tr?.id === a.id} onclick={() => toggleTranslation(a)} disabled={trLoading}>
+							{trLoading
+								? `⏳ ${$t('translating')}`
+								: showTr && tr?.id === a.id
+									? `↺ ${$t('show_original')}`
+									: `🌐 ${$t('translate')}`}
+						</button>
+					{/if}
 					<button class:active={listenOpen || $speechPrefs.autoRead} onclick={() => (listenOpen = !listenOpen)}>
 						🔊 {$t('listen')}
 					</button>
@@ -1507,10 +1555,12 @@
 						contentEl={readerContentEl}
 						serverAllowed={ttsServerAllowed}
 						autostart={$speechPrefs.autoRead}
+						myLang={$speechPrefs.myLanguage && canTranslate(a) ? $locale : null}
+						getTranslation={() => loadTranslation(a)}
 					/>
 				{/key}
 			{/if}
-			<h1>{title(a)}</h1>
+			<h1>{showTr && tr?.id === a.id && tr.title ? tr.title : title(a)}</h1>
 			{#if llm?.id === a.id && llm.title}
 				<p class="trtitle">🌐 {llm.title}</p>
 			{/if}
@@ -1542,9 +1592,17 @@
 					{/if}
 				</div>
 			{/if}
-			<div class="content" use:embeds={a.id} bind:this={readerContentEl}>
-				{@html safeHtml(a.content_html || a.summary, a.url)}
-			</div>
+			{#if trError}<p class="muted small">{trError}</p>{/if}
+			{#if showTr && tr?.id === a.id}
+				<div class="content translated" bind:this={readerContentEl}>
+					<p class="trnote">🌐 {$t('machine_translation')}</p>
+					{#each tr.paragraphs as para, i (i)}<p>{para}</p>{/each}
+				</div>
+			{:else}
+				<div class="content" use:embeds={a.id} bind:this={readerContentEl}>
+					{@html safeHtml(a.content_html || a.summary, a.url)}
+				</div>
+			{/if}
 			{#if similarList.length}
 				<div class="similar">
 					<h3>✨ {$t('similar')}</h3>
@@ -2021,6 +2079,12 @@
 		background: var(--surface);
 		border: 1px dashed var(--border);
 		font-size: 0.85rem;
+	}
+	.trnote {
+		font-size: 0.78rem;
+		color: var(--muted);
+		border-left: 3px solid var(--accent);
+		padding-left: 0.5rem;
 	}
 	.content :global(video),
 	.content :global(audio) {

@@ -10,6 +10,7 @@ from app.api.errors import AppError
 from app.core.config import settings
 from app.core.ratelimit import check_rate
 from app.models.article_ai import ArticleAI
+from app.models.article_translation import ArticleTranslation
 from app.schemas.article import (
     AISummaryOut,
     ArticleAudioOut,
@@ -17,12 +18,14 @@ from app.schemas.article import (
     EngageRequest,
     MarkAllReadRequest,
     ReadEventRequest,
+    TranslationOut,
 )
 from app.schemas.common import OkResponse, Page
 from app.schemas.user import Locale
 from app.services import ai as ai_service
 from app.services import articles as article_service
 from app.services import site as site_service
+from app.services import translation as translation_service
 from app.services import tts as tts_service
 from app.services.articles import ArticleRow
 
@@ -144,6 +147,54 @@ async def ai_summary(
     )
 
 
+async def _translation(
+    db, user, article, lang: str, *, generate: bool
+) -> tuple[ArticleTranslation | None, bool]:
+    """(translation of `article` into `lang`, was it already stored), generating
+    it if asked."""
+    src = translation_service.source_lang(article)
+    if f"{src}-{lang}" not in translation_service.pairs():
+        raise AppError(422, "mt_pair", "No translation between these languages.")
+    cached = await db.get(ArticleTranslation, (article.id, lang))
+    if cached is not None or not generate:
+        return cached, cached is not None
+    if not (await site_service.limits_for(db, user.role))["ai_features"]:
+        raise AppError(403, "plan_limit_ai", "Your plan doesn't include AI features.")
+    if not await check_rate(f"mt:{user.id}", settings.mt_per_hour, window_s=3600):
+        raise AppError(429, "rate_limited", "Too many translations this hour; try later.")
+    rec = await translation_service.translate(db, article, lang)
+    if rec is None:
+        raise AppError(503, "ai_unavailable", "Translation is not available right now.")
+    return rec, False
+
+
+@router.get("/{article_id}/translation", response_model=TranslationOut)
+async def article_translation(
+    article_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    lang: Locale | None = None,
+    generate: bool = False,
+) -> TranslationOut:
+    """The article machine-translated into `lang` (default: yours). Generated
+    on demand (generate=true), stored and shared; ~3-4 s for a long article."""
+    row = await article_service.get_article(db, user.id, article_id)
+    if row is None:
+        raise AppError(404, "not_found", "Article not found.")
+    lang = lang or user.locale
+    src = translation_service.source_lang(row.article)
+    tr, cached = await _translation(db, user, row.article, lang, generate=generate)
+    if tr is None:
+        return TranslationOut(lang=lang, source_lang=src)
+    return TranslationOut(
+        lang=lang,
+        source_lang=src,
+        title=tr.title,
+        paragraphs=list(tr.paragraphs),
+        cached=cached,
+    )
+
+
 @router.post("/{article_id}/audio", response_model=ArticleAudioOut)
 async def article_audio(
     article_id: uuid.UUID,
@@ -151,6 +202,7 @@ async def article_audio(
     db: DbSession,
     lang: str | None = None,
     voice: Literal["f", "m"] = "f",
+    translated: bool = False,
 ) -> ArticleAudioOut:
     """The article read aloud by the server's neural voice (plan feature).
 
@@ -162,7 +214,13 @@ async def article_audio(
     row = await article_service.get_article(db, user.id, article_id)
     if row is None:
         raise AppError(404, "not_found", "Article not found.")
-    voice_lang = tts_service.lang_of(row.article, lang)
+    tr = None
+    if translated:
+        # Read the article translated into `lang` ("read in my language").
+        tr, _ = await _translation(db, user, row.article, lang or user.locale, generate=True)
+        voice_lang = tr.lang if tr.lang in tts_service.supported_langs() else None
+    else:
+        voice_lang = tts_service.lang_of(row.article, lang)
     if voice_lang is None:
         raise AppError(422, "tts_lang", "No server voice for this article's language.")
     name = tts_service.cache_name(article_id, voice_lang, voice)
@@ -170,7 +228,7 @@ async def article_audio(
         return ArticleAudioOut(url=tts_service.signed_url(name), lang=voice_lang, cached=True)
     if not await check_rate(f"tts:{user.id}", settings.tts_per_hour, window_s=3600):
         raise AppError(429, "rate_limited", "Too many audio requests this hour; try later.")
-    text = tts_service.speech_text(row.article)
+    text = translation_service.speech_text(tr) if tr else tts_service.speech_text(row.article)
     if not await tts_service.generate(name, text, voice_lang, voice):
         raise AppError(503, "ai_unavailable", "The server voice is not available right now.")
     return ArticleAudioOut(url=tts_service.signed_url(name), lang=voice_lang, cached=False)

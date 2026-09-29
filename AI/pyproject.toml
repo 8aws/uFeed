@@ -30,6 +30,12 @@ tts = [
     "lameenc>=1.7",
 ]
 
+# Machine translation for "read in my language" (opus-mt via OpenVINO; the
+# models are exported once by scripts/export_mt.sh).
+mt = [
+    "sentencepiece>=0.2",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

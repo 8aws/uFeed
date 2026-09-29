@@ -257,3 +257,12 @@ export interface HiddenArticle {
 	hidden_at: string;
 	hidden_by: string | null;
 }
+
+/** An article machine-translated into the reader's language. */
+export interface Translation {
+	lang: string;
+	source_lang: string;
+	title: string | null;
+	paragraphs: string[] | null; // null until generated
+	cached: boolean;
+}

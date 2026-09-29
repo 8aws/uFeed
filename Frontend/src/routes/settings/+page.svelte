@@ -427,6 +427,18 @@
 					{/each}
 				</div>
 			</div>
+			{#if myPlan?.ai_features}
+				<label class="check">
+					<input
+						type="checkbox"
+						checked={$speechPrefs.myLanguage}
+						onchange={(e) =>
+							speechPrefs.update((p) => ({ ...p, myLanguage: (e.currentTarget as HTMLInputElement).checked }))}
+					/>
+					{$t('read_my_lang')}
+				</label>
+				<p class="muted small">{$t('read_my_lang_hint')}</p>
+			{/if}
 			{#if myPlan?.tts_server}
 				<div class="field">
 					{$t('speech_engine')}

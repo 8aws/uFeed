@@ -5,7 +5,7 @@ import os
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 
-from app import llm, tts
+from app import llm, translate, tts
 from app.embedders import DIM, build_embedder
 
 BACKEND = os.getenv("AI_BACKEND", "hashing")
@@ -92,6 +92,7 @@ def health() -> dict:
         **_openvino_devices(),
         "llm": llm.status(),
         "tts": tts.status(),
+        "mt": translate.status(),
     }
 
 
@@ -228,3 +229,27 @@ def text_to_speech(body: TTSRequest) -> Response:
         media_type="audio/mpeg",
         headers={"X-Audio-Seconds": f"{seconds:.1f}", "X-Synth-Ms": str(ms)},
     )
+
+
+class TranslateRequest(BaseModel):
+    texts: list[str]  # paragraphs, translated independently (keeps structure)
+    src: str
+    dst: str
+
+
+class TranslateResponse(BaseModel):
+    texts: list[str]
+    ms: int
+
+
+@app.post("/translate", response_model=TranslateResponse)
+def translate_texts(body: TranslateRequest) -> TranslateResponse:
+    """Machine translation between configured pairs (sync: runs in a thread)."""
+    pair = f"{body.src}-{body.dst}"
+    if pair not in translate.available():
+        raise HTTPException(status_code=422, detail="language pair not available")
+    try:
+        texts, ms = translate.translate(body.texts[:400], body.src, body.dst)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail=f"MT unavailable: {exc}"[:200]) from exc
+    return TranslateResponse(texts=texts, ms=ms)

@@ -39,6 +39,16 @@ class ArticleOut(BaseModel):
     dup_count: int = 1
 
 
+class TranslationOut(BaseModel):
+    """An article machine-translated into `lang` (null until generated)."""
+
+    lang: str
+    source_lang: str
+    title: str | None = None
+    paragraphs: list[str] | None = None
+    cached: bool = False
+
+
 class ArticleAudioOut(BaseModel):
     url: str  # signed, short-lived
     lang: str
