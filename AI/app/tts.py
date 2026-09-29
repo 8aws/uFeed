@@ -28,6 +28,9 @@ VOICES = {
 }
 LANGS = sorted({k.split(":")[0] for k in VOICES})
 THREADS = int(os.getenv("AI_TTS_THREADS", "3"))
+# Voices kept loaded from startup (the default one), e.g. "es:f"; others load
+# on first use (~0.6 s + a slower first inference).
+PRELOAD = [k.strip() for k in os.getenv("AI_TTS_PRELOAD", "").split(",") if k.strip()]
 BITRATE = int(os.getenv("AI_TTS_KBPS", "40"))
 MODELS_DIR = os.path.join(os.getenv("AI_MODELS_DIR", "/models"), "piper")
 HF = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
@@ -49,6 +52,7 @@ def status() -> dict:
         "voices": VOICES or None,
         "loaded": sorted(_voices),
         "threads": THREADS,
+        "preload": PRELOAD,
         "error": _error,
     }
 
@@ -106,8 +110,9 @@ def _load(model: str):
 
 
 def warm_up_in_background() -> None:
-    """Download the voices at startup; each loads on first use (~0.6 s, ~500 MB
-    RAM), so voices nobody picks cost disk only."""
+    """Download the voices at startup and load the preloaded ones (plus a
+    throwaway synthesis to warm the runtime); the rest load on first use, so
+    voices nobody picks cost disk only."""
 
     def _run() -> None:
         global _error
@@ -116,6 +121,12 @@ def warm_up_in_background() -> None:
                 _voice_path(model)
             except Exception as exc:  # noqa: BLE001 - reported via /health
                 _error = f"download {model}: {exc}"[:300]
+        for key in PRELOAD:
+            lang, _, gender = key.partition(":")
+            try:
+                synthesize("Hola." if lang == "es" else "Hello.", lang, gender or "f")
+            except Exception as exc:  # noqa: BLE001 - reported via /health
+                _error = f"preload {key}: {exc}"[:300]
 
     threading.Thread(target=_run, name="tts-warmup", daemon=True).start()
 

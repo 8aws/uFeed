@@ -1519,32 +1519,68 @@
 		<article class="reader" bind:this={readerEl}>
 			<div class="reader-head">
 				<button class="close" onclick={closeReader} aria-label="close">×</button>
-				<div class="reader-actions">
-					<button onclick={() => markRead(a, !a.is_read)}>
-						{a.is_read ? $t('mark_unread') : $t('mark_read')}
+				<div class="reader-actions labels-{$toolbarLabels}">
+					{#snippet act(ico: string, lbl: string)}
+						<span class="ico" aria-hidden="true">{ico}</span><span class="lbl">{lbl}</span>
+					{/snippet}
+					<button
+						onclick={() => markRead(a, !a.is_read)}
+						title={a.is_read ? $t('mark_unread') : $t('mark_read')}
+						aria-label={a.is_read ? $t('mark_unread') : $t('mark_read')}
+					>
+						{@render act(a.is_read ? '↺' : '✓', a.is_read ? $t('mark_unread') : $t('mark_read'))}
 					</button>
-					<button class:active={a.is_saved} onclick={() => toggleSave(a)}>
-						{a.is_saved ? $t('unsave') : $t('save')}
+					<button
+						class:active={a.is_saved}
+						onclick={() => toggleSave(a)}
+						title={a.is_saved ? $t('unsave') : $t('save')}
+						aria-label={a.is_saved ? $t('unsave') : $t('save')}
+					>
+						{@render act('🔖', a.is_saved ? $t('unsave') : $t('save'))}
 					</button>
-					<button class:active={a.is_favorite} onclick={() => toggleFavorite(a)}>
-						{a.is_favorite ? '★' : '☆'} {a.is_favorite ? $t('unfavorite') : $t('favorite')}
+					<button
+						class:active={a.is_favorite}
+						onclick={() => toggleFavorite(a)}
+						title={a.is_favorite ? $t('unfavorite') : $t('favorite')}
+						aria-label={a.is_favorite ? $t('unfavorite') : $t('favorite')}
+					>
+						{@render act(a.is_favorite ? '★' : '☆', a.is_favorite ? $t('unfavorite') : $t('favorite'))}
 					</button>
 					{#if canTranslate(a)}
-						<button class:active={showTr && tr?.id === a.id} onclick={() => toggleTranslation(a)} disabled={trLoading}>
-							{trLoading
-								? `⏳ ${$t('translating')}`
-								: showTr && tr?.id === a.id
-									? `↺ ${$t('show_original')}`
-									: `🌐 ${$t('translate')}`}
+						{@const trOn = showTr && tr?.id === a.id}
+						{@const trLbl = trLoading ? $t('translating') : trOn ? $t('show_original') : $t('translate')}
+						<button
+							class:active={trOn}
+							onclick={() => toggleTranslation(a)}
+							disabled={trLoading}
+							title={trLbl}
+							aria-label={trLbl}
+						>
+							{@render act(trLoading ? '⏳' : trOn ? '📄' : '🌐', trLbl)}
 						</button>
 					{/if}
-					<button class:active={listenOpen || $speechPrefs.autoRead} onclick={() => (listenOpen = !listenOpen)}>
-						🔊 {$t('listen')}
+					<button
+						class:active={listenOpen || $speechPrefs.autoRead}
+						onclick={() => (listenOpen = !listenOpen)}
+						title={$t('listen')}
+						aria-label={$t('listen')}
+					>
+						{@render act('🔊', $t('listen'))}
 					</button>
-					{#if safeUrl(a.url)}<button onclick={() => shareArticle(a)}>{$t('share')}</button>{/if}
+					{#if safeUrl(a.url)}
+						<button onclick={() => shareArticle(a)} title={$t('share')} aria-label={$t('share')}>
+							{@render act('📤', $t('share'))}
+						</button>
+					{/if}
 					{#if isCurator}
-						<button class:active={hiddenIds.has(a.id)} onclick={() => toggleHidden(a)}>
-							{hiddenIds.has(a.id) ? `↺ ${$t('show_in_trending')}` : `🚫 ${$t('hide_from_trending')}`}
+						{@const hid = hiddenIds.has(a.id)}
+						<button
+							class:active={hid}
+							onclick={() => toggleHidden(a)}
+							title={hid ? $t('show_in_trending') : $t('hide_from_trending')}
+							aria-label={hid ? $t('show_in_trending') : $t('hide_from_trending')}
+						>
+							{@render act(hid ? '👁' : '🚫', hid ? $t('show_in_trending') : $t('hide_from_trending'))}
 						</button>
 					{/if}
 					{#if safeUrl(a.url)}
@@ -1554,26 +1590,28 @@
 							target="_blank"
 							rel="noopener noreferrer"
 							onclick={() => openOriginal(a)}
+							title={$t('open_original')}
+							aria-label={$t('open_original')}
 						>
-							{$t('open_original')}
+							{@render act('🔗', $t('open_original'))}
 						</a>
 					{/if}
 				</div>
+				{#if listenOpen || $speechPrefs.autoRead}
+					{#key a.id}
+						<ListenBar
+							article={a}
+							title={title(a)}
+							sourceName={sourceName(a.source_id)}
+							contentEl={readerContentEl}
+							serverAllowed={ttsServerAllowed}
+							autostart={$speechPrefs.autoRead}
+							myLang={$speechPrefs.myLanguage && canTranslate(a) ? $locale : null}
+							getTranslation={() => loadTranslation(a)}
+						/>
+					{/key}
+				{/if}
 			</div>
-			{#if listenOpen || $speechPrefs.autoRead}
-				{#key a.id}
-					<ListenBar
-						article={a}
-						title={title(a)}
-						sourceName={sourceName(a.source_id)}
-						contentEl={readerContentEl}
-						serverAllowed={ttsServerAllowed}
-						autostart={$speechPrefs.autoRead}
-						myLang={$speechPrefs.myLanguage && canTranslate(a) ? $locale : null}
-						getTranslation={() => loadTranslation(a)}
-					/>
-				{/key}
-			{/if}
 			<h1>{showTr && tr?.id === a.id && tr.title ? tr.title : title(a)}</h1>
 			{#if llm?.id === a.id && llm.title}
 				<p class="trtitle">🌐 {llm.title}</p>
@@ -2378,15 +2416,36 @@
 	}
 	.reader-head {
 		display: flex;
+		flex-wrap: wrap;
 		justify-content: space-between;
 		align-items: center;
+		gap: 0.4rem;
 		position: sticky;
 		top: 0;
+		z-index: 4;
 		background: var(--bg);
 		padding-bottom: 0.5rem;
 	}
+	/* Same icon/text setting as the toolbar (Settings > Appearance). */
+	.reader-actions button,
+	.reader-actions .btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		white-space: nowrap;
+	}
+	.reader-actions.labels-icons .lbl {
+		display: none;
+	}
+	.reader-actions.labels-text .ico {
+		display: none;
+	}
 	.reader-actions {
 		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		flex: 1 1 0;
+		min-width: 0;
 		gap: 0.4rem;
 		align-items: center;
 	}
@@ -2608,6 +2667,10 @@
 		}
 		.reader-actions {
 			flex-wrap: wrap;
+		}
+		/* Auto: icons only on phones, icon + text on wider screens. */
+		.reader-actions.labels-auto .lbl {
+			display: none;
 		}
 		.reader-actions button,
 		.reader-actions .btn {

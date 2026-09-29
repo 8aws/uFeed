@@ -6,13 +6,13 @@ of that language; ~3-4 s for a 750-word article on the NAS CPU.
 
 from __future__ import annotations
 
-import html
 import re
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.text import plain
 from app.models.article import Article
 from app.models.article_translation import ArticleTranslation
 
@@ -43,7 +43,7 @@ def paragraphs(article: Article) -> list[str]:
     parts = _BLOCK_END.sub("\n\n", body).split("\n\n")
     out = []
     for p in parts:
-        text = _WS.sub(" ", html.unescape(_TAG.sub(" ", p))).strip()
+        text = _WS.sub(" ", plain(_TAG.sub(" ", p)) or "").strip()
         if text:
             out.append(text)
     return out[:MAX_PARAGRAPHS]
@@ -53,7 +53,7 @@ async def translate(db: AsyncSession, article: Article, lang: str) -> ArticleTra
     """Translate and store; None if the AI service is unavailable."""
     src = source_lang(article)
     paras = paragraphs(article)
-    title = (article.title or "").strip()
+    title = (plain(article.title) or "").strip()
     if not settings.ai_enabled or not (paras or title):
         return None
     try:

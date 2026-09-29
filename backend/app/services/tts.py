@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import html
 import os
 import re
 import time
@@ -19,6 +18,7 @@ from pathlib import Path
 import httpx
 
 from app.core.config import settings
+from app.core.text import plain
 from app.models.article import Article
 
 URL_TTL_S = 6 * 3600
@@ -51,13 +51,13 @@ def speech_text(article: Article) -> str:
     body = article.content_html or article.summary or ""
     body = _DROP.sub(" ", body)
     body = _BLOCK_END.sub(". ", body)
-    text = html.unescape(_TAG.sub(" ", body))
+    text = plain(_TAG.sub(" ", body)) or ""
     text = _WS.sub(" ", text).strip()
     text = _DOTS.sub(r"\1\2", text).strip(" .")
     words = text.split(" ")
     if len(words) > MAX_WORDS:
         text = " ".join(words[:MAX_WORDS]) + "…"
-    title = (article.title or "").strip()
+    title = (plain(article.title) or "").strip()
     return f"{title}. {text}" if title else text
 
 

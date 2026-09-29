@@ -42,3 +42,16 @@ def test_embed_for() -> None:
     assert embed_for("https://vimeo.com/123456789") == ("vimeo", "123456789")
     assert embed_for("https://www.youtube.com/embed/short") is None
     assert embed_for("https://evil.example/embed/abcdefghijk") is None
+
+
+def test_titles_are_decoded() -> None:
+    from app.core.text import plain
+
+    assert plain("Meta&#8217;s Muse AI sent a YouTuber’s address") == (
+        "Meta’s Muse AI sent a YouTuber’s address"
+    )
+    assert plain("Tom &amp;#8216;Q&amp;A&amp;#8217;") == "Tom ‘Q&A’"
+    assert plain("R&D and AT&T") == "R&D and AT&T"
+    feed = FEED.replace(b"<title>a</title>", b"<title>Roku&amp;#8217;s TVs</title>")
+    art = parse_feed(feed, base_url="https://ex.org/feed.xml").articles[0]
+    assert art.title == "Roku’s TVs"

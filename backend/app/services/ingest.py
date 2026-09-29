@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.netguard import public_client
+from app.core.text import plain
 from app.db.session import SessionLocal
 from app.models.article import Article
 from app.models.source import Source
@@ -173,8 +174,8 @@ def parse_feed(
             ParsedArticle(
                 guid=_entry_guid(entry),
                 url=link,
-                title=entry.get("title"),
-                author=entry.get("author"),
+                title=plain(entry.get("title")),
+                author=plain(entry.get("author")),
                 content_html=content_html,
                 summary=media.rewrite_iframes(entry.get("summary")),
                 lang=entry.get("language") or feed_lang,
@@ -186,7 +187,7 @@ def parse_feed(
         )
     site_url = http_url(feed.get("link"))
     return ParsedFeed(
-        title=feed.get("title"),
+        title=plain(feed.get("title")),
         site_url=site_url,
         lang=feed_lang,
         articles=articles,

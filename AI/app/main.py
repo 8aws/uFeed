@@ -18,6 +18,7 @@ if BACKEND == "openvino" and llm.enabled():
     llm.warm_up_in_background()
 if tts.enabled():
     tts.warm_up_in_background()
+translate.warm_up_in_background()
 _embedder = None
 
 

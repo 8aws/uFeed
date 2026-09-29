@@ -20,10 +20,13 @@ services:
       AI_MODELS_DIR: /models
       # Server voice for "listen" (Piper, CPU). Empty = disabled.
       AI_TTS_VOICES: ${AI_TTS_VOICES:-es:m=es_ES-davefx-medium,es:f=es_ES-sharvard-medium@F,en:f=en_US-lessac-medium,en:m=en_US-ryan-medium}
-      AI_TTS_THREADS: ${AI_TTS_THREADS:-3}
+      AI_TTS_THREADS: ${AI_TTS_THREADS:-4}
+      # Default voice kept in memory (others load on first use).
+      AI_TTS_PRELOAD: ${AI_TTS_PRELOAD:-es:f}
       # Translation pairs for "read in my language" (export: scripts/export_mt.sh).
       AI_MT_PAIRS: ${AI_MT_PAIRS:-en-es,es-en}
       AI_MT_DEVICE: ${AI_MT_DEVICE:-CPU}
+      AI_MT_PRELOAD: ${AI_MT_PRELOAD:-1}  # keep the translators in memory
     volumes:
       # Downloaded LLMs (~2.5 GB for Qwen3-4B int4) and Piper voices (~60 MB each).
       - ai-models:/models

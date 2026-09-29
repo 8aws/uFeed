@@ -17,6 +17,7 @@ import time
 
 PAIRS = [p.strip() for p in os.getenv("AI_MT_PAIRS", "").split(",") if p.strip()]  # "en-es,es-en"
 DEVICE = os.getenv("AI_MT_DEVICE", "CPU")
+PRELOAD = os.getenv("AI_MT_PRELOAD", "0") == "1"  # keep every pair loaded from startup
 MODELS_DIR = os.path.join(os.getenv("AI_MODELS_DIR", "/models"), "mt")
 BATCH = 8
 MAX_SENTENCES = 800  # ~15k words; longer articles are cut
@@ -83,3 +84,21 @@ def translate(texts: list[str], src: str, dst: str) -> tuple[list[str], int]:
             for (i, _), res in zip(chunk, tok.batch_decode(gen, skip_special_tokens=True), strict=True):
                 out[i].append(res)
     return [" ".join(parts) for parts in out], int((time.time() - t0) * 1000)
+
+
+def warm_up_in_background() -> None:
+    """Load (and run once) every available pair at startup if AI_MT_PRELOAD=1,
+    so the first translation doesn't pay for loading the model."""
+    if not PRELOAD:
+        return
+
+    def _run() -> None:
+        global _error
+        for pair in available():
+            src, dst = pair.split("-")
+            try:
+                translate(["Hola." if src == "es" else "Hello."], src, dst)
+            except Exception as exc:  # noqa: BLE001 - reported via /health
+                _error = f"preload {pair}: {exc}"[:300]
+
+    threading.Thread(target=_run, name="mt-warmup", daemon=True).start()
