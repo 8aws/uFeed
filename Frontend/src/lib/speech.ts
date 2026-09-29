@@ -146,7 +146,16 @@ export class DeviceSpeech {
 
 	private speakFrom(start: number) {
 		const run = ++this.run;
-		speechSynthesis.cancel();
+		// iOS drops utterances queued right after cancel(): only cancel when
+		// something is speaking, and then give it a moment before speaking.
+		const busy = speechSynthesis.speaking || speechSynthesis.pending;
+		if (busy) speechSynthesis.cancel();
+		this.set('playing');
+		setTimeout(() => this.queue(start, run), busy ? 120 : 0);
+	}
+
+	private queue(start: number, run: number) {
+		if (run !== this.run) return;
 		const voice = pickVoice(this.lang, this.voiceName);
 		// Queue everything at once: no gap between sentences, and it keeps going
 		// if the page is throttled between callbacks.
@@ -155,21 +164,24 @@ export class DeviceSpeech {
 			u.lang = voice?.lang ?? this.lang;
 			if (voice) u.voice = voice;
 			u.rate = this.rate;
+			let started = false;
 			u.onstart = () => {
 				if (run !== this.run) return;
+				started = true;
 				this.index = i;
 				this.set('playing');
 			};
 			if (i === this.parts.length - 1) {
+				// Browsers also fire 'end' for utterances dropped or cancelled:
+				// only a last sentence that was actually spoken ends the reading.
 				u.onend = () => {
-					if (run !== this.run) return;
+					if (run !== this.run || !started) return;
 					this.index = 0;
 					this.set('ended');
 				};
 			}
 			speechSynthesis.speak(u);
 		}
-		this.set('playing');
 	}
 
 	private set(state: SpeechState) {

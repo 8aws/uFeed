@@ -93,6 +93,12 @@
 		return hl;
 	}
 
+	// The first chunks are the title (shown above the body). Some feeds repeat it
+	// in a footer ("<title> appeared first on…"): searching for it there made
+	// the highlight jump down and back, so title chunks aren't highlighted.
+	let titleParts = 0;
+	const titleChunks = (t: string | null) => (t ? chunks(`${t}.`).length : 0);
+
 	// --- Device voice -----------------------------------------------------------
 	let speech = $state.raw<DeviceSpeech | null>(null);
 	let dState = $state<SpeechState>('idle');
@@ -112,11 +118,15 @@
 				return;
 			}
 			await highlighter();
+			titleParts = titleChunks(tr.title);
 			speech = makeSpeech(translationText(tr.title, tr.paragraphs));
 			speech.play();
 			return;
 		}
-		if (!speech) await highlighter();
+		if (!speech) {
+			await highlighter();
+			titleParts = titleChunks(title);
+		}
 		speech ??= makeSpeech(readableText(title, contentEl));
 		if (dState === 'playing') speech.pause();
 		else speech.play();
@@ -133,7 +143,7 @@
 				dTotal = n;
 				if (s === 'playing') {
 					dMax = Math.max(dMax, i);
-					hl?.show(speech?.part(i) ?? '');
+					if (i >= titleParts) hl?.show(speech?.part(i) ?? '');
 				} else if (s === 'ended' || s === 'idle') hl?.clear();
 				if (s === 'ended') radio?.onfinish(1);
 			},
@@ -177,7 +187,7 @@
 		const i = chunkAt(serverChunks, Math.min(1, audioEl.currentTime / sDur));
 		if (i !== serverIdx) {
 			serverIdx = i;
-			hl.show(serverChunks[i]);
+			if (i >= titleParts) hl.show(serverChunks[i]);
 		}
 	}
 
@@ -191,6 +201,7 @@
 			const tr = myLang && getTranslation ? await getTranslation().catch(() => null) : null; // also shows it
 			await highlighter();
 			const spoken = tr ? translationText(tr.title, tr.paragraphs) : readableText(title, contentEl);
+			titleParts = titleChunks(tr ? tr.title : title);
 			serverChunks = chunks(spoken);
 			serverIdx = -1;
 			// Piper reads ~14.5 characters per second of audio at normal speed.
@@ -252,12 +263,49 @@
 			sDur = durationOf(audioEl);
 		}
 	};
+	// A live stream (still being generated) has no known duration. Safari may
+	// fire 'ended' when it catches up with what's generated so far, not at the
+	// real end: then wait for the finished file (it answers byte ranges with
+	// 206) and continue from the same second. Chrome ends at the real end; the
+	// same check then just confirms it.
+	let recovering = false;
 	const onEnded = () => {
-		if (!owned()) return;
+		if (!owned() || !audioEl) return;
+		if (!Number.isFinite(audioEl.duration) && !recovering) {
+			void recoverLive(audioEl.currentTime);
+			return;
+		}
+		finished();
+	};
+	function finished() {
 		sPlaying = false;
 		hl?.clear();
 		radio?.onfinish(1);
-	};
+	}
+	async function recoverLive(pos: number) {
+		recovering = true;
+		const a = audioEl!;
+		try {
+			for (let i = 0; i < 120 && owned(); i++) {
+				const ctl = new AbortController();
+				const r = await fetch(url, { headers: { Range: 'bytes=0-0' }, signal: ctl.signal }).catch(() => null);
+				ctl.abort();
+				if (r?.status === 206) {
+					a.src = `${url}&final=1`; // the complete file, seekable
+					await new Promise<void>((ok) => a.addEventListener('loadedmetadata', () => ok(), { once: true }));
+					if (!owned()) return;
+					if (pos >= a.duration - 1.5) return finished(); // it really had ended
+					a.currentTime = pos;
+					sMax = Math.max(sMax, pos);
+					await a.play().catch(() => (msg = $t('listen_ready_tap')));
+					return;
+				}
+				await new Promise((ok) => setTimeout(ok, 1000));
+			}
+		} finally {
+			recovering = false;
+		}
+	}
 	onMount(() => {
 		const a = sharedAudio();
 		a.addEventListener('play', onServerPlay);

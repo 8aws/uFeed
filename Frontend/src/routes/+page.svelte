@@ -473,8 +473,9 @@
 		if ($speechPrefs.mode === 'device') unlockSpeech();
 		playJingle();
 		radioUrls.clear();
+		// Only this post now: the voice generates one article at a time, and
+		// the next one asked too early could take the turn of the first.
 		prefetchAudio(queue[0]);
-		prefetchAudio(queue[1]);
 		radio = {
 			queue,
 			pos: 0,
@@ -506,8 +507,16 @@
 		}
 		radio = { ...r, pos: r.pos + 1 };
 		openArticleObj(next, false);
-		prefetchAudio(r.queue[r.pos + 2]);
 	}
+
+	// While a post plays, get the next one ready (its audio starts generating),
+	// once this one has had time to finish generating (~20x real time).
+	$effect(() => {
+		const r = radio;
+		if (!r) return;
+		const id = setTimeout(() => prefetchAudio(r.queue[r.pos + 1]), 12000);
+		return () => clearTimeout(id);
+	});
 
 	function radioStop(heard: number) {
 		const r = radio;
@@ -1772,7 +1781,9 @@
 					</div>
 				{/if}
 				{#if listenOpen || $speechPrefs.autoRead}
-					{#key a.id}
+					<!-- Keyed by radio session too: starting the radio on the open post
+					     restarts its player instead of leaving it idle after the jingle. -->
+					{#key `${a.id}:${radio?.startedAt ?? ''}`}
 						<ListenBar
 							article={a}
 							title={title(a)}
