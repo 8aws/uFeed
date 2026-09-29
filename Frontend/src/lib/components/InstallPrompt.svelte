@@ -7,7 +7,11 @@
 		userChoice: Promise<{ outcome: string }>;
 	}
 
-	let show = $state(false);
+	// While `hold` is set (onboarding on screen) the banner waits: it would
+	// cover the onboarding's buttons. It appears once onboarding is done.
+	let { hold = false }: { hold?: boolean } = $props();
+	let ready = $state(false);
+	const show = $derived(ready && !hold);
 	let isIOS = $state(false);
 	let deferred: BIPEvent | null = null;
 
@@ -46,17 +50,17 @@
 		const onBIP = (e: Event) => {
 			e.preventDefault();
 			deferred = e as BIPEvent;
-			show = true;
+			ready = true;
 		};
 		window.addEventListener('beforeinstallprompt', onBIP);
 		window.addEventListener('appinstalled', () => {
 			remember();
-			show = false;
+			ready = false;
 		});
 
 		// On iOS there's no event — offer the manual instructions after a beat.
 		if (isIOS) {
-			const id = setTimeout(() => (show = true), 1500);
+			const id = setTimeout(() => (ready = true), 1500);
 			return () => {
 				clearTimeout(id);
 				window.removeEventListener('beforeinstallprompt', onBIP);
@@ -71,12 +75,12 @@
 		await deferred.userChoice.catch(() => ({ outcome: 'dismissed' }));
 		deferred = null;
 		remember();
-		show = false;
+		ready = false;
 	}
 
 	function close() {
 		remember();
-		show = false;
+		ready = false;
 	}
 </script>
 

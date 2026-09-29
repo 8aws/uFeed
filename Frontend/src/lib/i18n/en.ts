@@ -296,6 +296,7 @@ export const en = {
 	font_hint: 'Atkinson Hyperlegible was designed for people with low vision: similar letters (I l 1, O 0, b d) are easier to tell apart.',
 	highlight_reading: 'Highlight the sentence being read',
 	highlight_hint: 'Follow the text while listening; the article scrolls along unless you scroll it yourself.',
+	more: 'More',
 	view: 'View',
 	appearance: 'Appearance',
 	toolbar_labels: 'Toolbar buttons',

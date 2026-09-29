@@ -410,6 +410,9 @@
 		openArticle = a;
 		showTr = false;
 		trError = '';
+		moreOpen = false;
+		// Each article opens at its top, close button in reach.
+		tick().then(() => readerEl?.scrollTo(0, 0));
 		readingStart = Date.now();
 		similarList = [];
 		llm = { id: a.id, summary: null, title: null, model: null, loading: false, error: '' };
@@ -522,15 +525,50 @@
 		}
 	}
 
+	// Share: the system share sheet where there is one (phones, Safari/Edge
+	// on desktop), otherwise copy the link and say so on the button.
+	let copiedId = $state<string | null>(null);
 	async function shareArticle(a: Article) {
 		const url = safeUrl(a.url);
-		if (url) {
+		if (!url) return;
+		moreOpen = false;
+		if (navigator.share) {
 			try {
-				await navigator.clipboard.writeText(url);
-			} catch {
-				/* ignore */
+				await navigator.share({ title: title(a), url });
+				runOp({ type: 'engage', id: a.id, kind: 'share' });
+				return;
+			} catch (e) {
+				if ((e as DOMException)?.name === 'AbortError') return; // closed the sheet
 			}
-			runOp({ type: 'engage', id: a.id, kind: 'share' });
+		}
+		try {
+			await navigator.clipboard.writeText(url);
+		} catch {
+			window.prompt($t('share'), url); // last resort: let them copy it
+			return;
+		}
+		copiedId = a.id;
+		setTimeout(() => (copiedId = null), 2500);
+		runOp({ type: 'engage', id: a.id, kind: 'share' });
+	}
+
+	// Phones: the less used actions live in a "⋯" menu so the header fits one row.
+	let moreOpen = $state(false);
+	let morePos = $state({ top: 0, right: 0 });
+	function toggleMore(e: MouseEvent) {
+		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		morePos = { top: Math.round(r.bottom + 6), right: Math.max(8, Math.round(window.innerWidth - r.right)) };
+		moreOpen = !moreOpen;
+	}
+
+	// The AI summary box starts folded (remembered): it's there when wanted.
+	let summaryOpen = $state(typeof localStorage !== 'undefined' && localStorage.getItem('summary_open') === '1');
+	function toggleSummary() {
+		summaryOpen = !summaryOpen;
+		try {
+			localStorage.setItem('summary_open', summaryOpen ? '1' : '0');
+		} catch {
+			/* ignore */
 		}
 	}
 
@@ -998,6 +1036,7 @@
 	}
 
 	let showOnboarding = $state(false);
+	let onboardingChecked = $state(false); // the install banner waits for this
 	function onboarded(): boolean {
 		try {
 			return localStorage.getItem('onboarded') === '1';
@@ -1037,6 +1076,7 @@
 		loadInsights();
 		// First run: no feeds yet and never onboarded → show the starter flow.
 		if (!onboarded() && subs.length === 0) showOnboarding = true;
+		onboardingChecked = true;
 		syncOnOpen();
 		warmOffline();
 		if (isCurator)
@@ -1134,6 +1174,7 @@
 	onclick={(e) => {
 		const el = e.target as Element | null;
 		if (viewOpen && !el?.closest('.viewtrigger, .viewpop')) viewOpen = false;
+		if (moreOpen && !el?.closest('.morebtn, .morepop')) moreOpen = false;
 	}}
 />
 
@@ -1157,7 +1198,7 @@
 	</div>
 {/if}
 
-<InstallPrompt />
+<InstallPrompt hold={!onboardingChecked || showOnboarding} />
 {#if showOnboarding}
 	<Onboarding oncomplete={finishOnboarding} />
 {/if}
@@ -1568,13 +1609,14 @@
 						{@render act('🔊', $t('listen'))}
 					</button>
 					{#if safeUrl(a.url)}
-						<button onclick={() => shareArticle(a)} title={$t('share')} aria-label={$t('share')}>
-							{@render act('📤', $t('share'))}
+						<button class="secondary" onclick={() => shareArticle(a)} title={$t('share')} aria-label={$t('share')}>
+							{@render act(copiedId === a.id ? '✓' : '📤', copiedId === a.id ? $t('link_copied') : $t('share'))}
 						</button>
 					{/if}
 					{#if isCurator}
 						{@const hid = hiddenIds.has(a.id)}
 						<button
+							class="secondary"
 							class:active={hid}
 							onclick={() => toggleHidden(a)}
 							title={hid ? $t('show_in_trending') : $t('hide_from_trending')}
@@ -1585,7 +1627,7 @@
 					{/if}
 					{#if safeUrl(a.url)}
 						<a
-							class="btn"
+							class="btn secondary"
 							href={safeUrl(a.url)}
 							target="_blank"
 							rel="noopener noreferrer"
@@ -1596,7 +1638,42 @@
 							{@render act('🔗', $t('open_original'))}
 						</a>
 					{/if}
+					<button class="morebtn" class:active={moreOpen} onclick={toggleMore} aria-label={$t('more')} aria-expanded={moreOpen}>
+						<span aria-hidden="true">⋯</span>
+					</button>
 				</div>
+				{#if moreOpen}
+					<div class="morepop" role="menu" style="top: {morePos.top}px; right: {morePos.right}px">
+						{#if safeUrl(a.url)}
+							<button role="menuitem" onclick={() => shareArticle(a)}>
+								📤 {copiedId === a.id ? $t('link_copied') : $t('share')}
+							</button>
+							<a
+								role="menuitem"
+								href={safeUrl(a.url)}
+								target="_blank"
+								rel="noopener noreferrer"
+								onclick={() => {
+									openOriginal(a);
+									moreOpen = false;
+								}}
+							>
+								🔗 {$t('open_original')}
+							</a>
+						{/if}
+						{#if isCurator}
+							<button
+								role="menuitem"
+								onclick={() => {
+									toggleHidden(a);
+									moreOpen = false;
+								}}
+							>
+								{hiddenIds.has(a.id) ? `👁 ${$t('show_in_trending')}` : `🚫 ${$t('hide_from_trending')}`}
+							</button>
+						{/if}
+					</div>
+				{/if}
 				{#if listenOpen || $speechPrefs.autoRead}
 					{#key a.id}
 						<ListenBar
@@ -1629,12 +1706,15 @@
 			{/if}
 			{#if a.ai_summary || aiAllowed}
 				{@const gen = llm?.id === a.id ? llm : null}
-				<div class="ai-summary">
-					<span class="ai-summary-label">
+				<div class="ai-summary" class:folded={!summaryOpen}>
+					<button class="ai-summary-label" onclick={toggleSummary} aria-expanded={summaryOpen}>
 						✨ {gen?.summary ? `${$t('ai_summary_llm')} · ${gen.model}` : $t('summary_label')}
-					</span>
-					{gen?.summary ?? a.ai_summary ?? ''}
-					{#if aiAllowed && !gen?.summary}
+						<span class="chev" aria-hidden="true">{summaryOpen ? '▾' : '▸'}</span>
+					</button>
+					{#if summaryOpen}
+						{gen?.summary ?? a.ai_summary ?? ''}
+					{/if}
+					{#if summaryOpen && aiAllowed && !gen?.summary}
 						<div class="llm-row">
 							<button class="llm-btn" onclick={() => generateLLM(a)} disabled={gen?.loading}>
 								{gen?.loading ? $t('ai_generating') : $t('ai_generate')}
@@ -2426,6 +2506,42 @@
 		background: var(--bg);
 		padding-bottom: 0.5rem;
 	}
+	.morebtn {
+		display: none;
+	}
+	.morepop {
+		position: fixed;
+		z-index: 30;
+		display: flex;
+		flex-direction: column;
+		min-width: 210px;
+		padding: 0.3rem;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+	}
+	.morepop button,
+	.morepop a {
+		border: none;
+		background: none;
+		text-align: left;
+		padding: 0.55rem 0.6rem;
+		border-radius: 7px;
+		color: var(--text);
+		font-size: 0.95rem;
+	}
+	.morepop button:hover,
+	.morepop a:hover {
+		background: var(--accent-soft);
+	}
+	.ai-summary-label .chev {
+		margin-left: auto;
+	}
+	.ai-summary.folded {
+		padding-top: 0.45rem;
+		padding-bottom: 0.45rem;
+	}
 	/* Same icon/text setting as the toolbar (Settings > Appearance). */
 	.reader-actions button,
 	.reader-actions .btn {
@@ -2486,13 +2602,25 @@
 		font-size: 0.8rem;
 		color: var(--danger);
 	}
+	/* The label doubles as the fold/unfold button. */
 	.ai-summary-label {
-		display: block;
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		width: 100%;
+		background: none;
+		border: none;
+		padding: 0;
+		text-align: left;
+		cursor: pointer;
 		font-size: 0.72rem;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 		color: var(--accent);
 		margin-bottom: 0.25rem;
+	}
+	.ai-summary.folded .ai-summary-label {
+		margin-bottom: 0;
 	}
 	.reader .content {
 		margin-top: 1rem;
@@ -2671,6 +2799,21 @@
 		/* Auto: icons only on phones, icon + text on wider screens. */
 		.reader-actions.labels-auto .lbl {
 			display: none;
+		}
+		/* One row on phones: secondary actions go to the "⋯" menu. */
+		.reader-actions .secondary {
+			display: none !important;
+		}
+		.reader-actions .morebtn {
+			display: inline-flex;
+		}
+		.reader-actions {
+			flex-wrap: nowrap;
+			gap: 0.3rem;
+		}
+		.reader-actions button,
+		.reader-actions .btn {
+			padding: 0.4rem 0.55rem;
 		}
 		.reader-actions button,
 		.reader-actions .btn {

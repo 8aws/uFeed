@@ -298,6 +298,7 @@ export const es: Dict = {
 	font_hint: 'Atkinson Hyperlegible está diseñada para personas con baja visión: las letras parecidas (I l 1, O 0, b d) se distinguen mejor.',
 	highlight_reading: 'Resaltar la frase que se está leyendo',
 	highlight_hint: 'Para seguir el texto mientras escuchas; el artículo avanza solo salvo que lo desplaces tú.',
+	more: 'Más',
 	view: 'Vista',
 	appearance: 'Apariencia',
 	toolbar_labels: 'Botones de la barra',

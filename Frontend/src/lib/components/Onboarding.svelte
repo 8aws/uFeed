@@ -179,6 +179,8 @@
 </div>
 
 <style>
+	/* Fixed in place: the dim backdrop can't be dragged, and the card only
+	   scrolls vertically (on iOS it used to slide sideways). */
 	.overlay {
 		position: fixed;
 		inset: 0;
@@ -188,6 +190,9 @@
 		align-items: center;
 		justify-content: center;
 		padding: 1rem;
+		overflow: hidden;
+		touch-action: none;
+		overscroll-behavior: contain;
 	}
 	.card {
 		background: var(--bg);
@@ -195,7 +200,13 @@
 		border-radius: 14px;
 		width: min(640px, 100%);
 		max-height: 90vh;
+		max-height: 90dvh;
+		max-width: 100%;
 		overflow-y: auto;
+		overflow-x: hidden;
+		touch-action: pan-y;
+		overscroll-behavior: contain;
+		overflow-wrap: anywhere;
 		padding: 1.5rem;
 		display: flex;
 		flex-direction: column;

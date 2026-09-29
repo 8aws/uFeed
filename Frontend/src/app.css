@@ -114,3 +114,20 @@ input[type='radio'] {
 	background-color: rgba(255, 200, 0, 0.45);
 	color: inherit;
 }
+
+/* iOS Safari zooms into any field with text under 16px when it's tapped and
+   stays zoomed: the page then looks shifted, cut on the right, and the reader's
+   close button goes out of reach. 16px+ on phones prevents it (pinch zoom
+   still works). */
+@media (max-width: 760px) {
+	input,
+	select,
+	textarea {
+		font-size: max(16px, 1rem);
+	}
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
