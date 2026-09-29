@@ -4,8 +4,9 @@
 	import { api, ApiError, downloadOpml, importOpml } from '$lib/api';
 	import { clearTokens, setTokens, user } from '$lib/auth';
 	import { locale, setLocale, t } from '$lib/i18n';
-	import { PACES, speechPrefs, toolbarLabels, type ToolbarLabels } from '$lib/prefs';
+	import { displayPrefs, PACES, speechPrefs, TEXT_SCALES, toolbarLabels, type ToolbarLabels } from '$lib/prefs';
 	import { sampleVoice, speechSupported, voicesFor } from '$lib/speech';
+	import { clearAudio, warmAudio } from '$lib/offlineAudio';
 	import { relativeTime } from '$lib/format';
 	import type {
 		PlanLimits,
@@ -293,6 +294,31 @@
 	function setDeviceVoice(lang: string, name: string) {
 		speechPrefs.update((p) => ({ ...p, deviceVoice: { ...p.deviceVoice, [lang]: name } }));
 	}
+	let audioMsg = $state('');
+	async function toggleOfflineAudio(on: boolean) {
+		speechPrefs.update((p) => ({ ...p, offlineAudio: on }));
+		audioMsg = '';
+		if (!on) {
+			await clearAudio();
+			return;
+		}
+		try {
+			const saved = (await api.listArticles({ saved: 'true', limit: '20' })).items;
+			audioMsg = $t('offline_audio_started');
+			const mt = ['es', 'en'];
+			await warmAudio(saved, {
+				gender: $speechPrefs.gender,
+				myLang: $speechPrefs.myLanguage ? $locale : null,
+				canTranslate: (a) => {
+					const src = (a.lang || '').split(/[-_]/)[0].toLowerCase();
+					return !!myPlan?.ai_features && mt.includes(src) && mt.includes($locale) && src !== $locale;
+				}
+			});
+			audioMsg = $t('offline_audio_done');
+		} catch {
+			audioMsg = '';
+		}
+	}
 	const paceOf = (r: number) =>
 		(Object.entries(PACES).find(([, v]) => Math.abs(v - r) < 0.01)?.[0] ?? '') as string;
 
@@ -475,6 +501,15 @@
 					</div>
 					<span class="muted small">{$t('server_voice_hint')}</span>
 				</div>
+				<label class="check">
+					<input
+						type="checkbox"
+						checked={$speechPrefs.offlineAudio}
+						onchange={(e) => toggleOfflineAudio((e.currentTarget as HTMLInputElement).checked)}
+					/>
+					🎧 {$t('offline_audio')}
+				</label>
+				<p class="muted small">{audioMsg || $t('offline_audio_hint')}</p>
 			{/if}
 			{#if speechSupported()}
 				<div class="field">
@@ -508,6 +543,40 @@
 			<span class="chev" aria-hidden="true">{open.a11y ? '▾' : '▸'}</span>
 		</button>
 		{#if open.a11y}
+			<div class="field">
+				{$t('text_size')}
+				<div class="row">
+					{#each TEXT_SCALES as sc (sc)}
+						<button
+							class:active={$displayPrefs.textScale === sc}
+							style="font-size: {0.8 + (sc - 1) * 0.9}rem"
+							onclick={() => displayPrefs.update((p) => ({ ...p, textScale: sc }))}
+							aria-label="{Math.round(sc * 100)}%"
+						>
+							A <span class="muted small">{Math.round(sc * 100)}%</span>
+						</button>
+					{/each}
+				</div>
+			</div>
+			<div class="field">
+				{$t('font')}
+				<div class="row">
+					<button
+						class:active={$displayPrefs.font === 'system'}
+						onclick={() => displayPrefs.update((p) => ({ ...p, font: 'system' }))}
+					>
+						{$t('font_system')}
+					</button>
+					<button
+						class="atkinson"
+						class:active={$displayPrefs.font === 'atkinson'}
+						onclick={() => displayPrefs.update((p) => ({ ...p, font: 'atkinson' }))}
+					>
+						Atkinson Hyperlegible
+					</button>
+				</div>
+				<span class="muted small">{$t('font_hint')}</span>
+			</div>
 			<label class="check">
 				<input
 					type="checkbox"
@@ -518,6 +587,16 @@
 				{$t('auto_read')}
 			</label>
 			<p class="muted small">{$t('auto_read_hint')}</p>
+			<label class="check">
+				<input
+					type="checkbox"
+					checked={$speechPrefs.highlight}
+					onchange={(e) =>
+						speechPrefs.update((p) => ({ ...p, highlight: (e.currentTarget as HTMLInputElement).checked }))}
+				/>
+				{$t('highlight_reading')}
+			</label>
+			<p class="muted small">{$t('highlight_hint')}</p>
 		{/if}
 	</section>
 
@@ -982,6 +1061,9 @@
 	.errmsg {
 		color: var(--danger);
 		font-size: 0.85rem;
+	}
+	.atkinson {
+		font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
 	}
 	.vlang {
 		min-width: 6.5rem;

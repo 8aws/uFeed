@@ -15,6 +15,7 @@
 		setState
 	} from '$lib/outbox';
 	import { embedOf, safeHtml, safeUrl } from '$lib/safe';
+	import { warmAudio } from '$lib/offlineAudio';
 	import { relativeTime, readingTime, stripHtml } from '$lib/format';
 	import Onboarding from '$lib/components/Onboarding.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
@@ -568,11 +569,19 @@
 		}
 	}
 
+	const audioOpts = () => ({
+		gender: $speechPrefs.gender,
+		myLang: $speechPrefs.myLanguage ? $locale : null,
+		canTranslate
+	});
+
 	async function toggleSave(a: Article) {
 		a.is_saved = !a.is_saved;
 		articles = [...articles];
 		try {
 			await setState(a.id, 'saved', a.is_saved);
+			// Saved for later: keep its recording too, if asked for in Settings.
+			if (a.is_saved && $speechPrefs.offlineAudio && ttsServerAllowed) warmAudio([a], audioOpts(), false);
 		} catch {
 			a.is_saved = !a.is_saved;
 			articles = [...articles];
@@ -1050,15 +1059,17 @@
 		outboxTimer = setInterval(() => {
 			if (navigator.onLine) syncOutbox();
 		}, 60000);
-		api
-			.site()
-			.then((c) => {
-				const role = ($user?.role ?? 'free') as keyof typeof c.plan_limits;
-				aiAllowed = c.plan_limits[role]?.ai_features ?? true;
-				ttsServerAllowed = c.plan_limits[role]?.tts_server ?? false;
-			})
-			.catch(() => {});
 	});
+
+	// Plan features (AI, server voice); resolved once per page load.
+	const siteReady: Promise<void> = api
+		.site()
+		.then((c) => {
+			const role = ($user?.role ?? 'free') as keyof typeof c.plan_limits;
+			aiAllowed = c.plan_limits[role]?.ai_features ?? true;
+			ttsServerAllowed = c.plan_limits[role]?.tts_server ?? false;
+		})
+		.catch(() => {});
 
 	let outboxTimer: ReturnType<typeof setInterval> | undefined;
 	onDestroy(() => clearInterval(outboxTimer));
@@ -1101,6 +1112,9 @@
 				}
 			}
 			navigator.serviceWorker.controller.postMessage({ type: 'cache-images', urls: [...urls] });
+			// Server-voice recordings of saved articles, if asked for in Settings.
+			await siteReady;
+			if ($speechPrefs.offlineAudio && ttsServerAllowed) warmAudio(page.items, audioOpts());
 		} catch {
 			/* best effort */
 		}

@@ -34,14 +34,29 @@ body {
 	height: 100%;
 }
 
+/* Accessibility > Text size scales the whole (rem-based) interface. */
+html {
+	font-size: calc(100% * var(--text-scale, 1));
+}
+
 body {
 	background: var(--bg);
 	color: var(--text);
 	font:
-		15px/1.5 system-ui,
+		calc(15px * var(--text-scale, 1)) / 1.5 system-ui,
 		-apple-system,
 		Segoe UI,
 		Roboto,
+		sans-serif;
+}
+
+/* Accessibility > Font: Atkinson Hyperlegible (Braille Institute), designed
+   to keep similar letters apart (I/l/1, O/0, b/d) for low vision. Self-hosted. */
+html[data-font='atkinson'] body {
+	font-family:
+		'Atkinson Hyperlegible',
+		system-ui,
+		-apple-system,
 		sans-serif;
 }
 
@@ -92,4 +107,10 @@ input[type='radio'] {
 	width: auto;
 	flex: none;
 	margin: 0;
+}
+
+/* Accessibility > highlight the sentence being read aloud. */
+::highlight(ufeed-reading) {
+	background-color: rgba(255, 200, 0, 0.45);
+	color: inherit;
 }

@@ -3,6 +3,7 @@
 	import { api, ApiError } from '$lib/api';
 	import { locale, t } from '$lib/i18n';
 	import {
+		chunks,
 		DeviceSpeech,
 		readableText,
 		speechSupported,
@@ -11,6 +12,8 @@
 		type SpeechState
 	} from '$lib/speech';
 	import { speechPrefs } from '$lib/prefs';
+	import { offlineAudioUrl } from '$lib/offlineAudio';
+	import { chunkAt, SentenceHighlighter } from '$lib/highlight';
 	import type { Article } from '$lib/types';
 
 	// Read the open article aloud: the device's voice (everyone, free, offline)
@@ -61,6 +64,21 @@
 	const rate = $derived($speechPrefs.rate);
 	let msg = $state('');
 
+	// --- Highlight of the sentence being read (Accessibility) -------------------
+	let hl: SentenceHighlighter | null = null;
+	async function highlighter(): Promise<SentenceHighlighter | null> {
+		if (!$speechPrefs.highlight) return null;
+		await tick(); // the translated body may have just been rendered
+		if (!contentEl) return null;
+		// The body changes when switching to the translation: index it again.
+		if (hl && hl.element !== contentEl) {
+			hl.destroy();
+			hl = null;
+		}
+		hl ??= new SentenceHighlighter(contentEl);
+		return hl;
+	}
+
 	// --- Device voice -----------------------------------------------------------
 	let speech = $state.raw<DeviceSpeech | null>(null);
 	let dState = $state<SpeechState>('idle');
@@ -78,10 +96,12 @@
 				msg = $t('translate_unavailable');
 				return;
 			}
+			await highlighter();
 			speech = makeSpeech(translationText(tr.title, tr.paragraphs));
 			speech.play();
 			return;
 		}
+		if (!speech) await highlighter();
 		speech ??= makeSpeech(readableText(title, contentEl));
 		if (dState === 'playing') speech.pause();
 		else speech.play();
@@ -96,6 +116,8 @@
 				dState = s;
 				dIndex = i;
 				dTotal = n;
+				if (s === 'playing') hl?.show(speech?.part(i) ?? '');
+				else if (s === 'ended' || s === 'idle') hl?.clear();
 			},
 			$speechPrefs.deviceVoice[lang]
 		);
@@ -105,15 +127,30 @@
 	let sState = $state<'idle' | 'loading' | 'ready'>('idle');
 	let url = $state('');
 	let audioEl = $state<HTMLAudioElement | null>(null);
+	// Recordings carry no sentence timing: estimate it from the position.
+	let serverChunks: string[] = [];
+	let serverIdx = -1;
+	function onTimeUpdate() {
+		if (!audioEl || !hl || !audioEl.duration || !serverChunks.length) return;
+		const i = chunkAt(serverChunks, audioEl.currentTime / audioEl.duration);
+		if (i !== serverIdx) {
+			serverIdx = i;
+			hl.show(serverChunks[i]);
+		}
+	}
 
 	async function serverLoad() {
 		if (sState === 'loading') return;
 		msg = '';
 		sState = 'loading';
 		try {
-			if (myLang && getTranslation) await getTranslation(); // also shows it
-			const r = await api.articleAudio(article.id, lang, $speechPrefs.gender, !!myLang);
-			url = r.url;
+			// A recording kept for offline use plays at once (and without connection).
+			const stored = await offlineAudioUrl(article.id, lang, $speechPrefs.gender);
+			const tr = myLang && getTranslation ? await getTranslation().catch(() => null) : null; // also shows it
+			await highlighter();
+			serverChunks = chunks(tr ? translationText(tr.title, tr.paragraphs) : readableText(title, contentEl));
+			serverIdx = -1;
+			url = stored ?? (await api.articleAudio(article.id, lang, $speechPrefs.gender, !!myLang)).url;
 			sState = 'ready';
 			await Promise.resolve();
 			if (audioEl) {
@@ -171,6 +208,7 @@
 	onDestroy(() => {
 		speech?.stop();
 		audioEl?.pause();
+		hl?.destroy();
 	});
 </script>
 
@@ -190,6 +228,8 @@
 				controls
 				preload="auto"
 				onplay={onServerPlay}
+				ontimeupdate={onTimeUpdate}
+				onended={() => hl?.clear()}
 				onloadedmetadata={() => audioEl && (audioEl.playbackRate = rate)}
 			></audio>
 		{:else}

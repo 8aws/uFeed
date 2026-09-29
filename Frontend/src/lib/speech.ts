@@ -107,6 +107,11 @@ export class DeviceSpeech {
 		return this.parts.length;
 	}
 
+	/** Text of chunk i (for highlighting it). */
+	part(i: number): string {
+		return this.parts[i] ?? '';
+	}
+
 	/** Must be called from a user gesture the first time (iOS). */
 	play() {
 		if (!speechSupported() || !this.parts.length) return;

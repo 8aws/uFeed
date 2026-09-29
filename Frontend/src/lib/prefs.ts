@@ -33,6 +33,8 @@ export interface SpeechPrefs {
 	deviceVoice: Record<string, string>; // lang -> installed voice name ('' = automatic)
 	autoRead: boolean; // accessibility: start reading when an article opens
 	myLanguage: boolean; // translate articles in another language before reading
+	offlineAudio: boolean; // keep server-voice recordings of saved articles
+	highlight: boolean; // highlight the sentence being read (reading difficulties)
 }
 
 export const PACES = { calm: 0.85, normal: 1, fast: 1.25 } as const;
@@ -43,7 +45,9 @@ const SPEECH_DEFAULTS: SpeechPrefs = {
 	rate: 1,
 	deviceVoice: {},
 	autoRead: false,
-	myLanguage: false
+	myLanguage: false,
+	offlineAudio: false,
+	highlight: true
 };
 
 function initialSpeechPrefs(): SpeechPrefs {
@@ -64,6 +68,41 @@ speechPrefs.subscribe((value) => {
 	if (typeof localStorage === 'undefined') return;
 	try {
 		localStorage.setItem('speech_prefs', JSON.stringify(value));
+	} catch {
+		/* ignore */
+	}
+});
+
+/** Accessibility display options (per device). */
+export interface DisplayPrefs {
+	textScale: number; // 1 = default; scales the whole interface (rem-based)
+	font: 'system' | 'atkinson'; // Atkinson Hyperlegible: designed for low vision
+}
+
+export const TEXT_SCALES = [1, 1.15, 1.3, 1.5] as const;
+
+function initialDisplayPrefs(): DisplayPrefs {
+	const d: DisplayPrefs = { textScale: 1, font: 'system' };
+	try {
+		const raw = localStorage.getItem('display_prefs');
+		if (raw) return { ...d, ...(JSON.parse(raw) as Partial<DisplayPrefs>) };
+	} catch {
+		/* fall through */
+	}
+	return d;
+}
+
+export const displayPrefs = writable<DisplayPrefs>(
+	typeof localStorage !== 'undefined' ? initialDisplayPrefs() : { textScale: 1, font: 'system' }
+);
+
+displayPrefs.subscribe((value) => {
+	if (typeof document === 'undefined') return;
+	// Applied on <html> so every page (and the rem-based layout) follows.
+	document.documentElement.style.setProperty('--text-scale', String(value.textScale));
+	document.documentElement.dataset.font = value.font;
+	try {
+		localStorage.setItem('display_prefs', JSON.stringify(value));
 	} catch {
 		/* ignore */
 	}

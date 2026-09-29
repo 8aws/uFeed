@@ -1,5 +1,9 @@
 <script lang="ts">
 	import '../app.css';
+	// Only downloaded when Accessibility > Font selects it.
+	import '@fontsource/atkinson-hyperlegible/400.css';
+	import '@fontsource/atkinson-hyperlegible/700.css';
+	import '$lib/prefs'; // applies the display preferences (text size, font)
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
