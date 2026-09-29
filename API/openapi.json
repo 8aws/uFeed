@@ -1479,6 +1479,174 @@
         }
       }
     },
+    "/api/articles/{article_id}/translation": {
+      "get": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Article Translation",
+        "description": "The article machine-translated into `lang` (default: yours). Generated\non demand (generate=true), stored and shared; ~3-4 s for a long article.",
+        "operationId": "article_translation_api_articles__article_id__translation_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "en",
+                    "es"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lang"
+            }
+          },
+          {
+            "name": "generate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Generate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{article_id}/audio": {
+      "post": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Article Audio",
+        "description": "The article read aloud by the server's neural voice (plan feature).\n\nGenerated once per article and language (~25x real time on the NAS CPU)\nand shared by every reader; returns a short-lived signed URL to play it.",
+        "operationId": "article_audio_api_articles__article_id__audio_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lang"
+            }
+          },
+          {
+            "name": "voice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "f",
+                "m"
+              ],
+              "type": "string",
+              "default": "f",
+              "title": "Voice"
+            }
+          },
+          {
+            "name": "translated",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Translated"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleAudioOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/{article_id}/read": {
       "post": {
         "tags": [
@@ -1921,6 +2089,65 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/audio/{name}": {
+      "get": {
+        "tags": [
+          "audio"
+        ],
+        "summary": "Play",
+        "description": "Serve an article's MP3 (supports Range requests, which iOS needs).",
+        "operationId": "play_api_audio__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "exp",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Exp"
+            }
+          },
+          {
+            "name": "sig",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sig"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/trending": {
@@ -4334,6 +4561,29 @@
         "title": "ApiKeyOut",
         "description": "API key metadata (never includes the secret)."
       },
+      "ArticleAudioOut": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "lang": {
+            "type": "string",
+            "title": "Lang"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "lang",
+          "cached"
+        ],
+        "title": "ArticleAudioOut"
+      },
       "ArticleOut": {
         "properties": {
           "id": {
@@ -5288,6 +5538,11 @@
             "type": "boolean",
             "title": "Ai Features",
             "default": true
+          },
+          "tts_server": {
+            "type": "boolean",
+            "title": "Tts Server",
+            "default": false
           }
         },
         "type": "object",
@@ -5850,6 +6105,55 @@
           "refresh_token"
         ],
         "title": "Tokens"
+      },
+      "TranslationOut": {
+        "properties": {
+          "lang": {
+            "type": "string",
+            "title": "Lang"
+          },
+          "source_lang": {
+            "type": "string",
+            "title": "Source Lang"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "paragraphs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paragraphs"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "lang",
+          "source_lang"
+        ],
+        "title": "TranslationOut",
+        "description": "An article machine-translated into `lang` (null until generated)."
       },
       "TrendingItem": {
         "properties": {
