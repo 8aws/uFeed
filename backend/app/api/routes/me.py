@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import json
+import logging
+from typing import Any
+
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from app.api.deps import CurrentUser, DbSession
@@ -16,6 +21,7 @@ from app.services import auth as auth_service
 from app.services import moderation
 
 router = APIRouter(tags=["me"])
+log = logging.getLogger("ufeed.diag")
 
 
 @router.get("/me", response_model=UserOut)
@@ -66,4 +72,21 @@ async def delete_account(body: AccountDelete, user: CurrentUser, db: DbSession) 
                 400, "last_admin", "Make someone else admin before deleting this account."
             )
     await moderation.delete_user(db, user)
+    return OkResponse()
+
+
+class DiagReport(BaseModel):
+    """What the app saw before it stopped answering taps (temporary
+    diagnostics): heartbeats, taps that never became a click, stalls."""
+
+    events: list[dict[str, Any]] = Field(default_factory=list, max_length=120)
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post("/me/diag", response_model=OkResponse)
+async def client_diag(body: DiagReport, user: CurrentUser) -> OkResponse:
+    """Store a client diagnostics report in the server log."""
+    if await check_rate(f"diag:{user.id}", 20, window_s=3600):
+        payload = json.dumps(body.model_dump(), ensure_ascii=False, default=str)[:20000]
+        log.warning("client diag user=%s %s", user.id, payload)
     return OkResponse()

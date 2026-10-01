@@ -124,6 +124,8 @@ export const api = {
 		request<Tokens>('/me/password', { method: 'POST', body: { current_password, new_password } }),
 	// Deletes the account and all its data (asks for the password).
 	deleteAccount: (password: string) => request<unknown>('/me/delete', { method: 'POST', body: { password } }),
+	sendDiag: (report: { events: unknown[]; context: Record<string, unknown> }) =>
+		request<unknown>('/me/diag', { method: 'POST', body: report }),
 
 	// API keys (for the public /api/v1 read-only API)
 	listKeys: () => request<ApiKey[]>('/keys'),

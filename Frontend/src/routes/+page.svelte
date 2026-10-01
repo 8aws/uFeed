@@ -22,6 +22,7 @@
 	import Onboarding from '$lib/components/Onboarding.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import ListenBar from '$lib/components/ListenBar.svelte';
+	import { startDiag } from '$lib/diag';
 	import type { Article, DiscoveredFeed, Folder, Insights, Subscription } from '$lib/types';
 
 	type View = 'list' | 'cardlist' | 'cards' | 'masonry';
@@ -1208,6 +1209,19 @@
 
 	onMount(async () => {
 		initOutbox();
+		// Temporary: what was on screen if taps stop working (see lib/diag.ts).
+		startDiag(() => ({
+			view,
+			filter: filter.kind,
+			items: articles.length,
+			reader: openArticle?.id ?? null,
+			words: openArticle?.word_count ?? null,
+			readingS: readingStart ? Math.round((Date.now() - readingStart) / 1000) : null,
+			scroll: readerEl ? [Math.round(readerEl.scrollTop), readerEl.scrollHeight, readerEl.clientHeight] : null,
+			listen: listenOpen,
+			radio: !!radio,
+			online: navigator.onLine
+		}));
 		setFolderLookup((sourceId) => subs.find((x) => x.source.id === sourceId)?.folder_id ?? null);
 		const snap = await readSnapshot();
 		if (snap) {
@@ -1681,6 +1695,7 @@
 						role="button"
 						tabindex="0"
 						class="acard"
+						class:noimg={!thumbUrl(a)}
 						class:selected={i === selected}
 						class:read={a.is_read}
 						onclick={() => open(i)}
@@ -1702,9 +1717,16 @@
 								{#if a.dup_count > 1}<span class="dup" title={$t('duplicates')}>+{a.dup_count - 1}</span>{/if}
 								{#if a.is_saved}<span class="star">★</span>{/if}
 								{#if a.is_favorite}<span class="star">♥</span>{/if}
+								{#if view === 'cardlist'}
+									<span class="swipehint" aria-hidden="true">← {a.is_saved ? '☆' : '★'}</span>
+								{/if}
 							</div>
 							<p class="excerpt">{a.ai_summary || stripHtml(a.summary || a.content_html)}</p>
 						</div>
+						<!-- Card list: what each swipe does, in the space beside the meta line. -->
+						{#if view === 'cardlist'}
+							<span class="swipehint left" aria-hidden="true">{a.is_read ? '↺' : '✓'} →</span>
+						{/if}
 					</article>
 				{/each}
 			</div>
@@ -2026,6 +2048,62 @@
 	.grid.cardlist {
 		display: flex;
 		flex-direction: column;
+	}
+	/* Card list: photo and title side by side; below them the meta line (with
+	   the swipe hints at both ends) and the summary across the full width. */
+	.grid.cardlist .acard {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		grid-template-areas:
+			'thumb title'
+			'hintl meta'
+			'excerpt excerpt';
+		column-gap: 0.75rem;
+		row-gap: 0.3rem;
+	}
+	.grid.cardlist .acard.noimg {
+		grid-template-areas:
+			'title title'
+			'hintl meta'
+			'excerpt excerpt';
+	}
+	.grid.cardlist .acard-body {
+		display: contents;
+	}
+	.grid.cardlist .thumb {
+		grid-area: thumb;
+	}
+	.grid.cardlist .atitle {
+		grid-area: title;
+		align-self: center;
+	}
+	.grid.cardlist .meta {
+		grid-area: meta;
+		justify-content: flex-start;
+		align-items: center;
+		gap: 0.3rem;
+		margin-top: 0;
+	}
+	.grid.cardlist .meta .ellipsis {
+		min-width: 0;
+	}
+	.grid.cardlist .excerpt {
+		grid-area: excerpt;
+		margin: 0;
+	}
+	.swipehint {
+		flex: none;
+		margin-left: auto;
+		font-size: 0.75rem;
+		white-space: nowrap;
+		opacity: 0.6;
+	}
+	.swipehint.left {
+		grid-area: hintl;
+		justify-self: center;
+		align-self: center;
+		margin-left: 0;
+		color: var(--muted);
 	}
 	.acard {
 		display: flex;
