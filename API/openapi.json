@@ -269,6 +269,100 @@
         ]
       }
     },
+    "/api/me/delete": {
+      "post": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Delete Account",
+        "description": "Delete your own account and all its data (feeds, folders, saved and\nread state, API keys). Asks for the password; the last administrator\ncan't delete themselves (the instance would be left without one).",
+        "operationId": "delete_account_api_me_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountDelete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/me/diag": {
+      "post": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Client Diag",
+        "description": "Store a client diagnostics report in the server log.",
+        "operationId": "client_diag_api_me_diag_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/keys": {
       "get": {
         "tags": [
@@ -1479,6 +1573,55 @@
         }
       }
     },
+    "/api/articles/{article_id}/full": {
+      "post": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Full Text",
+        "description": "Fetch (once) and return the full article from its web page, for feeds\nthat only publish an excerpt. Shared by every reader.",
+        "operationId": "full_text_api_articles__article_id__full_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FullTextOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/{article_id}/translation": {
       "get": {
         "tags": [
@@ -2097,7 +2240,7 @@
           "audio"
         ],
         "summary": "Play",
-        "description": "Serve an article's MP3 (supports Range requests, which iOS needs).",
+        "description": "Serve an article's MP3: the finished file (with Range support, which iOS\nneeds to seek), or -- while it's still being generated -- a live stream\nthat follows the file as it grows.",
         "operationId": "play_api_audio__name__get",
         "parameters": [
           {
@@ -2678,6 +2821,57 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TemporaryPassword"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/metrics": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Resource Metrics",
+        "description": "Resource monitor: load/memory/storage/users samples and daily usage of\nthe heavy features (voice, translation, AI summaries).",
+        "operationId": "resource_metrics_api_admin_metrics_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 7,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Resource Metrics Api Admin Metrics Get"
                 }
               }
             }
@@ -4131,6 +4325,19 @@
         "title": "AISummaryOut",
         "description": "LLM summary of an article in one language (null until generated)."
       },
+      "AccountDelete": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "title": "AccountDelete"
+      },
       "AdminSettings": {
         "properties": {
           "registration_open": {
@@ -4159,6 +4366,11 @@
           "dormant_delete_days": {
             "type": "integer",
             "title": "Dormant Delete Days"
+          },
+          "contact_email": {
+            "type": "string",
+            "title": "Contact Email",
+            "default": ""
           },
           "roles": {
             "items": {
@@ -4264,6 +4476,19 @@
               }
             ],
             "title": "Dormant Delete Days"
+          },
+          "contact_email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 254,
+                "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email"
           }
         },
         "type": "object",
@@ -4727,6 +4952,17 @@
             ],
             "title": "Fetched At"
           },
+          "full_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Status"
+          },
           "is_read": {
             "type": "boolean",
             "title": "Is Read",
@@ -5007,6 +5243,27 @@
         ],
         "title": "CatalogSection"
       },
+      "DiagReport": {
+        "properties": {
+          "events": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "maxItems": 120,
+            "title": "Events"
+          },
+          "context": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "title": "DiagReport",
+        "description": "What the app saw before it stopped answering taps (temporary\ndiagnostics): heartbeats, taps that never became a click, stalls."
+      },
       "DiscoverRequest": {
         "properties": {
           "url": {
@@ -5138,6 +5395,40 @@
         },
         "type": "object",
         "title": "FolderUpdate"
+      },
+      "FullTextOut": {
+        "properties": {
+          "html": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Html"
+          },
+          "words": {
+            "type": "integer",
+            "title": "Words",
+            "default": 0
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "title": "FullTextOut",
+        "description": "The article's full text (from its web page), when the feed had only an excerpt."
       },
       "HTTPValidationError": {
         "properties": {
@@ -5543,6 +5834,39 @@
             "type": "boolean",
             "title": "Tts Server",
             "default": false
+          },
+          "post_radio": {
+            "type": "boolean",
+            "title": "Post Radio",
+            "default": false
+          },
+          "radio_max_posts": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 500.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Radio Max Posts",
+            "default": 20
+          },
+          "radio_max_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1440.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Radio Max Minutes",
+            "default": 60
           }
         },
         "type": "object",
@@ -5712,6 +6036,11 @@
             },
             "type": "object",
             "title": "Plan Limits"
+          },
+          "contact_email": {
+            "type": "string",
+            "title": "Contact Email",
+            "default": ""
           }
         },
         "type": "object",

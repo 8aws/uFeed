@@ -60,8 +60,8 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 
 ### Etapa 0 — Preparación (½–1 día)
 
-- [ ] Regenerar `API/openapi.json` desde el Bee. Hoy le faltan
-      `POST /articles/{id}/full` y `POST /me/delete`.
+- [x] Regenerar `API/openapi.json` desde el Bee (1 oct: ya incluye `/full`,
+      `/me/delete` y `/me/diag`).
 - [ ] Decidir: cliente generado o modelos a mano (ver §6).
 - [ ] `flutter create` en `App/` (iOS + Android), con lints, ARB ES/EN, iconos
       (reutilizar `scripts/make_icons.py`) y esquema de color de la web.
