@@ -28,7 +28,7 @@ export class SentenceHighlighter {
 	private onUser = () => (this.lastUserScroll = Date.now());
 
 	constructor(private root: HTMLElement) {
-		this.scroller = root.closest('.reader');
+		this.scroller = root.closest('.reader-body');
 		this.scroller?.addEventListener('wheel', this.onUser, { passive: true });
 		this.scroller?.addEventListener('touchmove', this.onUser, { passive: true });
 		this.index();

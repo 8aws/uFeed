@@ -1717,7 +1717,10 @@
 
 	{#if openArticle}
 		{@const a = openArticle}
-		<article class="reader" bind:this={readerEl}>
+		<!-- The toolbar sits above the scrolling body, not sticky inside it: on iOS
+		     a sticky bar in a fixed scroller stops repainting after a long scroll,
+		     so taps work but the screen looks frozen until the next gesture. -->
+		<article class="reader">
 			<div class="reader-head">
 				<button class="close" onclick={closeReader} aria-label="close">×</button>
 				<div class="reader-actions labels-{$toolbarLabels}">
@@ -1878,81 +1881,83 @@
 					{/key}
 				{/if}
 			</div>
-			<h1>{showTr && tr?.id === a.id && tr.title ? tr.title : title(a)}</h1>
-			{#if llm?.id === a.id && llm.title}
-				<p class="trtitle">🌐 {llm.title}</p>
-			{/if}
-			<p class="muted small">
-				{sourceName(a.source_id)}
-				{#if a.author}· {$t('by')} {a.author}{/if}
-				· {relativeTime(a.published_at, $locale)}
-				{#if a.word_count}· {readingTime(a.word_count, $locale)}{/if}
-			</p>
-			{#if a.tags.length}
-				<div class="tags">
-					{#each a.tags as tag (tag)}<span class="tag">{tag}</span>{/each}
-				</div>
-			{/if}
-			{#if a.ai_summary || aiAllowed}
-				{@const gen = llm?.id === a.id ? llm : null}
-				<div class="ai-summary" class:folded={!summaryOpen}>
-					<div class="ai-summary-head">
-						<button class="ai-summary-label" onclick={toggleSummary} aria-expanded={summaryOpen}>
-							✨ {gen?.summary ? `${$t('ai_summary_llm')} · ${gen.model}` : $t('summary_label')}
-							<span class="chev" aria-hidden="true">{summaryOpen ? '▾' : '▸'}</span>
-						</button>
-						<!-- Folded: the AI summary stays one tap away. -->
-						{#if !summaryOpen && aiAllowed && !gen?.summary}
-							<button class="llm-mini" onclick={() => generateLLM(a)} disabled={gen?.loading}>
-								{gen?.loading ? `⏳ ${llmSecs} s` : `✨ ${$t('ai_generate_short')}`}
+			<div class="reader-body" bind:this={readerEl}>
+				<h1>{showTr && tr?.id === a.id && tr.title ? tr.title : title(a)}</h1>
+				{#if llm?.id === a.id && llm.title}
+					<p class="trtitle">🌐 {llm.title}</p>
+				{/if}
+				<p class="muted small">
+					{sourceName(a.source_id)}
+					{#if a.author}· {$t('by')} {a.author}{/if}
+					· {relativeTime(a.published_at, $locale)}
+					{#if a.word_count}· {readingTime(a.word_count, $locale)}{/if}
+				</p>
+				{#if a.tags.length}
+					<div class="tags">
+						{#each a.tags as tag (tag)}<span class="tag">{tag}</span>{/each}
+					</div>
+				{/if}
+				{#if a.ai_summary || aiAllowed}
+					{@const gen = llm?.id === a.id ? llm : null}
+					<div class="ai-summary" class:folded={!summaryOpen}>
+						<div class="ai-summary-head">
+							<button class="ai-summary-label" onclick={toggleSummary} aria-expanded={summaryOpen}>
+								✨ {gen?.summary ? `${$t('ai_summary_llm')} · ${gen.model}` : $t('summary_label')}
+								<span class="chev" aria-hidden="true">{summaryOpen ? '▾' : '▸'}</span>
 							</button>
+							<!-- Folded: the AI summary stays one tap away. -->
+							{#if !summaryOpen && aiAllowed && !gen?.summary}
+								<button class="llm-mini" onclick={() => generateLLM(a)} disabled={gen?.loading}>
+									{gen?.loading ? `⏳ ${llmSecs} s` : `✨ ${$t('ai_generate_short')}`}
+								</button>
+							{/if}
+						</div>
+						{#if summaryOpen}
+							{gen?.summary ?? a.ai_summary ?? ''}
+						{/if}
+						{#if summaryOpen && aiAllowed && !gen?.summary}
+							<div class="llm-row">
+								<button class="llm-btn" onclick={() => generateLLM(a)} disabled={gen?.loading}>
+									{gen?.loading ? `${$t('ai_generating')} ${llmSecs} s` : $t('ai_generate')}
+								</button>
+								{#if gen?.error}<span class="llm-err">{gen.error}</span>{/if}
+							</div>
 						{/if}
 					</div>
-					{#if summaryOpen}
-						{gen?.summary ?? a.ai_summary ?? ''}
-					{/if}
-					{#if summaryOpen && aiAllowed && !gen?.summary}
-						<div class="llm-row">
-							<button class="llm-btn" onclick={() => generateLLM(a)} disabled={gen?.loading}>
-								{gen?.loading ? `${$t('ai_generating')} ${llmSecs} s` : $t('ai_generate')}
-							</button>
-							{#if gen?.error}<span class="llm-err">{gen.error}</span>{/if}
-						</div>
-					{/if}
-				</div>
-			{/if}
-			{#if trError}<p class="muted small">{trError}</p>{/if}
-			{#if showTr && tr?.id === a.id}
-				<div class="content translated" bind:this={readerContentEl}>
-					<p class="trnote">🌐 {$t('machine_translation')}</p>
-					{#each tr.paragraphs as para, i (i)}<p>{para}</p>{/each}
-				</div>
-			{:else}
-				{#if fullBusy === a.id}<p class="fullnote">⏳ {$t('full_loading')}</p>{/if}
-				{#if fullMsg}<p class="muted small">{fullMsg}</p>{/if}
-				{#if fullShown[a.id] && fullHtml.has(a.id)}
-					<p class="fullnote">📰 {$t('full_note')}</p>
 				{/if}
-				<div class="content" use:embeds={`${a.id}:${fullShown[a.id] ? 'full' : 'feed'}`} bind:this={readerContentEl}>
-					{@html safeHtml(fullShown[a.id] && fullHtml.get(a.id) ? fullHtml.get(a.id) : a.content_html || a.summary, a.url)}
-				</div>
-			{/if}
-			{#if similarList.length}
-				<div class="similar">
-					<h3>✨ {$t('similar')}</h3>
-					{#each similarList as s (s.id)}
-						<button class="simrow" onclick={() => openArticleObj(s)}>
-							{#if thumbUrl(s)}
-								<img class="simthumb" src={thumbUrl(s)} alt="" loading="lazy" onerror={hideImg} />
-							{/if}
-							<span class="simbody">
-								<span class="ellipsis2">{title(s)}</span>
-								<span class="cmeta muted">{sourceName(s.source_id) || ''}</span>
-							</span>
-						</button>
-					{/each}
-				</div>
-			{/if}
+				{#if trError}<p class="muted small">{trError}</p>{/if}
+				{#if showTr && tr?.id === a.id}
+					<div class="content translated" bind:this={readerContentEl}>
+						<p class="trnote">🌐 {$t('machine_translation')}</p>
+						{#each tr.paragraphs as para, i (i)}<p>{para}</p>{/each}
+					</div>
+				{:else}
+					{#if fullBusy === a.id}<p class="fullnote">⏳ {$t('full_loading')}</p>{/if}
+					{#if fullMsg}<p class="muted small">{fullMsg}</p>{/if}
+					{#if fullShown[a.id] && fullHtml.has(a.id)}
+						<p class="fullnote">📰 {$t('full_note')}</p>
+					{/if}
+					<div class="content" use:embeds={`${a.id}:${fullShown[a.id] ? 'full' : 'feed'}`} bind:this={readerContentEl}>
+						{@html safeHtml(fullShown[a.id] && fullHtml.get(a.id) ? fullHtml.get(a.id) : a.content_html || a.summary, a.url)}
+					</div>
+				{/if}
+				{#if similarList.length}
+					<div class="similar">
+						<h3>✨ {$t('similar')}</h3>
+						{#each similarList as s (s.id)}
+							<button class="simrow" onclick={() => openArticleObj(s)}>
+								{#if thumbUrl(s)}
+									<img class="simthumb" src={thumbUrl(s)} alt="" loading="lazy" onerror={hideImg} />
+								{/if}
+								<span class="simbody">
+									<span class="ellipsis2">{title(s)}</span>
+									<span class="cmeta muted">{sourceName(s.source_id) || ''}</span>
+								</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</article>
 	{/if}
 </div>
@@ -2699,20 +2704,29 @@
 		color: #eab308;
 	}
 	.reader {
-		overflow-y: auto;
-		padding: 1.25rem 1.5rem 3rem;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		overflow: hidden;
 	}
 	.reader-head {
+		flex: none;
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: space-between;
 		align-items: center;
 		gap: 0.4rem;
-		position: sticky;
-		top: 0;
+		position: relative;
 		z-index: 4;
 		background: var(--bg);
-		padding-bottom: 0.5rem;
+		padding: 1.25rem 1.5rem 0.5rem;
+	}
+	.reader-body {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		padding: 0 1.5rem 3rem;
 	}
 	.morebtn {
 		display: none;
@@ -3006,32 +3020,21 @@
 			inset: 0;
 			background: var(--bg);
 			z-index: 25;
-			padding: calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right))
-				calc(3rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left));
-			/* No sideways scroll: content is clipped to the viewport so vertical
-			   scrolling can't wobble the page left-right ("flan"). */
-			overflow-x: hidden;
-			overscroll-behavior: contain;
-		}
-		/* Pinned below the status bar in the store app; the strip above it
-		   hides the text scrolling underneath. */
-		.reader-head {
-			top: env(safe-area-inset-top);
-		}
-		.reader-head::before {
-			content: '';
-			position: absolute;
-			left: -1rem;
-			right: -1rem;
-			bottom: 100%;
-			height: env(safe-area-inset-top);
-			background: var(--bg);
+			/* Toolbar below the status bar; text scrolls down to the home bar. */
+			padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
 		}
 		/* Action bar must not exceed the right edge: wrap onto more rows and use
 		   compact buttons instead of spilling off-screen. */
 		.reader-head {
 			flex-wrap: wrap;
 			gap: 0.4rem;
+			padding: 1rem 1rem 0.5rem;
+		}
+		.reader-body {
+			padding: 0 1rem calc(3rem + env(safe-area-inset-bottom));
+			/* No sideways scroll: content is clipped to the viewport so vertical
+			   scrolling can't wobble the page left-right ("flan"). */
+			overflow-x: hidden;
 		}
 		.reader-actions {
 			flex-wrap: wrap;

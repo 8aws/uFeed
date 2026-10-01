@@ -36,6 +36,13 @@ export function safeHtml(html: string | null | undefined, baseUrl?: string | nul
 				node.setAttribute('target', '_blank');
 				node.setAttribute('rel', 'noopener noreferrer nofollow');
 			}
+			if (node.tagName === 'IMG') {
+				// Long articles carry dozens of full-size photos: fetch them as the
+				// reader gets there and decode off the main thread, or a small
+				// iPhone stops answering taps while it works through them.
+				node.setAttribute('loading', 'lazy');
+				node.setAttribute('decoding', 'async');
+			}
 			if (node.tagName === 'VIDEO' || node.tagName === 'AUDIO') {
 				// Playable, and quiet until the reader asks (saves mobile data).
 				node.removeAttribute('autoplay');
