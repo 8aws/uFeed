@@ -54,6 +54,21 @@
 	let articles = $state<Article[]>([]);
 	let cursor = $state<string | null>(null);
 	let hasMore = $state(false);
+	// In a feed or folder: only what's left to read (default), or everything.
+	let onlyUnread = $state(typeof localStorage === 'undefined' || localStorage.getItem('only_unread') !== '0');
+	function setOnlyUnread(v: boolean) {
+		onlyUnread = v;
+		try {
+			localStorage.setItem('only_unread', v ? '1' : '0');
+		} catch {
+			/* ignore */
+		}
+		listEl?.scrollTo(0, 0);
+		loadArticles(true);
+	}
+	/** Lists where a post that gets read leaves the list. */
+	const unreadView = () =>
+		filter.kind === 'unread' || ((filter.kind === 'source' || filter.kind === 'folder') && onlyUnread);
 	let loading = $state(false);
 	let selected = $state(0);
 	let openArticle = $state<Article | null>(null);
@@ -203,7 +218,7 @@
 
 	function buildParams(reset: boolean): Record<string, string> {
 		const p: Record<string, string> = { limit: '30' };
-		if (filter.kind === 'unread') p.unread = 'true';
+		if (unreadView()) p.unread = 'true';
 		if (filter.kind === 'saved') p.saved = 'true';
 		if (filter.kind === 'favorites') p.favorite = 'true';
 		if (filter.kind === 'source') p.source = filter.id;
@@ -302,6 +317,8 @@
 			articles = reset ? items : [...articles, ...items];
 			cursor = page.next_cursor;
 			hasMore = !!page.next_cursor;
+			// A short page (or many posts read and gone) may leave the end in view.
+			tick().then(loadMore);
 			if (reset) {
 				selected = 0;
 				fromSnapshot = false;
@@ -327,6 +344,7 @@
 		filter = f;
 		openArticle = null;
 		sidebarOpen = false; // close the mobile drawer after picking a feed/folder
+		listEl?.scrollTo(0, 0); // a new list starts at its top
 		loadArticles(true);
 	}
 
@@ -761,7 +779,7 @@
 	async function markRead(a: Article, read: boolean) {
 		a.is_read = read;
 		// In Unread, a read post leaves the list at once (long-press, swipe, m key).
-		articles = read && filter.kind === 'unread' ? articles.filter((x) => x.id !== a.id) : [...articles];
+		articles = read && unreadView() ? articles.filter((x) => x.id !== a.id) : [...articles];
 		// Marking read from the list without opening is a weak "skip" signal.
 		if (read && openArticle?.id !== a.id) runOp({ type: 'engage', id: a.id, kind: 'skip' });
 		try {
@@ -811,7 +829,7 @@
 					? subs.find((x) => x.source.id === sourceId)?.folder_id === folder_id
 					: true;
 		for (const a of articles) if (inScope(a.source_id)) a.is_read = true;
-		articles = filter.kind === 'unread' ? articles.filter((a) => !a.is_read) : [...articles];
+		articles = unreadView() ? articles.filter((a) => !a.is_read) : [...articles];
 		subs = subs.map((x) => (inScope(x.source.id) ? { ...x, unread_count: 0 } : x));
 		if ((await runOp({ type: 'markAll', folder_id, source_id })) === 'sent') {
 			await Promise.all([loadArticles(true), loadSidebar()]);
@@ -888,10 +906,32 @@
 		document.querySelector(`[data-idx="${selected}"]`)?.scrollIntoView({ block: 'nearest' });
 	}
 
-	function sentinel(node: HTMLElement) {
-		const io = new IntersectionObserver((entries) => {
-			if (entries[0].isIntersecting && hasMore && !loading) loadArticles(false);
+	// Endless list: load the next page when the end comes near, from the
+	// list's own scroll as well as an observer (iOS doesn't always report a
+	// sentinel that stays in view), and again after each page if it's short.
+	function nearEnd(): boolean {
+		const el = listEl;
+		return !!el && el.scrollTop + el.clientHeight > el.scrollHeight - 800;
+	}
+	function loadMore() {
+		if (hasMore && !loading && nearEnd()) loadArticles(false);
+	}
+	let scrollTick = false;
+	function onListScroll() {
+		if (scrollTick) return;
+		scrollTick = true;
+		requestAnimationFrame(() => {
+			scrollTick = false;
+			loadMore();
 		});
+	}
+	function sentinel(node: HTMLElement) {
+		const io = new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting && hasMore && !loading) loadArticles(false);
+			},
+			{ root: node.closest('.list'), rootMargin: '0px 0px 800px 0px' }
+		);
 		io.observe(node);
 		return { destroy: () => io.disconnect() };
 	}
@@ -1557,7 +1597,7 @@
 		<button class="nav" onclick={logout}>{$t('logout')}</button>
 	</aside>
 
-	<main class="list" bind:this={listEl}>
+	<main class="list" bind:this={listEl} onscroll={onListScroll}>
 		{#if fromSnapshot && loading}
 			<div class="updating" role="progressbar" aria-label={$t('loading')}></div>
 		{/if}
@@ -1591,6 +1631,24 @@
 				{#if refreshMsg}<span class="refresh-msg muted">{refreshMsg}</span>{/if}
 				{#if pendingNew > 0}
 					<button class="newpill" onclick={showPending}>+{pendingNew} {$t('new_items')}</button>
+				{/if}
+				{#if filter.kind === 'source' || filter.kind === 'folder'}
+					{@const f = filter}
+					{@const left = subs
+						.filter((x) => (f.kind === 'source' ? x.source.id === f.id : x.folder_id === f.id))
+						.reduce((n, x) => n + x.unread_count, 0)}
+					<!-- In a feed or folder: just what's left to read, or everything. -->
+					<button
+						class:active={onlyUnread}
+						onclick={() => setOnlyUnread(!onlyUnread)}
+						aria-pressed={onlyUnread}
+						title={onlyUnread ? $t('show_all_posts') : $t('show_unread_only')}
+					>
+						<span class="ico" aria-hidden="true">{onlyUnread ? '●' : '○'}</span><span class="lbl"
+							>{$t('unread')}</span
+						>
+						<span class="count">{left}</span>
+					</button>
 				{/if}
 				<button
 					class="viewtrigger"
@@ -1666,7 +1724,14 @@
 		{/if}
 
 		{#if articles.length === 0 && !loading}
-			<p class="empty muted">{$t('no_articles')}</p>
+			{#if (filter.kind === 'source' || filter.kind === 'folder') && onlyUnread && !query.trim()}
+				<p class="empty muted">
+					{$t('no_unread_here')}
+					<button class="linkbtn" onclick={() => setOnlyUnread(false)}>{$t('show_all')}</button>
+				</p>
+			{:else}
+				<p class="empty muted">{$t('no_articles')}</p>
+			{/if}
 		{/if}
 
 		{#if view === 'list'}
@@ -1747,7 +1812,7 @@
 		{/if}
 
 		{#if loading && !fromSnapshot}<p class="muted center">{$t('loading')}</p>{/if}
-		{#if hasMore}<div use:sentinel></div>{/if}
+		{#if hasMore}<div class="sentinel" use:sentinel></div>{/if}
 		<p class="hint muted">{$t('shortcuts')}</p>
 	</main>
 
@@ -2968,6 +3033,19 @@
 		text-align: center;
 		font-size: 0.75rem;
 		padding: 1rem 0;
+	}
+	.linkbtn {
+		border: none;
+		background: none;
+		padding: 0;
+		color: var(--accent);
+		text-decoration: underline;
+		cursor: pointer;
+		font: inherit;
+	}
+	.actions .count {
+		font-size: 0.75rem;
+		opacity: 0.75;
 	}
 	.empty {
 		padding: 2rem;
