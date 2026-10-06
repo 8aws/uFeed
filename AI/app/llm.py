@@ -23,7 +23,7 @@ LLM_MODEL = os.getenv("AI_LLM_MODEL", "")  # e.g. OpenVINO/Qwen3-4B-int4-ov
 LLM_DEVICE = os.getenv("AI_LLM_DEVICE", "GPU")
 MODELS_DIR = os.getenv("AI_MODELS_DIR", "/models")
 MAX_INPUT_CHARS = 6000
-KV_CACHE_GB = float(os.getenv("AI_LLM_KV_GB", "1"))  # ~0.3 GB per 2k-token article
+KV_CACHE_GB = max(1, int(os.getenv("AI_LLM_KV_GB", "1")))  # ~0.3 GB per 2k-token article
 
 _pipe = None
 _error: str | None = None
