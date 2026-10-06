@@ -66,6 +66,15 @@
 		listEl?.scrollTo(0, 0);
 		loadArticles(true);
 	}
+	/** Whether a post is part of the feed/folder (or everything) on screen. */
+	function belongsHere(a: Article): boolean {
+		if (filter.kind === 'source') return a.source_id === filter.id;
+		if (filter.kind === 'folder') {
+			const id = filter.id;
+			return subs.some((x) => x.source.id === a.source_id && x.folder_id === id);
+		}
+		return filter.kind === 'unread';
+	}
 	/** Lists where a post that gets read leaves the list. */
 	const unreadView = () =>
 		filter.kind === 'unread' || ((filter.kind === 'source' || filter.kind === 'folder') && onlyUnread);
@@ -778,8 +787,16 @@
 
 	async function markRead(a: Article, read: boolean) {
 		a.is_read = read;
-		// In Unread, a read post leaves the list at once (long-press, swipe, m key).
-		articles = read && unreadView() ? articles.filter((x) => x.id !== a.id) : [...articles];
+		// In Unread, a read post leaves the list at once (long-press, swipe, m key),
+		// and one marked unread again (e.g. from the reader) comes back to its place.
+		if (read && unreadView()) articles = articles.filter((x) => x.id !== a.id);
+		else if (!read && unreadView() && belongsHere(a) && !articles.some((x) => x.id === a.id)) {
+			// Same order as the server: newest first, ties by id (descending).
+			const when = (x: Article) => new Date(x.published_at ?? x.fetched_at ?? 0).getTime();
+			const ahead = (x: Article) => when(x) > when(a) || (when(x) === when(a) && x.id > a.id);
+			const at = articles.findIndex((x) => !ahead(x));
+			articles = at < 0 ? [...articles, a] : [...articles.slice(0, at), a, ...articles.slice(at)];
+		} else articles = [...articles];
 		// Marking read from the list without opening is a weak "skip" signal.
 		if (read && openArticle?.id !== a.id) runOp({ type: 'engage', id: a.id, kind: 'skip' });
 		try {
