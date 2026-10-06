@@ -167,3 +167,18 @@ async def test_digest_by_api_key(api: AsyncClient, db_session: AsyncSession) -> 
     key = (await api.post("/api/keys", headers=h, json={"name": "oneday"})).json()
     r = await api.get("/api/v1/digest", headers={"X-API-Key": key["key"]})
     assert r.status_code == 200 and r.json()["total_new"] == 1
+
+
+async def test_digest_summaries_are_queued_ahead(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    from app.services import ai_queue
+
+    get_redis.cache_clear()
+    h, ids = await _reader_with_news(api, db_session, n=2)
+    me = (await api.get("/api/me", headers=h)).json()
+    user = await db_session.get(User, uuid.UUID(me["id"]))
+    assert await digest.prepare(db_session, user) == 2  # both lack a summary
+    status = await ai_queue.status(uuid.UUID(ids[0]), user.locale[:2])
+    assert status["status"] == "queued"
+    await get_redis().delete(ai_queue.PENDING)

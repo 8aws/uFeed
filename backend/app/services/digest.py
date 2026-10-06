@@ -229,9 +229,39 @@ async def run_due() -> int:
                 sent += int(await send_one(db, user, today))
             except Exception:  # noqa: BLE001 - one user's problem doesn't stop the rest
                 log.exception("digest for %s failed", user.id)
+        # An hour ahead: queue AI summaries (low priority) for the next round
+        # of digests, so the email shows summaries rather than excerpts.
+        soon = (now.hour + 1) % 24
+        upcoming = (
+            await db.execute(
+                select(User).where(
+                    User.is_active.is_(True),
+                    User.digest_hour == soon,
+                    (User.digest_sent_on.is_(None)) | (User.digest_sent_on < today),
+                )
+            )
+        ).scalars()
+        for user in list(upcoming):
+            try:
+                await prepare(db, user)
+            except Exception:  # noqa: BLE001 - only a head start
+                log.exception("digest summaries for %s failed", user.id)
     if sent:
         log.info("sent %d digests", sent)
     return sent
+
+
+async def prepare(db: AsyncSession, user: User) -> int:
+    """Queue the missing AI summaries of this user's next digest."""
+    from app.services import ai_queue
+
+    lang = (user.locale or "en")[:2]
+    queued = 0
+    for it in (await build(db, user))["items"]:
+        if not it["ai_summary"]:
+            _, created = await ai_queue.enqueue(uuid.UUID(it["id"]), lang, ai_queue.BACKGROUND)
+            queued += int(created)
+    return queued
 
 
 async def turn_off(db: AsyncSession, user_id: uuid.UUID) -> None:
