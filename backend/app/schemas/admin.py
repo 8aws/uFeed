@@ -18,6 +18,8 @@ class PlanLimits(BaseModel):
     post_radio: bool = False  # read posts one after another
     radio_max_posts: int | None = Field(default=20, ge=1, le=500)  # None = unlimited
     radio_max_minutes: int | None = Field(default=60, ge=1, le=1440)  # None = unlimited
+    ai_summaries_per_day: int | None = Field(default=None, ge=0, le=10_000)  # None = unlimited
+    ai_priority: int = Field(default=1, ge=0, le=2)  # 0 = first in the AI queue
 
 
 class SiteConfig(BaseModel):

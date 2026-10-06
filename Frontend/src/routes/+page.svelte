@@ -344,6 +344,7 @@
 	}
 
 	// On-demand LLM summary for the open article (in the reader's language).
+	// Asking queues it on the server (plan priority); we poll until it's ready.
 	let llm = $state<{
 		id: string;
 		summary: string | null;
@@ -351,27 +352,48 @@
 		model: string | null;
 		loading: boolean;
 		error: string;
+		status?: string;
+		position?: number | null;
+		eta_s?: number | null;
 	} | null>(null);
 
-	let llmSecs = $state(0); // shown while the on-device LLM works (~15-20 s)
-	async function generateLLM(a: Article) {
-		if (!llm || llm.id !== a.id || llm.loading) return;
-		summaryOpen = true; // the result shows in the (unfolded) box
+	let llmSecs = $state(0); // waiting time shown in the bar
+	let summaryOpen = $state(false); // each article starts with the bar folded
+
+	function llmError(e: unknown): string {
+		const code = e instanceof ApiError ? e.code : '';
+		if (code === 'rate_limited') return $t('ai_rate');
+		if (code === 'plan_limit_ai') return $t('plan_limit_ai');
+		if (code === 'plan_limit_ai_daily') return $t('ai_daily_limit');
+		return $t('ai_unavailable');
+	}
+
+	/** The bar: folds/unfolds a summary we have; otherwise asks for one. */
+	async function summaryBar(a: Article) {
+		if (!llm || llm.id !== a.id) return;
+		if (llm.summary || llm.loading) {
+			summaryOpen = !summaryOpen || llm.loading;
+			return;
+		}
+		if (!aiAllowed) return;
+		summaryOpen = true;
 		llm = { ...llm, loading: true, error: '' };
 		llmSecs = 0;
 		const tick = setInterval(() => llmSecs++, 1000);
 		try {
-			const r = await api.aiSummary(a.id, $locale, true);
-			if (llm?.id === a.id) llm = { ...llm, ...r, loading: false };
+			let r = await api.aiSummary(a.id, $locale, true);
+			const until = Date.now() + 10 * 60_000;
+			while ((r.status === 'queued' || r.status === 'running') && Date.now() < until) {
+				if (llm?.id !== a.id) return; // another article opened
+				llm = { ...llm, status: r.status, position: r.position, eta_s: r.eta_s };
+				await new Promise((ok) => setTimeout(ok, 2000));
+				r = await api.aiSummary(a.id, $locale);
+			}
+			if (llm?.id !== a.id) return;
+			if (r.summary) llm = { ...llm, summary: r.summary, title: r.title, model: r.model, loading: false };
+			else llm = { ...llm, loading: false, status: r.status, error: $t('ai_failed') };
 		} catch (e) {
-			const code = e instanceof ApiError ? e.code : '';
-			const msg =
-				code === 'rate_limited'
-					? $t('ai_rate')
-					: code === 'plan_limit_ai'
-						? $t('plan_limit_ai')
-						: $t('ai_unavailable');
-			if (llm?.id === a.id) llm = { ...llm, loading: false, error: msg };
+			if (llm?.id === a.id) llm = { ...llm, loading: false, error: llmError(e) };
 		} finally {
 			clearInterval(tick);
 		}
@@ -475,9 +497,10 @@
 		readingStart = Date.now();
 		similarList = [];
 		llm = { id: a.id, summary: null, title: null, model: null, loading: false, error: '' };
+		summaryOpen = false;
 		api.aiSummary(a.id, $locale)
 			.then((r) => {
-				if (llm?.id === a.id && r.summary) llm = { ...llm, ...r };
+				if (llm?.id === a.id && r.summary) llm = { ...llm, summary: r.summary, title: r.title, model: r.model };
 			})
 			.catch(() => {});
 		api.similar(a.id, 6)
@@ -712,16 +735,7 @@
 		moreOpen = !moreOpen;
 	}
 
-	// The AI summary box starts folded (remembered): it's there when wanted.
-	let summaryOpen = $state(typeof localStorage !== 'undefined' && localStorage.getItem('summary_open') === '1');
-	function toggleSummary() {
-		summaryOpen = !summaryOpen;
-		try {
-			localStorage.setItem('summary_open', summaryOpen ? '1' : '0');
-		} catch {
-			/* ignore */
-		}
-	}
+
 
 	// Editors keep spam or unsuitable posts out of the shared Trending/rankings.
 	const isCurator = $derived($user?.role === 'editor' || $user?.role === 'admin');
@@ -1919,32 +1933,34 @@
 						{#each a.tags as tag (tag)}<span class="tag">{tag}</span>{/each}
 					</div>
 				{/if}
-				{#if a.ai_summary || aiAllowed}
+				{#if aiAllowed || (llm?.id === a.id && llm.summary)}
 					{@const gen = llm?.id === a.id ? llm : null}
+					<!-- Folded until asked: tapping the bar shows the AI summary (made
+					     now, or by anyone before) or folds it away again. -->
 					<div class="ai-summary" class:folded={!summaryOpen}>
-						<div class="ai-summary-head">
-							<button class="ai-summary-label" onclick={toggleSummary} aria-expanded={summaryOpen}>
-								✨ {gen?.summary ? `${$t('ai_summary_llm')} · ${gen.model}` : $t('summary_label')}
-								<span class="chev" aria-hidden="true">{summaryOpen ? '▾' : '▸'}</span>
-							</button>
-							<!-- Folded: the AI summary stays one tap away. -->
-							{#if !summaryOpen && aiAllowed && !gen?.summary}
-								<button class="llm-mini" onclick={() => generateLLM(a)} disabled={gen?.loading}>
-									{gen?.loading ? `⏳ ${llmSecs} s` : `✨ ${$t('ai_generate_short')}`}
-								</button>
-							{/if}
-						</div>
-						{#if summaryOpen}
-							{gen?.summary ?? a.ai_summary ?? ''}
+						<button
+							class="ai-summary-label"
+							onclick={() => summaryBar(a)}
+							aria-expanded={summaryOpen}
+							disabled={gen?.loading && summaryOpen}
+						>
+							✨ {$t('ai_summary_llm')}{#if summaryOpen && gen?.summary && gen.model}<span class="model">
+									· {gen.model}</span
+								>{/if}
+							<span class="ai-state">
+								{#if gen?.loading}
+									{gen.status === 'queued' && gen.position
+										? `${$t('ai_queued')} ${gen.position}`
+										: $t('ai_generating')}
+									· {llmSecs} s{#if gen.eta_s}&nbsp;/ ~{gen.eta_s} s{/if}
+								{/if}
+							</span>
+							<span class="chev" aria-hidden="true">{summaryOpen ? '▾' : '▸'}</span>
+						</button>
+						{#if summaryOpen && gen?.summary}
+							<p class="ai-text">{gen.summary}</p>
 						{/if}
-						{#if summaryOpen && aiAllowed && !gen?.summary}
-							<div class="llm-row">
-								<button class="llm-btn" onclick={() => generateLLM(a)} disabled={gen?.loading}>
-									{gen?.loading ? `${$t('ai_generating')} ${llmSecs} s` : $t('ai_generate')}
-								</button>
-								{#if gen?.error}<span class="llm-err">{gen.error}</span>{/if}
-							</div>
-						{/if}
+						{#if gen?.error}<p class="llm-err">{gen.error}</p>{/if}
 					</div>
 				{/if}
 				{#if trError}<p class="muted small">{trError}</p>{/if}
@@ -2883,24 +2899,23 @@
 		color: var(--muted);
 		font-size: 0.95rem;
 	}
-	.llm-row {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-		margin-top: 0.5rem;
-	}
-	.llm-btn {
-		font-size: 0.82rem;
-		padding: 0.3rem 0.7rem;
-		border-radius: 999px;
-		border-color: var(--accent);
-		color: var(--accent);
-		background: transparent;
-	}
 	.llm-err {
+		margin: 0.4rem 0 0;
 		font-size: 0.8rem;
 		color: var(--danger);
+	}
+	.ai-summary-label .model,
+	.ai-summary-label .ai-state {
+		text-transform: none;
+		letter-spacing: 0;
+		color: var(--muted);
+	}
+	.ai-summary-label:disabled {
+		opacity: 1;
+		cursor: progress;
+	}
+	.ai-text {
+		margin: 0.35rem 0 0;
 	}
 	/* The label doubles as the fold/unfold button. */
 	.ai-summary-label {
@@ -2919,20 +2934,6 @@
 		letter-spacing: 0.04em;
 		color: var(--accent);
 		margin-bottom: 0.25rem;
-	}
-	.ai-summary-head {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	.llm-mini {
-		flex: none;
-		font-size: 0.75rem;
-		padding: 0.15rem 0.55rem;
-		border-radius: 999px;
-		border-color: var(--accent);
-		color: var(--accent);
-		background: none;
 	}
 	.ai-summary.folded .ai-summary-label {
 		margin-bottom: 0;

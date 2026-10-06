@@ -14,6 +14,11 @@ class AISummaryOut(BaseModel):
     title: str | None = None  # translated headline, when the article is in another language
     model: str | None = None
     cached: bool = False
+    # ready | queued | running | failed | none (not asked for yet)
+    status: str = "none"
+    position: int | None = None  # in the AI queue, while queued
+    eta_s: int | None = None  # estimated seconds until ready
+    error: str | None = None
 
 
 class ArticleOut(BaseModel):

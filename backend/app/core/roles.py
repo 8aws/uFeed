@@ -19,6 +19,9 @@ ROLES: tuple[Role, ...] = ("free", "general", "vip", "editor", "admin")
 # tts_server: "listen" with the server's neural voice (the device voice is for all)
 # post_radio: "Post radio" (read posts one after another); radio_max_posts /
 #   radio_max_minutes cap how much one session can chain (None = unlimited)
+# ai_summaries_per_day: new AI summaries one may request a day (None =
+#   unlimited); summaries someone already generated are always free to read
+# ai_priority: place in the AI queue (0 = first; background work uses 3)
 DEFAULT_PLAN_LIMITS: dict[str, dict[str, Any]] = {
     "free": {
         "refresh_cooldown_s": 600,
@@ -29,6 +32,8 @@ DEFAULT_PLAN_LIMITS: dict[str, dict[str, Any]] = {
         "post_radio": False,
         "radio_max_posts": 10,
         "radio_max_minutes": 30,
+        "ai_summaries_per_day": 3,
+        "ai_priority": 2,
     },
     "general": {
         "refresh_cooldown_s": 300,
@@ -36,9 +41,11 @@ DEFAULT_PLAN_LIMITS: dict[str, dict[str, Any]] = {
         "max_api_keys": 3,
         "ai_features": True,
         "tts_server": True,
-        "post_radio": False,
-        "radio_max_posts": 10,
-        "radio_max_minutes": 30,
+        "post_radio": True,
+        "radio_max_posts": 5,
+        "radio_max_minutes": 20,
+        "ai_summaries_per_day": None,
+        "ai_priority": 1,
     },
     "vip": {
         "refresh_cooldown_s": 0,
@@ -49,6 +56,8 @@ DEFAULT_PLAN_LIMITS: dict[str, dict[str, Any]] = {
         "post_radio": True,
         "radio_max_posts": 20,
         "radio_max_minutes": 60,
+        "ai_summaries_per_day": None,
+        "ai_priority": 0,
     },
     "editor": {
         "refresh_cooldown_s": 0,
@@ -59,6 +68,8 @@ DEFAULT_PLAN_LIMITS: dict[str, dict[str, Any]] = {
         "post_radio": True,
         "radio_max_posts": 20,
         "radio_max_minutes": 60,
+        "ai_summaries_per_day": None,
+        "ai_priority": 0,
     },
     "admin": {
         "refresh_cooldown_s": 0,
@@ -69,6 +80,8 @@ DEFAULT_PLAN_LIMITS: dict[str, dict[str, Any]] = {
         "post_radio": True,
         "radio_max_posts": None,
         "radio_max_minutes": None,
+        "ai_summaries_per_day": None,
+        "ai_priority": 0,
     },
 }
 

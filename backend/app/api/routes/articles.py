@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import time
 import uuid
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Query
@@ -25,8 +25,8 @@ from app.schemas.article import (
 from app.schemas.common import OkResponse, Page
 from app.schemas.user import Locale
 from app.services import ai as ai_service
+from app.services import ai_queue, fulltext
 from app.services import articles as article_service
-from app.services import fulltext, metrics
 from app.services import site as site_service
 from app.services import translation as translation_service
 from app.services import tts as tts_service
@@ -110,9 +110,11 @@ async def ai_summary(
 ) -> AISummaryOut:
     """The article's AI summary in `lang` (default: yours).
 
-    Generated on demand (generate=true) by the on-device LLM and stored, so every
-    later reader in that language gets it instantly. Without generate=true only
-    an existing summary is returned.
+    Stored once made, so every later reader in that language gets it at once.
+    With generate=true a missing summary is queued for the on-device LLM (the
+    plan sets the place in the queue and the daily allowance); the reply says
+    where it is (status queued/running, position, eta_s) and the app asks
+    again until it's ready. Without generate=true nothing is queued.
     """
     row = await article_service.get_article(db, user.id, article_id)
     if row is None:
@@ -121,36 +123,35 @@ async def ai_summary(
     cached = await db.get(ArticleAI, (article_id, lang))
     if cached is not None:
         return AISummaryOut(
-            lang=lang, summary=cached.summary, title=cached.title, model=cached.model, cached=True
+            lang=lang,
+            summary=cached.summary,
+            title=cached.title,
+            model=cached.model,
+            cached=True,
+            status="ready",
         )
+    job = await ai_queue.status(article_id, lang)
+    if job and job["status"] in ("queued", "running"):
+        return AISummaryOut(lang=lang, **job)
     if not generate:
-        return AISummaryOut(lang=lang)
-    if not (await site_service.limits_for(db, user.role))["ai_features"]:
+        return AISummaryOut(lang=lang, **(job or {"status": "none"}))
+    if job and job["status"] == "failed":
+        await ai_queue.forget(article_id, lang)  # asking again retries
+    limits = await site_service.limits_for(db, user.role)
+    if not limits["ai_features"]:
         raise AppError(403, "plan_limit_ai", "Your plan doesn't include AI features.")
     if not await check_rate(f"llm:{user.id}", settings.ai_llm_per_hour, window_s=3600):
         raise AppError(429, "rate_limited", "Too many AI summaries this hour; try later.")
-    art = row.article
-    translate = bool(art.lang) and not art.lang.lower().startswith(lang)
-    t0 = time.monotonic()
-    out = await ai_service.llm_summary(
-        art.title or "", art.content_html or art.summary or "", lang, translate
-    )
-    if out is not None:
-        await metrics.count("llm", int((time.monotonic() - t0) * 1000))
-    if out is None:
-        raise AppError(503, "ai_unavailable", "The AI model is not available right now.")
-    rec = ArticleAI(
-        article_id=article_id,
-        lang=lang,
-        summary=out["summary"],
-        title=out.get("title"),
-        model=out.get("model") or "llm",
-    )
-    await db.merge(rec)
-    await db.commit()
-    return AISummaryOut(
-        lang=lang, summary=rec.summary, title=rec.title, model=rec.model, cached=False
-    )
+    daily = limits.get("ai_summaries_per_day")
+    day_key = f"llmday:{user.id}:{date.today().isoformat()}"
+    if daily is not None and (daily <= 0 or not await check_rate(day_key, daily, window_s=86_400)):
+        raise AppError(
+            403,
+            "plan_limit_ai_daily",
+            "You've used today's AI summaries; summaries others asked for are still available.",
+        )
+    status, _ = await ai_queue.enqueue(article_id, lang, int(limits.get("ai_priority", 1)), user.id)
+    return AISummaryOut(lang=lang, **status)
 
 
 @router.post("/{article_id}/full", response_model=FullTextOut)

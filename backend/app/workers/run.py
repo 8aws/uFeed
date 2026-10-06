@@ -10,6 +10,7 @@ from app.db.session import SessionLocal
 from app.services import metrics
 from app.services.moderation import run_inactivity_cleanup
 from app.services.retention import run_retention
+from app.workers.ai_jobs import pregenerate, run_queue
 from app.workers.scheduler import run_tick
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -41,6 +42,10 @@ async def main() -> None:
     )
     # Resource monitor snapshot for the admin panel.
     scheduler.add_job(_sample, "interval", minutes=15, max_instances=1, coalesce=True)
+    # Night (00-05 UTC): summaries ahead of time while the AI queue is idle.
+    scheduler.add_job(
+        pregenerate, "cron", hour="0-4", minute="5,35", max_instances=1, coalesce=True
+    )
     scheduler.start()
     log.info("ingestion worker started (tick=%ss)", settings.ingest_tick_s)
 
@@ -49,9 +54,12 @@ async def main() -> None:
     await run_tick()
 
     stop = asyncio.Event()
+    # The AI summary queue runs here, one batch at a time.
+    queue_task = asyncio.create_task(run_queue(stop))
     try:
         await stop.wait()
     finally:
+        queue_task.cancel()
         scheduler.shutdown(wait=False)
 
 

@@ -31,6 +31,8 @@
 		post_radio: boolean;
 		radio_max_posts: string;
 		radio_max_minutes: string;
+		ai_per_day: string;
+		ai_priority: number;
 	};
 	let plansDraft = $state<Record<string, Draft>>({});
 	let savingPlans = $state(false);
@@ -47,7 +49,9 @@
 					tts_server: p.tts_server ?? false,
 					post_radio: p.post_radio ?? false,
 					radio_max_posts: p.radio_max_posts == null ? '' : String(p.radio_max_posts),
-					radio_max_minutes: p.radio_max_minutes == null ? '' : String(p.radio_max_minutes)
+					radio_max_minutes: p.radio_max_minutes == null ? '' : String(p.radio_max_minutes),
+					ai_per_day: p.ai_summaries_per_day == null ? '' : String(p.ai_summaries_per_day),
+					ai_priority: p.ai_priority ?? 1
 				}
 			])
 		);
@@ -74,7 +78,9 @@
 						tts_server: d.tts_server,
 						post_radio: d.post_radio,
 						radio_max_posts: num(d.radio_max_posts) || null,
-						radio_max_minutes: num(d.radio_max_minutes) || null
+						radio_max_minutes: num(d.radio_max_minutes) || null,
+						ai_summaries_per_day: num(d.ai_per_day),
+						ai_priority: Number(d.ai_priority)
 					}
 				])
 			);
@@ -448,6 +454,20 @@
 								<input type="checkbox" bind:checked={plansDraft[r].ai_features} />
 								{$t('ai_features')}
 							</label>
+							{#if plansDraft[r].ai_features}
+								<label>
+									✨ {$t('ai_per_day')}
+									<input type="number" min="0" placeholder="∞" bind:value={plansDraft[r].ai_per_day} />
+								</label>
+								<label>
+									{$t('ai_priority')}
+									<select bind:value={plansDraft[r].ai_priority}>
+										<option value={0}>{$t('ai_priority_0')}</option>
+										<option value={1}>{$t('ai_priority_1')}</option>
+										<option value={2}>{$t('ai_priority_2')}</option>
+									</select>
+								</label>
+							{/if}
 							<label class="check small">
 								<input type="checkbox" bind:checked={plansDraft[r].tts_server} />
 								🔊 {$t('tts_server_plan')}

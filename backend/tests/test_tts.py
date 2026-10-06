@@ -79,6 +79,32 @@ async def test_server_voice_by_plan(api: AsyncClient, db_session: AsyncSession, 
     assert (await api.get(expired)).status_code == 403
 
 
+async def test_radio_mixes_recorded_and_new_posts(
+    api: AsyncClient, db_session: AsyncSession, fake_voice, tmp_path
+) -> None:
+    """Post radio asks for each post in turn: recordings that already exist
+    (made for any reader) are served as they are, only missing ones are
+    generated, and nothing is generated twice."""
+    src = await _seed_source(db_session, [(f"Post {i}", f"<p>Texto {i}</p>") for i in range(3)])
+    r = await _register(api)
+    await _set_role(db_session, r.json()["user"]["id"], "vip")
+    h = _h(r)
+    await _subscribe(api, h, src.feed_url)
+    ids = [a["id"] for a in (await api.get("/api/articles", headers=h)).json()["items"]]
+    await db_session.execute(update(Article).where(Article.source_id == src.id).values(lang="es"))
+    await db_session.commit()
+    # Someone already listened to the middle post.
+    (tmp_path / tts.cache_name(uuid.UUID(ids[1]), "es", "f")).write_bytes(FAKE_MP3)
+
+    first = [(await api.post(f"/api/articles/{a}/audio", headers=h)).json() for a in ids]
+    assert [x["cached"] for x in first] == [False, True, False]
+    assert len(fake_voice) == 2  # only the two missing posts were generated
+    again = [(await api.post(f"/api/articles/{a}/audio", headers=h)).json() for a in ids]
+    assert all(x["cached"] for x in again) and len(fake_voice) == 2
+    for x in again:  # each plays from its stored file
+        assert (await api.get(x["url"])).content == FAKE_MP3
+
+
 async def test_server_voice_language(
     api: AsyncClient, db_session: AsyncSession, fake_voice
 ) -> None:

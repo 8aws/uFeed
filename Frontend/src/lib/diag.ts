@@ -118,6 +118,11 @@ export function startDiag(ctx: () => Record<string, unknown>) {
 		() => {
 			if (!pending) return;
 			const p = pending;
+			// A long press (mark read, text selection) gives no click by design.
+			if (Date.now() - p.t > 600) {
+				pending = null;
+				return;
+			}
 			clearTimeout(timer);
 			timer = setTimeout(() => {
 				if (pending === p) {

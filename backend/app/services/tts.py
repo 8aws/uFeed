@@ -250,3 +250,46 @@ def prune() -> None:
             break
         total -= p.stat().st_size
         p.unlink(missing_ok=True)
+
+
+async def purge_old(db, days: int) -> dict[str, int]:
+    """Nightly: drop recordings whose article is gone (purged by retention)
+    or that nobody has played for `days` (playing touches the file), and
+    leftovers of interrupted generations. Same window as the articles, so a
+    recording serves every reader for as long as its article is kept."""
+    from sqlalchemy import select
+
+    root = Path(settings.tts_cache_dir)
+    if not root.is_dir():
+        return {"audio_deleted": 0, "audio_mb": 0}
+    files = list(root.glob("*.mp3"))
+    ids = {p.name[:36] for p in files}
+    known: set[str] = set()
+    wanted = []
+    for i in ids:
+        try:
+            wanted.append(uuid.UUID(i))
+        except ValueError:
+            continue
+    for b in range(0, len(wanted), 500):
+        rows = await db.execute(select(Article.id).where(Article.id.in_(wanted[b : b + 500])))
+        known.update(str(x) for x in rows.scalars())
+    cutoff = time.time() - days * 86400 if days > 0 else None
+    deleted = 0
+    for p in files:
+        try:
+            old = cutoff is not None and p.stat().st_mtime < cutoff
+            if p.name[:36] not in known or old:
+                p.unlink(missing_ok=True)
+                deleted += 1
+        except OSError:
+            continue
+    stale = time.time() - 3600
+    for p in [*root.glob("*.part"), *root.glob("*.err")]:
+        try:
+            if p.stat().st_mtime < stale:
+                p.unlink(missing_ok=True)
+        except OSError:
+            continue
+    size = sum(p.stat().st_size for p in root.glob("*.mp3"))
+    return {"audio_deleted": deleted, "audio_mb": round(size / 1024 / 1024)}

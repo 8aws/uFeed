@@ -65,13 +65,19 @@ class Settings(BaseSettings):
     summarize_max_per_tick: int = Field(default=20)
     ai_summary_sentences: int = Field(default=4)
     # On-device LLM (abstractive summaries in the reader's language).
-    ai_llm_timeout_s: float = Field(default=120.0)
+    ai_llm_timeout_s: float = Field(default=300.0)  # a batch of summaries
     ai_llm_per_hour: int = Field(default=30)  # generations per user per hour
+    # AI queue: summaries generated together on the iGPU (2 ~ 1.6x throughput).
+    ai_queue_batch: int = Field(default=2, ge=1, le=8)
+    # Night-time pre-generation of summaries for VIP/editor/admin readers'
+    # feeds, only while the queue is idle (0 = off).
+    ai_pregen_per_run: int = Field(default=20, ge=0, le=500)
     # Server voice ("listen"): languages with a voice in the AI service, MP3
     # cache (LRU, shared by all readers), generations per user per hour.
     tts_langs: str = Field(default="es,en")
     tts_cache_dir: str = Field(default="/data/tts")
-    tts_cache_max_mb: int = Field(default=1024)
+    # Safety cap; recordings also go 90 d after their last play (retention).
+    tts_cache_max_mb: int = Field(default=10240)
     tts_per_hour: int = Field(default=30)
     tts_timeout_s: float = Field(default=240.0)
     tts_voice_tag: str = Field(default="v1")  # bump to regenerate cached audio

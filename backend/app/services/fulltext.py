@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.netguard import BlockedDestination, public_client
 from app.models.article import Article
+from app.models.article_ai import ArticleAI
 from app.models.article_translation import ArticleTranslation
 from app.services import metrics
 from app.services.ingest import http_url
@@ -96,9 +97,11 @@ async def fetch(db: AsyncSession, article: Article) -> str | None:
     article.full_fetched_at = now
     article.full_html = html if ok else None
     if ok:
+        # Made from the excerpt: redo them from the full text when asked.
         await db.execute(
             delete(ArticleTranslation).where(ArticleTranslation.article_id == article.id)
         )
+        await db.execute(delete(ArticleAI).where(ArticleAI.article_id == article.id))
     await db.commit()
     if ok:
         _drop_recordings(str(article.id))

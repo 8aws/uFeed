@@ -241,25 +241,18 @@ async def for_you(db: AsyncSession, user_id: uuid.UUID, limit: int = 20) -> list
     return list((await db.execute(stmt)).scalars().all())
 
 
-async def llm_summary(title: str, text: str, lang: str, translate_title: bool) -> dict | None:
-    """Ask the AI service's on-device LLM for a summary in `lang` (and the
-    headline translated if asked). None if unavailable."""
-    if not settings.ai_enabled or not (text or title):
+async def llm_summaries(items: list[dict]) -> list[dict] | None:
+    """Several summaries generated together by the AI service (one batch on
+    the iGPU). Each item: title, text, lang, src_lang, translate_title.
+    None if unavailable."""
+    if not settings.ai_enabled or not items:
         return None
     try:
         async with httpx.AsyncClient(timeout=settings.ai_llm_timeout_s) as client:
-            resp = await client.post(
-                f"{settings.ai_url}/generate/summary",
-                json={
-                    "title": title,
-                    "text": text,
-                    "lang": lang,
-                    "translate_title": translate_title,
-                },
-            )
+            resp = await client.post(f"{settings.ai_url}/generate/summaries", json={"items": items})
         if resp.status_code != 200:
             return None
-        data = resp.json()
-        return data if data.get("summary") else None
+        results = resp.json().get("results") or []
+        return results if len(results) == len(items) else None
     except (httpx.HTTPError, ValueError):
         return None

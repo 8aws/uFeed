@@ -20,6 +20,7 @@ from app.models.article import Article
 from app.models.article_state import ArticleState
 from app.models.read_event import ReadEvent
 from app.services import site as site_service
+from app.services import tts as tts_service
 
 log = logging.getLogger("ufeed.retention")
 
@@ -115,6 +116,10 @@ async def run_retention(db: AsyncSession | None = None) -> dict[str, Any]:
     cfg = await site_service.get_settings(db)
     days = int(cfg["retention_days"])
     result = await purge(db, days)
+    try:
+        result.update(await tts_service.purge_old(db, days))
+    except Exception:  # noqa: BLE001 - the article purge already happened
+        log.exception("voice cache purge failed")
     result.update({"days": days, "at": datetime.now(UTC).isoformat()})
     await site_service.set_internal(db, "last_purge", result)
     log.info("retention (%sd): %s", days, result)

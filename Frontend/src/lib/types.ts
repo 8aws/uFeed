@@ -55,6 +55,11 @@ export interface AISummary {
 	title: string | null; // translated headline (article in another language)
 	model: string | null;
 	cached: boolean;
+	/** ready | queued | running | failed | none (not asked for yet) */
+	status?: string;
+	position?: number | null; // place in the AI queue
+	eta_s?: number | null; // estimated seconds until ready
+	error?: string | null;
 }
 
 export interface MutedKeyword {
@@ -148,6 +153,8 @@ export interface PlanLimits {
 	tts_server?: boolean; // "listen" with the server's neural voice
 	post_radio?: boolean; // Post radio (posts read one after another)
 	radio_max_posts?: number | null; // per session; null = unlimited
+	ai_summaries_per_day?: number | null; // new AI summaries a day; null = unlimited
+	ai_priority?: number; // 0 = first in the AI queue … 2 = last
 	radio_max_minutes?: number | null;
 }
 

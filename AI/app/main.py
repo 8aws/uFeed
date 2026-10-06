@@ -4,7 +4,7 @@ import os
 
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app import llm, translate, tts
 from app.embedders import DIM, build_embedder
@@ -196,6 +196,7 @@ class LLMSummaryRequest(BaseModel):
     title: str = ""
     text: str
     lang: str = "es"
+    src_lang: str = ""  # the article's language (headline via the translator)
     translate_title: bool = False
 
 
@@ -213,10 +214,41 @@ def generate_summary(body: LLMSummaryRequest) -> LLMSummaryResponse:
         raise HTTPException(status_code=503, detail="LLM not configured")
     plain = _WS_RE.sub(" ", _TAG_RE.sub(" ", body.text or "")).strip()
     try:
-        out = llm.summarize(body.title, plain, body.lang, body.translate_title)
+        out = llm.summarize(body.title, plain, body.lang, body.translate_title, body.src_lang)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=503, detail=f"LLM unavailable: {exc}"[:200]) from exc
     return LLMSummaryResponse(**out)
+
+
+class LLMBatchRequest(BaseModel):
+    items: list[LLMSummaryRequest] = Field(min_length=1, max_length=8)
+
+
+class LLMBatchResponse(BaseModel):
+    results: list[LLMSummaryResponse]
+
+
+@app.post("/generate/summaries", response_model=LLMBatchResponse)
+def generate_summaries(body: LLMBatchRequest) -> LLMBatchResponse:
+    """Several summaries generated together (continuous batching on the iGPU):
+    two take ~21 s instead of ~32 s one after the other."""
+    if not llm.enabled():
+        raise HTTPException(status_code=503, detail="LLM not configured")
+    items = [
+        {
+            "title": it.title,
+            "text": _WS_RE.sub(" ", _TAG_RE.sub(" ", it.text or "")).strip(),
+            "lang": it.lang,
+            "src_lang": it.src_lang,
+            "translate_title": it.translate_title,
+        }
+        for it in body.items
+    ]
+    try:
+        out = llm.summarize_batch(items)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail=f"LLM unavailable: {exc}"[:200]) from exc
+    return LLMBatchResponse(results=[LLMSummaryResponse(**o) for o in out])
 
 
 class TTSRequest(BaseModel):
