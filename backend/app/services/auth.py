@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import secrets
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -41,6 +44,7 @@ async def update_profile(
     fields: set[str],
     locale: str | None = None,
     display_name: str | None = None,
+    digest_hour: int | None = None,
 ) -> User:
     """Apply only the provided fields (fields = the keys actually sent)."""
     if "locale" in fields and locale is not None:
@@ -48,6 +52,13 @@ async def update_profile(
     if "display_name" in fields:
         cleaned = (display_name or "").strip()
         user.display_name = cleaned or None
+    if "digest_hour" in fields:
+        user.digest_hour = digest_hour
+        # If today's hour has already gone, the first one goes out tomorrow.
+        now = datetime.now(ZoneInfo(settings.digest_tz))
+        user.digest_sent_on = (
+            now.date() if digest_hour is not None and now.hour >= digest_hour else None
+        )
     await db.commit()
     await db.refresh(user)
     return user

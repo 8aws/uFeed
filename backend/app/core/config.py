@@ -29,6 +29,19 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="change-me")
     jwt_access_ttl_min: int = Field(default=15)
     jwt_refresh_ttl_days: int = Field(default=30)
+    reset_ttl_min: int = Field(default=60)  # password-reset links
+
+    # Outgoing mail (password resets, daily digest). Empty host = mail off.
+    smtp_host: str = Field(default="")
+    smtp_port: int = Field(default=587)
+    smtp_user: str = Field(default="")
+    smtp_password: str = Field(default="")
+    smtp_starttls: bool = Field(default=False)
+    mail_from: str = Field(default="uFeed <ufeed@uverse.es>")
+    # Where links in emails point (the web app).
+    public_url: str = Field(default="https://ufeed.uverse.es")
+    # Daily digest: users pick an hour in this time zone.
+    digest_tz: str = Field(default="Europe/Madrid")
 
     # i18n
     default_locale: str = Field(default="en")

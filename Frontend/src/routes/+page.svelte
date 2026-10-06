@@ -22,7 +22,6 @@
 	import Onboarding from '$lib/components/Onboarding.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import ListenBar from '$lib/components/ListenBar.svelte';
-	import { startDiag } from '$lib/diag';
 	import type { Article, DiscoveredFeed, Folder, Insights, Subscription } from '$lib/types';
 
 	type View = 'list' | 'cardlist' | 'cards' | 'masonry';
@@ -1280,19 +1279,6 @@
 
 	onMount(async () => {
 		initOutbox();
-		// Temporary: what was on screen if taps stop working (see lib/diag.ts).
-		startDiag(() => ({
-			view,
-			filter: filter.kind,
-			items: articles.length,
-			reader: openArticle?.id ?? null,
-			words: openArticle?.word_count ?? null,
-			readingS: readingStart ? Math.round((Date.now() - readingStart) / 1000) : null,
-			scroll: readerEl ? [Math.round(readerEl.scrollTop), readerEl.scrollHeight, readerEl.clientHeight] : null,
-			listen: listenOpen,
-			radio: !!radio,
-			online: navigator.onLine
-		}));
 		setFolderLookup((sourceId) => subs.find((x) => x.source.id === sourceId)?.folder_id ?? null);
 		const snap = await readSnapshot();
 		if (snap) {
@@ -1308,6 +1294,17 @@
 		await Promise.race([syncOutbox(), new Promise((r) => setTimeout(r, 3000))]);
 		await loadSidebar().catch(() => {});
 		await loadArticles(true);
+		// A link from the daily digest email: /?a=<article id> opens it.
+		const linked = new URLSearchParams(location.search).get('a');
+		if (linked) {
+			history.replaceState(null, '', '/');
+			const hit = articles.find((x) => x.id === linked);
+			if (hit) openArticleObj(hit);
+			else
+				api.article(linked)
+					.then((a) => openArticleObj(a))
+					.catch(() => {});
+		}
 		loadInsights();
 		// First run: no feeds yet and never onboarded → show the starter flow.
 		if (!onboarded() && subs.length === 0) showOnboarding = true;

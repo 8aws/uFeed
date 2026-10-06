@@ -11,6 +11,7 @@ export interface User {
 	is_active: boolean;
 	must_change_password: boolean;
 	created_at: string;
+	digest_hour?: number | null; // daily digest email hour; null = off
 }
 
 export interface Tokens {
@@ -304,4 +305,20 @@ export interface Metrics {
 	samples: MetricPoint[];
 	daily: UsageDay[];
 	now: { cpus?: number; load1?: number; mem_total_mb?: number; mem_used_mb?: number };
+}
+
+/** The most relevant unread articles of the last hours from your feeds. */
+export interface Digest {
+	hours: number;
+	total_new: number;
+	items: {
+		id: string;
+		title: string;
+		source: string;
+		url: string | null;
+		published_at: string;
+		summary: string;
+		ai_summary: boolean;
+		readers: number;
+	}[];
 }

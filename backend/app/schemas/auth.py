@@ -29,3 +29,12 @@ class Tokens(BaseModel):
 class AuthResponse(BaseModel):
     user: UserOut
     tokens: Tokens
+
+
+class ForgotRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=2000)
+    new_password: str = Field(min_length=8, max_length=256)

@@ -6,7 +6,8 @@
 	import { locale, setLocale, t } from '$lib/i18n';
 	import type { Locale } from '$lib/types';
 
-	let mode = $state<'login' | 'register'>('login');
+	let mode = $state<'login' | 'register' | 'forgot'>('login');
+	let sentReset = $state(false);
 	let email = $state('');
 	let password = $state('');
 	let error = $state('');
@@ -35,6 +36,12 @@
 		error = '';
 		busy = true;
 		try {
+			if (mode === 'forgot') {
+				// Same reply whether or not the address has an account.
+				await api.forgotPassword(email);
+				sentReset = true;
+				return;
+			}
 			if (mode === 'login') {
 				const tokens = await api.login(email, password);
 				setTokens(tokens.access_token, tokens.refresh_token);
@@ -54,6 +61,8 @@
 				error = $t('registration_closed');
 			} else if (e instanceof ApiError && (known as readonly string[]).includes(e.code)) {
 				error = $t(e.code as (typeof known)[number]);
+			} else if (mode === 'forgot') {
+				error = e instanceof ApiError && e.code === 'rate_limited' ? $t('try_later') : $t('reset_failed');
 			} else {
 				error = mode === 'login' ? $t('login_failed') : $t('register_failed');
 			}
@@ -77,21 +86,46 @@
 			{$t('email')}
 			<input type="email" bind:value={email} required autocomplete="email" />
 		</label>
-		<label>
-			{$t('password')}
-			<input
-				type="password"
-				bind:value={password}
-				required
-				minlength="8"
-				autocomplete="current-password"
-			/>
-		</label>
+		{#if mode === 'forgot'}
+			{#if sentReset}
+				<p class="ok">{$t('reset_sent')}</p>
+			{:else}
+				<p class="muted small">{$t('forgot_hint')}</p>
+			{/if}
+		{:else}
+			<label>
+				{$t('password')}
+				<input
+					type="password"
+					bind:value={password}
+					required
+					minlength="8"
+					autocomplete={mode === 'login' ? 'current-password' : 'new-password'}
+				/>
+			</label>
+		{/if}
 		{#if error}<p class="err">{error}</p>{/if}
-		<button class="primary" type="submit" disabled={busy}>
-			{mode === 'login' ? $t('login') : $t('register')}
-		</button>
-		{#if registrationOpen}
+		{#if !(mode === 'forgot' && sentReset)}
+			<button class="primary" type="submit" disabled={busy}>
+				{mode === 'login' ? $t('login') : mode === 'register' ? $t('register') : $t('send_reset_link')}
+			</button>
+		{/if}
+		{#if mode === 'login'}
+			<p class="muted switch">
+				<button type="button" class="link" onclick={() => ((mode = 'forgot'), (error = ''), (sentReset = false))}>
+					{$t('forgot_password')}
+				</button>
+			</p>
+		{:else if mode === 'forgot'}
+			<p class="muted switch">
+				<button type="button" class="link" onclick={() => ((mode = 'login'), (error = ''))}>
+					← {$t('login')}
+				</button>
+			</p>
+		{/if}
+		{#if mode === 'forgot'}
+			<!-- no sign-up switch while recovering -->
+		{:else if registrationOpen}
 			<p class="muted switch">
 				{mode === 'login' ? $t('need_account') : $t('have_account')}
 				<button
@@ -157,6 +191,15 @@
 		gap: 0.35rem;
 		font-size: 0.85rem;
 		color: var(--muted);
+	}
+	.ok {
+		margin: 0;
+		color: var(--accent);
+		font-size: 0.9rem;
+	}
+	.small {
+		margin: 0;
+		font-size: 0.85rem;
 	}
 	.err {
 		color: var(--danger);

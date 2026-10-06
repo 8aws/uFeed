@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import jwt
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.api.deps import DbSession, rate_limit_auth
 from app.api.errors import AppError
 from app.core.config import settings
+from app.core.ratelimit import check_rate
 from app.core.security import (
+    create_reset_token,
     decode_token,
     token_version_ok,
     user_id_from_sub,
@@ -15,13 +17,16 @@ from app.core.security import (
 from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
+    ForgotRequest,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
+    ResetRequest,
     Tokens,
 )
+from app.schemas.common import OkResponse
 from app.services import auth as auth_service
-from app.services import moderation
+from app.services import mailer, moderation
 from app.services import site as site_service
 
 router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(rate_limit_auth)])
@@ -80,4 +85,71 @@ async def refresh(body: RefreshRequest, db: DbSession) -> Tokens:
         raise AppError(401, "invalid_token", "User not found or inactive.")
     if not token_version_ok(payload, user.token_version) or moderation.is_suspended(user):
         raise AppError(401, "invalid_token", "Session expired; please sign in again.")
+    return _tokens_for(user)
+
+
+RESET_MAIL = {
+    "es": (
+        "Restablece tu contraseña de uFeed",
+        "Hola:\n\nAlguien (seguramente tú) ha pedido restablecer la contraseña de tu "
+        "cuenta de uFeed. Para elegir una nueva, abre este enlace en la próxima hora:\n\n"
+        "{link}\n\nSi no lo has pedido tú, ignora este correo: tu contraseña no cambia.\n\n"
+        "uFeed",
+    ),
+    "en": (
+        "Reset your uFeed password",
+        "Hi,\n\nSomeone (probably you) asked to reset the password of your uFeed "
+        "account. To choose a new one, open this link within the next hour:\n\n{link}\n\n"
+        "If it wasn't you, ignore this email: your password stays the same.\n\nuFeed",
+    ),
+}
+
+
+async def _send_reset(email: str, user_id: str, version: int, locale: str) -> None:
+    token = create_reset_token(user_id, version)
+    link = f"{settings.public_url.rstrip('/')}/reset?token={token}"
+    subject, body = RESET_MAIL.get((locale or "en")[:2], RESET_MAIL["en"])
+    await mailer.send(email, subject, body.format(link=link))
+
+
+@router.post("/forgot", response_model=OkResponse)
+async def forgot_password(
+    body: ForgotRequest, db: DbSession, background: BackgroundTasks
+) -> OkResponse:
+    """Email a one-time link to choose a new password. Always answers the same,
+    so it doesn't reveal which addresses have an account."""
+    email = body.email.lower()
+    user = await auth_service.get_user_by_email(db, email)
+    allowed = await check_rate(f"forgot:{email}", 3, window_s=3600)
+    if (
+        user is not None
+        and allowed
+        and user.is_active
+        and not moderation.is_suspended(user)
+        and not settings.is_protected(user.email)
+    ):
+        # Sent after replying: the answer takes as long either way.
+        background.add_task(_send_reset, user.email, str(user.id), user.token_version, user.locale)
+    return OkResponse()
+
+
+@router.post("/reset", response_model=Tokens)
+async def reset_password(body: ResetRequest, db: DbSession) -> Tokens:
+    """Set a new password from an emailed link (once); signs out every other
+    session and signs this one in."""
+    try:
+        payload = decode_token(body.token)
+    except jwt.PyJWTError as exc:
+        raise AppError(400, "invalid_reset", "This link has expired or is not valid.") from exc
+    user_id = user_id_from_sub(payload.get("sub", "")) if payload.get("type") == "reset" else None
+    user = await db.get(User, user_id) if user_id else None
+    if (
+        user is None
+        or not user.is_active
+        or not token_version_ok(payload, user.token_version)
+        or settings.is_protected(user.email)
+    ):
+        raise AppError(400, "invalid_reset", "This link has expired or is not valid.")
+    user = await auth_service.set_password(db, user, body.new_password)
+    await moderation.touch(db, user)
     return _tokens_for(user)

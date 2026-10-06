@@ -8,6 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.services import metrics
+from app.services.digest import run_due as send_digests
 from app.services.moderation import run_inactivity_cleanup
 from app.services.retention import run_retention
 from app.workers.ai_jobs import pregenerate, run_queue
@@ -42,6 +43,8 @@ async def main() -> None:
     )
     # Resource monitor snapshot for the admin panel.
     scheduler.add_job(_sample, "interval", minutes=15, max_instances=1, coalesce=True)
+    # Daily digest emails, each at the hour its reader chose.
+    scheduler.add_job(send_digests, "cron", minute=2, max_instances=1, coalesce=True)
     # Night (00-05 UTC): summaries ahead of time while the AI queue is idle.
     scheduler.add_job(
         pregenerate, "cron", hour="0-4", minute="5,35", max_instances=1, coalesce=True

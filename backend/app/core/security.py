@@ -11,7 +11,7 @@ import jwt
 
 from app.core.config import settings
 
-TokenType = Literal["access", "refresh"]
+TokenType = Literal["access", "refresh", "reset", "digest_off"]
 API_KEY_PLAINTEXT_PREFIX = "uf"
 
 
@@ -56,6 +56,18 @@ def create_access_token(sub: str, version: int = 0) -> str:
 
 def create_refresh_token(sub: str, version: int = 0) -> str:
     return _create_token(sub, "refresh", timedelta(days=settings.jwt_refresh_ttl_days), version)
+
+
+def create_reset_token(sub: str, version: int) -> str:
+    """Password-reset link token. It carries the account's token version, which
+    the reset itself bumps, so each link works once (and any password change
+    voids older links)."""
+    return _create_token(sub, "reset", timedelta(minutes=settings.reset_ttl_min), version)
+
+
+def create_digest_off_token(sub: str) -> str:
+    """One-click "stop the daily digest" link in each digest email."""
+    return _create_token(sub, "digest_off", timedelta(days=60))
 
 
 def token_version_ok(payload: dict[str, Any], current: int) -> bool:

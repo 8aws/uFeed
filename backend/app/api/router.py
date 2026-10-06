@@ -8,6 +8,7 @@ from app.api.routes import (
     audio,
     auth,
     curation,
+    digest,
     filters,
     folders,
     foryou,
@@ -36,6 +37,7 @@ api_router.include_router(foryou.router)
 api_router.include_router(site.router)
 api_router.include_router(admin.router)
 api_router.include_router(curation.router)
+api_router.include_router(digest.router)
 
 # Public API (/api/v1/...)
 api_router.include_router(public.router)

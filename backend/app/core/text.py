@@ -19,3 +19,13 @@ def plain(value: str | None) -> str | None:
             break
         value = html.unescape(value)
     return value
+
+
+_TAG = re.compile(r"<[^>]+>")
+_WS = re.compile(r"\s+")
+
+
+def text_of(fragment: str | None) -> str:
+    """Readable text of an HTML fragment: tags dropped, entities decoded,
+    whitespace collapsed (for excerpts in emails and the like)."""
+    return _WS.sub(" ", plain(_TAG.sub(" ", fragment or "")) or "").strip()

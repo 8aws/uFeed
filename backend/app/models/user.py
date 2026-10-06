@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String
+from sqlalchemy import Boolean, Date, DateTime, Integer, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin
@@ -32,3 +32,7 @@ class User(Base, TimestampMixin):
     # Deactivated for inactivity at this moment (stage 1). Signing in again or
     # using an API key reclaims it; otherwise it's deleted later (stage 2).
     dormant_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Daily digest email: local hour to send it (settings.digest_tz), None = off;
+    # and the last day it went out (one a day).
+    digest_hour: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    digest_sent_on: Mapped[date | None] = mapped_column(Date, nullable=True)

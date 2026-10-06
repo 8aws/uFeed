@@ -50,6 +50,20 @@
 		}
 	}
 
+	// Daily digest email: an hour (in the server's time zone) or off.
+	let digestHour = $state<number | null>($user?.digest_hour ?? null);
+	let digestSaved = $state(false);
+	async function saveDigest(value: number | null) {
+		digestHour = value;
+		try {
+			user.set(await api.updateMe({ digest_hour: value }));
+			digestSaved = true;
+			setTimeout(() => (digestSaved = false), 1500);
+		} catch {
+			/* ignore */
+		}
+	}
+
 	// --- Starter suggestions: the onboarding catalogue, editable any time ---
 	// Every section starts collapsed so the page stays short; the password one
 	// opens itself when linked to (#password) or when a change is required.
@@ -433,6 +447,31 @@
 			<div class="row">
 				<button class:active={$locale === 'en'} onclick={() => changeLanguage('en')}>English</button>
 				<button class:active={$locale === 'es'} onclick={() => changeLanguage('es')}>Español</button>
+			</div>
+		{/if}
+	</section>
+
+	<section>
+		<button class="collapse" onclick={() => toggle('digest')} aria-expanded={!!open.digest}>
+			<h2>📬 {$t('digest_title')}</h2>
+			<span class="chev" aria-hidden="true">{open.digest ? '▾' : '▸'}</span>
+		</button>
+		{#if open.digest}
+			<p class="muted small">{$t('digest_hint')}</p>
+			<div class="row">
+				<select
+					value={digestHour === null ? '' : String(digestHour)}
+					onchange={(e) => {
+						const v = (e.currentTarget as HTMLSelectElement).value;
+						saveDigest(v === '' ? null : Number(v));
+					}}
+				>
+					<option value="">{$t('digest_off')}</option>
+					{#each Array.from({ length: 24 }, (_, h) => h) as h (h)}
+						<option value={String(h)}>{$t('digest_at')} {String(h).padStart(2, '0')}:00</option>
+					{/each}
+				</select>
+				{#if digestSaved}<span class="muted small">✓</span>{/if}
 			</div>
 		{/if}
 	</section>

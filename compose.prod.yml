@@ -18,7 +18,14 @@ services:
     # Non-root (see backend/Dockerfile) and no way to regain privileges.
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+    # Mail (password resets, daily digest) goes through the host's SMTP relay.
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment:
+      SMTP_HOST: ${SMTP_HOST:-host.docker.internal}
 
   worker:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment:
+      SMTP_HOST: ${SMTP_HOST:-host.docker.internal}

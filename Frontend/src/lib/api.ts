@@ -4,6 +4,7 @@ import { clearTokens, getAccess, getRefresh, setTokens } from '$lib/auth';
 import { locale } from '$lib/i18n';
 import type {
 	AISummary,
+	Digest,
 	Ban,
 	SourceHealth,
 	CatalogResponse,
@@ -116,16 +117,20 @@ export const api = {
 		}),
 	login: (email: string, password: string) =>
 		request<Tokens>('/auth/login', { method: 'POST', body: { email, password }, auth: false }),
+	forgotPassword: (email: string) =>
+		request<unknown>('/auth/forgot', { method: 'POST', body: { email }, auth: false }),
+	resetPassword: (token: string, new_password: string) =>
+		request<Tokens>('/auth/reset', { method: 'POST', body: { token, new_password }, auth: false }),
+	article: (id: string) => request<Article>(`/articles/${id}`),
+	digest: (hours = 24, limit = 8) => request<Digest>(`/digest?hours=${hours}&limit=${limit}`),
 	me: () => request<User>('/me'),
-	updateMe: (body: { locale?: Locale; display_name?: string | null }) =>
+	updateMe: (body: { locale?: Locale; display_name?: string | null; digest_hour?: number | null }) =>
 		request<User>('/me', { method: 'PATCH', body }),
 	// Returns fresh tokens: other sessions are signed out.
 	changePassword: (current_password: string, new_password: string) =>
 		request<Tokens>('/me/password', { method: 'POST', body: { current_password, new_password } }),
 	// Deletes the account and all its data (asks for the password).
 	deleteAccount: (password: string) => request<unknown>('/me/delete', { method: 'POST', body: { password } }),
-	sendDiag: (report: { events: unknown[]; context: Record<string, unknown> }) =>
-		request<unknown>('/me/diag', { method: 'POST', body: report }),
 
 	// API keys (for the public /api/v1 read-only API)
 	listKeys: () => request<ApiKey[]>('/keys'),
