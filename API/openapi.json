@@ -152,6 +152,90 @@
         }
       }
     },
+    "/api/auth/forgot": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Forgot Password",
+        "description": "Email a one-time link to choose a new password. Always answers the same,\nso it doesn't reveal which addresses have an account.",
+        "operationId": "forgot_password_api_auth_forgot_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/reset": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Reset Password",
+        "description": "Set a new password from an emailed link (once); signs out every other\nsession and signs this one in.",
+        "operationId": "reset_password_api_auth_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tokens"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me": {
       "get": {
         "tags": [
@@ -282,53 +366,6 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AccountDelete"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OkResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/me/diag": {
-      "post": {
-        "tags": [
-          "me"
-        ],
-        "summary": "Client Diag",
-        "description": "Store a client diagnostics report in the server log.",
-        "operationId": "client_diag_api_me_diag_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DiagReport"
               }
             }
           },
@@ -1500,7 +1537,7 @@
           "articles"
         ],
         "summary": "Ai Summary",
-        "description": "The article's AI summary in `lang` (default: yours).\n\nGenerated on demand (generate=true) by the on-device LLM and stored, so every\nlater reader in that language gets it instantly. Without generate=true only\nan existing summary is returned.",
+        "description": "The article's AI summary in `lang` (default: yours).\n\nStored once made, so every later reader in that language gets it at once.\nWith generate=true a missing summary is queued for the on-device LLM (the\nplan sets the place in the queue and the daily allowance); the reply says\nwhere it is (status queued/running, position, eta_s) and the app asks\nagain until it's ready. Without generate=true nothing is queued.",
         "operationId": "ai_summary_api_articles__article_id__ai_summary_get",
         "security": [
           {
@@ -3635,6 +3672,144 @@
         }
       }
     },
+    "/api/digest": {
+      "get": {
+        "tags": [
+          "digest"
+        ],
+        "summary": "Get Digest",
+        "description": "Your digest now: the most relevant unread articles of the last `hours`.",
+        "operationId": "get_digest_api_digest_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "default": 24,
+              "title": "Hours"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "default": 8,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/digest": {
+      "get": {
+        "tags": [
+          "digest",
+          "public"
+        ],
+        "summary": "Public Digest",
+        "description": "The daily digest with an API key (read scope), e.g. for a daily-summary app.",
+        "operationId": "public_digest_api_v1_digest_get",
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "default": 24,
+              "title": "Hours"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "default": 8,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sources": {
       "get": {
         "tags": [
@@ -4316,6 +4491,44 @@
             "type": "boolean",
             "title": "Cached",
             "default": false
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "none"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "eta_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta S"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
           }
         },
         "type": "object",
@@ -5243,26 +5456,86 @@
         ],
         "title": "CatalogSection"
       },
-      "DiagReport": {
+      "DigestItem": {
         "properties": {
-          "events": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "maxItems": 120,
-            "title": "Events"
+          "id": {
+            "type": "string",
+            "title": "Id"
           },
-          "context": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Context"
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "published_at": {
+            "type": "string",
+            "title": "Published At"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "ai_summary": {
+            "type": "boolean",
+            "title": "Ai Summary",
+            "default": false
+          },
+          "readers": {
+            "type": "integer",
+            "title": "Readers",
+            "default": 0
           }
         },
         "type": "object",
-        "title": "DiagReport",
-        "description": "What the app saw before it stopped answering taps (temporary\ndiagnostics): heartbeats, taps that never became a click, stalls."
+        "required": [
+          "id",
+          "title",
+          "source",
+          "published_at",
+          "summary"
+        ],
+        "title": "DigestItem"
+      },
+      "DigestOut": {
+        "properties": {
+          "hours": {
+            "type": "integer",
+            "title": "Hours"
+          },
+          "total_new": {
+            "type": "integer",
+            "title": "Total New"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DigestItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hours",
+          "total_new",
+          "items"
+        ],
+        "title": "DigestOut",
+        "description": "The most relevant unread articles of the last hours from your feeds."
       },
       "DiscoverRequest": {
         "properties": {
@@ -5395,6 +5668,20 @@
         },
         "type": "object",
         "title": "FolderUpdate"
+      },
+      "ForgotRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "ForgotRequest"
       },
       "FullTextOut": {
         "properties": {
@@ -5867,6 +6154,26 @@
             ],
             "title": "Radio Max Minutes",
             "default": 60
+          },
+          "ai_summaries_per_day": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Summaries Per Day"
+          },
+          "ai_priority": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Ai Priority",
+            "default": 1
           }
         },
         "type": "object",
@@ -6016,6 +6323,28 @@
           "password"
         ],
         "title": "RegisterRequest"
+      },
+      "ResetRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Token"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "title": "ResetRequest"
       },
       "SiteConfig": {
         "properties": {
@@ -6564,6 +6893,17 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "digest_hour": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest Hour"
           }
         },
         "type": "object",
@@ -6605,6 +6945,19 @@
               }
             ],
             "title": "Display Name"
+          },
+          "digest_hour": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 23.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest Hour"
           }
         },
         "type": "object",
