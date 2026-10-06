@@ -128,6 +128,17 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 
 ### Etapa 6 — Extras nativos de iOS (3–4 días)
 
+- [ ] **IA del propio iPhone primero, servidor como respaldo** (canal de plataforma en Swift):
+  - [ ] Resumen con Foundation Models (iOS 26+, iPhone 15 Pro o posterior con
+        Apple Intelligence). Gratis, sin red y privado. Límite de 4K tokens en el
+        dispositivo: trocear los artículos largos (resumir partes y luego unirlas).
+        Verificar la calidad en español frente a Qwen3-4B antes de activarlo.
+  - [ ] Traducción con el framework Translation de Apple (es↔en sin red) en
+        lugar de opus-mt del servidor.
+  - [ ] Si el iPhone no puede, se usa la cola del servidor como ahora. Lo generado
+        en el iPhone no se sube a la caché compartida: es local y no está verificado.
+  - Android: Gemini Nano (ML Kit GenAI) solo resume en inglés, japonés y coreano y
+    en pocos modelos; ML Kit Translation sí sirve para es↔en.
 - [ ] **Notificaciones locales:** comprobación periódica en segundo plano (iOS decide
       cuándo, típicamente cada pocas horas).
   - [ ] Avisa de N artículos nuevos en las fuentes o carpetas elegidas, o da un
