@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -6,17 +7,18 @@ import '../../api/models.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../home/article_tile.dart';
+import '../home/home_state.dart';
 import 'listen_bar.dart';
 
 /// Placeholder reader (stage 1): headline and excerpt. The full reader with
 /// the article's HTML, AI summary and listening comes in stage 2.
-class ReaderScreen extends StatelessWidget {
+class ReaderScreen extends ConsumerWidget {
   const ReaderScreen({super.key, required this.article});
 
   final Article article;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final c = context.colors;
     final a = article;
@@ -52,7 +54,12 @@ class ReaderScreen extends StatelessWidget {
             style: TextStyle(color: c.muted),
           ),
           const SizedBox(height: 12),
-          ListenBar(article: a),
+          ListenBar(
+            article: a,
+            sourceTitle:
+                ref.watch(sidebarProvider).value?.subFor(a.sourceId)?.title ??
+                '',
+          ),
           const SizedBox(height: 16),
           Text(
             plainText(a.contentHtml ?? a.summary),

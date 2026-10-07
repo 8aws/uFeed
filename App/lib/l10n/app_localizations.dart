@@ -403,12 +403,6 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No hay voz de servidor para el idioma de este artículo.'**
   String get listenLangUnsupported;
-
-  /// No description provided for @listenPreparingFor.
-  ///
-  /// In es, this message translates to:
-  /// **'Preparando audio… {n} s'**
-  String listenPreparingFor(int n);
 }
 
 class _AppLocalizationsDelegate

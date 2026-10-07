@@ -66,14 +66,23 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 - [x] `flutter create` en `App/` (todas las plataformas), con lints, ARB ES/EN,
       iconos (`scripts/make_icons.py` + `flutter_launcher_icons`) y colores de la web.
 - [x] Job de CI: formato + `flutter analyze` + `flutter test` (job `app`).
-- [x] **Prueba técnica de audio en directo** (7 oct). Resultado: AVPlayer
-      **no** reproduce el MP3 mientras crece (sin longitud: lo descarga pero no
-      arranca, ni desactivando la espera anti-cortes). El fichero terminado sí
-      suena, con duración y avance, y sigue con la pantalla bloqueada (modo
-      de audio en segundo plano). Aplicado el plan B: la app espera al fichero
-      completo mostrando los segundos (~1/25 del tiempo de lectura; instantáneo
-      si está en caché). Mejora posible más adelante: servir el audio en
-      directo como HLS (lista que crece por frases), que AVPlayer sí reproduce.
+- [x] **Prueba técnica de audio en directo** (7 oct).
+  - AVPlayer (`just_audio`) **no** reproduce el MP3 mientras crece: sin
+    longitud lo descarga pero no arranca. El fichero terminado sí suena, con
+    duración y avance, y sigue con la pantalla bloqueada.
+  - **WebKit sí** (idea del usuario): un `<audio>` en un WebView oculto suena
+    en directo como en Safari, sigue con la pantalla bloqueada y aparece en la
+    pantalla de bloqueo con título y fuente (Media Session).
+  - Queda así: audio terminado → nativo; audio generándose → WebKit.
+  - Pendiente de comprobar en un iPhone real: los botones de reproducir y
+    pausar en la pantalla de bloqueo con WebKit (el simulador no los muestra).
+  - Visto en la prueba: si la generación va más lenta que la reproducción,
+    WebKit espera y retoma, pero se perdieron ~12 s de 3:56. En el Bee la voz
+    va ~25 veces más rápida, así que es poco probable.
+  - El reproductor tiene que vivir fuera del artículo (barra fija, etapa 4):
+    dentro del texto se destruye al desplazar.
+  - Mejora posible más adelante: HLS en el servidor (lista que crece por
+    frases), que AVPlayer reproduce en directo con todas sus funciones.
 
 ### Etapa 1 — Esqueleto, cuenta y lista (3–4 días)
 
@@ -205,7 +214,7 @@ los extras.
 
 | Riesgo | Mitigación |
 | --- | --- |
-| Que AVPlayer no reproduzca bien el MP3 "en directo" | Confirmado en la etapa 0: no lo reproduce. Plan B aplicado (esperar al fichero completo); HLS como mejora futura. |
+| Que AVPlayer no reproduzca bien el MP3 "en directo" | Confirmado en la etapa 0: no lo reproduce. El audio en directo va por WebKit (WebView oculto); el terminado, nativo. HLS como mejora futura. |
 | HTML de feeds muy variado | Render propio para lo común y "Abrir en web" como salida. |
 | Revisión 4.2 / 4.8 de Apple | Ser cliente nativo de verdad. Sin login de terceros, Apple no es obligatorio. |
 | Segundo plano de iOS poco predecible para notificaciones | Prometer "avisos periódicos", no tiempo real. Si hiciera falta push real, APNs en el backend (fase posterior). |

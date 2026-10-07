@@ -174,9 +174,4 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get listenLangUnsupported =>
       'No hay voz de servidor para el idioma de este artículo.';
-
-  @override
-  String listenPreparingFor(int n) {
-    return 'Preparando audio… $n s';
-  }
 }

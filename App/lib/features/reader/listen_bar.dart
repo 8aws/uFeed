@@ -10,22 +10,20 @@ import '../../api/models.dart';
 import '../../auth/session.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
-
-/// How often to ask whether the server voice has finished, and for how long.
-const _pollEvery = Duration(seconds: 2);
-const _giveUpAfter = Duration(minutes: 3);
+import 'web_audio.dart';
 
 /// Server voice for one article: play, pause and position. The full listen
 /// bar (lock screen controls, speed, Post radio) grows from here in stage 4.
 ///
-/// AVPlayer can't play the MP3 while the server is still writing it (no
-/// length yet: it buffers but never starts), unlike the web's <audio>. So
-/// the app waits for the finished file, which is instant when it's cached and
-/// takes ~1/25 of the reading time when it isn't.
+/// Finished audio plays natively (just_audio / AVPlayer). Audio the server is
+/// still generating goes through WebKit instead ([WebAudio]): AVPlayer can't
+/// play an MP3 with no length yet (it buffers but never starts), while
+/// WebKit plays it live, as Safari does for the web app.
 class ListenBar extends ConsumerStatefulWidget {
-  const ListenBar({super.key, required this.article});
+  const ListenBar({super.key, required this.article, this.sourceTitle = ''});
 
   final Article article;
+  final String sourceTitle;
 
   @override
   ConsumerState<ListenBar> createState() => _ListenBarState();
@@ -33,48 +31,48 @@ class ListenBar extends ConsumerStatefulWidget {
 
 class _ListenBarState extends ConsumerState<ListenBar> {
   final _player = AudioPlayer();
+  WebAudio? _web; // live audio through WebKit
   bool _preparing = false;
   bool _started = false;
-  int _waited = 0; // seconds waiting for the server voice
   String? _error;
 
   @override
   void dispose() {
+    _web?.dispose();
     _player.dispose();
     super.dispose();
-  }
-
-  /// The finished audio's URL, asking again until the server has it.
-  Future<Uri?> _finishedAudio() async {
-    final api = ref.read(apiProvider);
-    final lang = widget.article.lang ?? deviceLocale();
-    final clock = Stopwatch()..start();
-    while (mounted && clock.elapsed < _giveUpAfter) {
-      final audio = await api.articleAudio(widget.article.id, lang: lang);
-      if (audio.cached) return audio.url;
-      await Future<void>.delayed(_pollEvery);
-      if (mounted) setState(() => _waited = clock.elapsed.inSeconds);
-    }
-    return null;
   }
 
   Future<void> _start() async {
     final t = AppLocalizations.of(context);
     setState(() {
       _preparing = true;
-      _waited = 0;
       _error = null;
     });
     try {
       final session = await AudioSession.instance;
       await session.configure(const AudioSessionConfiguration.speech());
-      final url = await _finishedAudio();
+      final audio = await ref
+          .read(apiProvider)
+          .articleAudio(
+            widget.article.id,
+            lang: widget.article.lang ?? deviceLocale(),
+          );
       if (!mounted) return;
-      if (url == null) {
-        setState(() => _error = t.listenUnavailable);
+      if (!audio.cached) {
+        final web = WebAudio();
+        setState(() {
+          _web = web;
+          _started = true;
+        });
+        await web.play(
+          audio.url,
+          title: widget.article.title ?? '',
+          artist: widget.sourceTitle,
+        );
         return;
       }
-      await _player.setUrl(url.toString());
+      await _player.setUrl(audio.url.toString());
       setState(() => _started = true);
       unawaited(_player.play());
     } on ApiException catch (e) {
@@ -117,13 +115,7 @@ class _ListenBarState extends ConsumerState<ListenBar> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.headphones),
-            label: Text(
-              !_preparing
-                  ? t.listen
-                  : _waited < 2
-                  ? t.listenPreparing
-                  : t.listenPreparingFor(_waited),
-            ),
+            label: Text(_preparing ? t.listenPreparing : t.listen),
           ),
           if (_error != null) ...[
             const SizedBox(width: 12),
@@ -132,6 +124,40 @@ class _ListenBarState extends ConsumerState<ListenBar> {
             ),
           ],
         ],
+      );
+    }
+    final web = _web;
+    if (web != null) {
+      return ValueListenableBuilder<WebAudioState>(
+        valueListenable: web.state,
+        builder: (context, s, _) => Row(
+          children: [
+            IconButton.filled(
+              onPressed: s.playing ? web.pause : web.resume,
+              icon: Icon(s.playing ? Icons.pause : Icons.play_arrow),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${_clock(s.position)} / '
+              '${s.duration == null ? '…' : _clock(s.duration!)}',
+              style: TextStyle(
+                color: c.muted,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            if (s.error != null) ...[
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  t.listenUnavailable,
+                  style: TextStyle(color: c.danger),
+                ),
+              ),
+            ],
+            const Spacer(),
+            web.view(),
+          ],
+        ),
       );
     }
     return StreamBuilder<PlayerState>(
