@@ -12,8 +12,10 @@ Cliente Flutter de la API de uFeed. Plan y etapas: `../docs/NATIVE_APP.md`.
 
 ## Simulador de iOS
 
-Con Xcode 27, `flutter build ios --simulator` falla al empaquetar
-("does not contain architectures arm64 x86_64"). Se compila solo arm64:
+`flutter run -d <simulador>` funciona con Xcode 27 (simuladores de Device
+Hub). Lo único que falla es `flutter build ios --simulator`, que intenta un
+binario universal ("does not contain architectures arm64 x86_64"); para un
+`.app` suelto sin `flutter run`, compilar solo arm64:
 
 ```bash
 flutter build ios --simulator --debug --config-only
