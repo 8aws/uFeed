@@ -42,11 +42,49 @@
   "openOriginal": "Abrir original",
   "share": "Compartir",
   "minutesAgo": "{n} min",
-  "@minutesAgo": {"placeholders": {"n": {"type": "int"}}},
+  "@minutesAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "hoursAgo": "{n} h",
-  "@hoursAgo": {"placeholders": {"n": {"type": "int"}}},
+  "@hoursAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "daysAgo": "{n} d",
-  "@daysAgo": {"placeholders": {"n": {"type": "int"}}},
+  "@daysAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "readingMinutes": "{n} min de lectura",
-  "@readingMinutes": {"placeholders": {"n": {"type": "int"}}}
+  "@readingMinutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "listen": "Escuchar",
+  "listenPreparing": "Preparando audio…",
+  "listenPlan": "Tu plan no incluye la voz del servidor.",
+  "listenRateLimited": "Demasiadas peticiones de audio esta hora; prueba más tarde.",
+  "listenUnavailable": "La voz del servidor no está disponible ahora.",
+  "listenLangUnsupported": "No hay voz de servidor para el idioma de este artículo.",
+  "listenPreparingFor": "Preparando audio… {n} s",
+  "@listenPreparingFor": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

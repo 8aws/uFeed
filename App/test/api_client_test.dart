@@ -172,4 +172,25 @@ void main() {
     expect(a.isSaved, isTrue);
     expect(a.publishedAt, DateTime.utc(2026, 10, 7, 10));
   });
+
+  test('resolves the signed audio URL against the server', () async {
+    adapter = FakeAdapter(
+      (_) => (
+        status: 200,
+        body: {
+          'url': '/api/audio/a1-esf-v1.mp3?exp=1&sig=x',
+          'lang': 'es',
+          'cached': true,
+        },
+        headers: null,
+      ),
+    );
+    final audio = await client(adapter).articleAudio('a1', lang: 'es');
+    expect(adapter.calls.single.method, 'POST');
+    expect(
+      audio.url.toString(),
+      'https://test/api/audio/a1-esf-v1.mp3?exp=1&sig=x',
+    );
+    expect(audio.cached, isTrue);
+  });
 }

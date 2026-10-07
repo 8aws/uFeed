@@ -66,10 +66,14 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 - [x] `flutter create` en `App/` (todas las plataformas), con lints, ARB ES/EN,
       iconos (`scripts/make_icons.py` + `flutter_launcher_icons`) y colores de la web.
 - [x] Job de CI: formato + `flutter analyze` + `flutter test` (job `app`).
-- [ ] **Prueba técnica de audio en directo.** Comprobar que `just_audio` (AVPlayer)
-      reproduce el MP3 que crece en `/api/audio/...` mientras se genera, y que
-      sigue con la pantalla bloqueada. Si no, plan B: esperar al fichero
-      completo, que con voz cacheada es instantáneo y si no tarda ~5–15 s.
+- [x] **Prueba técnica de audio en directo** (7 oct). Resultado: AVPlayer
+      **no** reproduce el MP3 mientras crece (sin longitud: lo descarga pero no
+      arranca, ni desactivando la espera anti-cortes). El fichero terminado sí
+      suena, con duración y avance, y sigue con la pantalla bloqueada (modo
+      de audio en segundo plano). Aplicado el plan B: la app espera al fichero
+      completo mostrando los segundos (~1/25 del tiempo de lectura; instantáneo
+      si está en caché). Mejora posible más adelante: servir el audio en
+      directo como HLS (lista que crece por frases), que AVPlayer sí reproduce.
 
 ### Etapa 1 — Esqueleto, cuenta y lista (3–4 días)
 
@@ -201,7 +205,7 @@ los extras.
 
 | Riesgo | Mitigación |
 | --- | --- |
-| Que AVPlayer no reproduzca bien el MP3 "en directo" | Prueba en la etapa 0. Plan B: esperar al fichero completo. |
+| Que AVPlayer no reproduzca bien el MP3 "en directo" | Confirmado en la etapa 0: no lo reproduce. Plan B aplicado (esperar al fichero completo); HLS como mejora futura. |
 | HTML de feeds muy variado | Render propio para lo común y "Abrir en web" como salida. |
 | Revisión 4.2 / 4.8 de Apple | Ser cliente nativo de verdad. Sin login de terceros, Apple no es obligatorio. |
 | Segundo plano de iOS poco predecible para notificaciones | Prometer "avisos periódicos", no tiempo real. Si hiciera falta push real, APNs en el backend (fase posterior). |

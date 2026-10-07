@@ -152,4 +152,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String readingMinutes(int n) {
     return '$n min read';
   }
+
+  @override
+  String get listen => 'Listen';
+
+  @override
+  String get listenPreparing => 'Preparing audio…';
+
+  @override
+  String get listenPlan => 'Your plan doesn\'t include the server voice.';
+
+  @override
+  String get listenRateLimited =>
+      'Too many audio requests this hour; try again later.';
+
+  @override
+  String get listenUnavailable =>
+      'The server voice isn\'t available right now.';
+
+  @override
+  String get listenLangUnsupported =>
+      'No server voice for this article\'s language.';
+
+  @override
+  String listenPreparingFor(int n) {
+    return 'Preparing audio… ${n}s';
+  }
 }

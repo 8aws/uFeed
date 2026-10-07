@@ -367,6 +367,48 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'{n} min de lectura'**
   String readingMinutes(int n);
+
+  /// No description provided for @listen.
+  ///
+  /// In es, this message translates to:
+  /// **'Escuchar'**
+  String get listen;
+
+  /// No description provided for @listenPreparing.
+  ///
+  /// In es, this message translates to:
+  /// **'Preparando audio…'**
+  String get listenPreparing;
+
+  /// No description provided for @listenPlan.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu plan no incluye la voz del servidor.'**
+  String get listenPlan;
+
+  /// No description provided for @listenRateLimited.
+  ///
+  /// In es, this message translates to:
+  /// **'Demasiadas peticiones de audio esta hora; prueba más tarde.'**
+  String get listenRateLimited;
+
+  /// No description provided for @listenUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'La voz del servidor no está disponible ahora.'**
+  String get listenUnavailable;
+
+  /// No description provided for @listenLangUnsupported.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay voz de servidor para el idioma de este artículo.'**
+  String get listenLangUnsupported;
+
+  /// No description provided for @listenPreparingFor.
+  ///
+  /// In es, this message translates to:
+  /// **'Preparando audio… {n} s'**
+  String listenPreparingFor(int n);
 }
 
 class _AppLocalizationsDelegate

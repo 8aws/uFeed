@@ -42,11 +42,49 @@
   "openOriginal": "Open original",
   "share": "Share",
   "minutesAgo": "{n}m",
-  "@minutesAgo": {"placeholders": {"n": {"type": "int"}}},
+  "@minutesAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "hoursAgo": "{n}h",
-  "@hoursAgo": {"placeholders": {"n": {"type": "int"}}},
+  "@hoursAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "daysAgo": "{n}d",
-  "@daysAgo": {"placeholders": {"n": {"type": "int"}}},
+  "@daysAgo": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "readingMinutes": "{n} min read",
-  "@readingMinutes": {"placeholders": {"n": {"type": "int"}}}
+  "@readingMinutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "listen": "Listen",
+  "listenPreparing": "Preparing audio…",
+  "listenPlan": "Your plan doesn't include the server voice.",
+  "listenRateLimited": "Too many audio requests this hour; try again later.",
+  "listenUnavailable": "The server voice isn't available right now.",
+  "listenLangUnsupported": "No server voice for this article's language.",
+  "listenPreparingFor": "Preparing audio… {n}s",
+  "@listenPreparingFor": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

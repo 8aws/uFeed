@@ -6,6 +6,7 @@ import '../../api/models.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../home/article_tile.dart';
+import 'listen_bar.dart';
 
 /// Placeholder reader (stage 1): headline and excerpt. The full reader with
 /// the article's HTML, AI summary and listening comes in stage 2.
@@ -50,6 +51,8 @@ class ReaderScreen extends StatelessWidget {
             ].join(' · '),
             style: TextStyle(color: c.muted),
           ),
+          const SizedBox(height: 12),
+          ListenBar(article: a),
           const SizedBox(height: 16),
           Text(
             plainText(a.contentHtml ?? a.summary),

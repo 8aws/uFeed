@@ -238,6 +238,26 @@ class ApiClient {
   Future<void> setFavorite(String id, bool favorite) =>
       _request(favorite ? 'POST' : 'DELETE', '/articles/$id/favorite');
 
+  /// The article read aloud by the server voice (plan `tts_server`): a signed
+  /// URL that plays the finished MP3, or follows it live while it's generated.
+  Future<({Uri url, String lang, bool cached})> articleAudio(
+    String id, {
+    required String lang,
+    String voice = 'f',
+    bool translated = false,
+  }) async {
+    final data = await _json(
+      'POST',
+      '/articles/$id/audio',
+      query: {'lang': lang, 'voice': voice, 'translated': translated},
+    );
+    return (
+      url: Uri.parse(_dio.options.baseUrl).resolve(data['url'] as String),
+      lang: data['lang'] as String,
+      cached: data['cached'] as bool? ?? false,
+    );
+  }
+
   /// `before`: only what was already listed then (newer arrivals stay unread).
   Future<void> markAllRead({
     String? folderId,
