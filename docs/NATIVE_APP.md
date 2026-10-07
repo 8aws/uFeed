@@ -5,9 +5,9 @@ casillas según se avance y anotar decisiones al final.
 
 ## 0. Punto de partida
 
-- **No existe código Flutter todavía.** `App/` está vacía (reservada desde el
-  inicio). Toda la interfaz actual es la PWA SvelteKit de `Frontend/`
-  (~10.500 líneas).
+- **7 oct 2026: proyecto Flutter creado en `App/`** (iOS, Android, macOS,
+  Windows, Linux y web). Hasta entonces toda la interfaz era la PWA SvelteKit
+  de `Frontend/` (~10.500 líneas).
 - **El servidor ya está completo** y no hace falta tocarlo para la app: cuentas,
   fuentes, carpetas, filtros, artículos, artículo completo, voz del servidor en
   directo, traducción, resúmenes IA, Tendencias, sincronización sin conexión.
@@ -38,7 +38,7 @@ ellas si el rol lo permite.
 | Estado | `flutter_riverpod` 3 |
 | Navegación | `go_router` |
 | HTTP + reintentos y refresco del JWT | `dio` (interceptor de refresh) |
-| Cliente API | generado desde `API/openapi.json` (`openapi_generator` / `swagger_parser`) o modelos `freezed` a mano para las ~25 rutas que usa la app |
+| Cliente API | escrito a mano (`lib/api/`): clases simples con `fromJson`, sin generación de código, solo las rutas que usa la app |
 | Base de datos local (sin conexión, cola de cambios) | `drift` (SQLite) |
 | Tokens | `flutter_secure_storage` (Keychain) |
 | Ajustes | `shared_preferences` |
@@ -62,10 +62,10 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 
 - [x] Regenerar `API/openapi.json` desde el Bee (1 oct: ya incluye `/full`,
       `/me/delete` y `/me/diag`).
-- [ ] Decidir: cliente generado o modelos a mano (ver §6).
-- [ ] `flutter create` en `App/` (iOS + Android), con lints, ARB ES/EN, iconos
-      (reutilizar `scripts/make_icons.py`) y esquema de color de la web.
-- [ ] Job de CI: `flutter analyze` + `flutter test`.
+- [x] Decidir: cliente generado o modelos a mano (ver §6): a mano.
+- [x] `flutter create` en `App/` (todas las plataformas), con lints, ARB ES/EN,
+      iconos (`scripts/make_icons.py` + `flutter_launcher_icons`) y colores de la web.
+- [x] Job de CI: formato + `flutter analyze` + `flutter test` (job `app`).
 - [ ] **Prueba técnica de audio en directo.** Comprobar que `just_audio` (AVPlayer)
       reproduce el MP3 que crece en `/api/audio/...` mientras se genera, y que
       sigue con la pantalla bloqueada. Si no, plan B: esperar al fichero
@@ -73,11 +73,11 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 
 ### Etapa 1 — Esqueleto, cuenta y lista (3–4 días)
 
-- [ ] Login, registro (si el sitio lo permite: `GET /site`) y refresco del token.
-- [ ] Barra lateral / cajón: Todo, Sin leer, Guardados, Favoritos, carpetas y fuentes con contadores.
-- [ ] Lista de artículos con paginación, vistas lista/tarjetas/mosaico y tirar para actualizar.
-- [ ] Gestos: deslizar para leído/guardado y pulsación larga para quitar.
-- [ ] Marcar todo como leído.
+- [x] Login, registro (si el sitio lo permite: `GET /site`), recuperar contraseña y refresco del token.
+- [x] Barra lateral / cajón: Todo, Sin leer, Guardados, Favoritos, carpetas y fuentes con contadores.
+- [ ] Lista de artículos: paginación y tirar para actualizar hechos; faltan las vistas tarjetas/mosaico.
+- [x] Gestos: deslizar para leído/guardado y pulsación larga para marcar leído.
+- [x] Marcar todo como leído (hasta lo listado, como la web).
 - [ ] Tendencias y "Para ti".
 - [ ] Modo claro/oscuro y tamaño de texto (Dynamic Type).
 
@@ -209,10 +209,10 @@ los extras.
 
 ## 6. Decisiones pendientes (revisar al retomar)
 
-1. ¿Cliente API generado desde OpenAPI o modelos a mano? Recomendación: a mano
-   con `freezed`. Son pocas rutas y el código queda más limpio.
-2. ¿iPhone solo al principio o también iPad en la primera versión?
-3. ¿Android a la vez o después de la versión de iOS?
+1. ~~¿Cliente API generado o a mano?~~ Decidido: a mano.
+2. ~~¿iPad en la 1.0?~~ Decidido: solo iPhone.
+3. ~~¿Android a la vez?~~ Decidido: proyecto multiplataforma desde el principio;
+   se prueba y pule primero en iOS.
 4. Notificaciones: ¿resumen diario a una hora, por fuente/carpeta, o ambos?
 5. ¿Qué opcionales de la etapa 6 entran en la 1.0?
 6. ¿Iniciar sesión con Apple en la 1.0?
@@ -223,3 +223,8 @@ los extras.
 
 - 2026-10-01: no se crea la ficha en App Store Connect hasta tener ejecutable
   nativo. No se sube nada sin OK explícito.
+- 2026-10-07: cliente de la API escrito a mano en Dart (como `api.ts` en la
+  web), sin `freezed` ni generación de código. Proyecto Flutter para todas las
+  plataformas; la 1.0 se centra en iPhone (iPad en modo iPhone). Los extras
+  nativos (IA del dispositivo, iCloud, segundo plano) se hacen primero en iOS.
+  Destino mínimo iOS 16.

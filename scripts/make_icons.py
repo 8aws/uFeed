@@ -97,6 +97,18 @@ def ios() -> None:
         splash.save(base / "Splash.imageset" / name, optimize=True)
 
 
+def flutter_app() -> None:
+    """Native app (App/): the 1024 px source for flutter_launcher_icons."""
+    out = ROOT / "App" / "assets" / "icon"
+    if not (ROOT / "App" / "pubspec.yaml").exists():
+        return
+    out.mkdir(parents=True, exist_ok=True)
+    full_bleed().resize((1024, 1024), Image.LANCZOS).convert("RGB").save(
+        out / "ufeed_icon.png", optimize=True
+    )
+
+
 if __name__ == "__main__":
     main()
     ios()
+    flutter_app()
