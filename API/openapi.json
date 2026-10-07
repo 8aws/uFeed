@@ -5470,6 +5470,17 @@
             "type": "string",
             "title": "Source"
           },
+          "icon_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon Url"
+          },
           "url": {
             "anyOf": [
               {
@@ -6904,6 +6915,11 @@
               }
             ],
             "title": "Digest Hour"
+          },
+          "digest_days": {
+            "type": "integer",
+            "title": "Digest Days",
+            "default": 127
           }
         },
         "type": "object",
@@ -6958,6 +6974,19 @@
               }
             ],
             "title": "Digest Hour"
+          },
+          "digest_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 127.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest Days"
           }
         },
         "type": "object",
