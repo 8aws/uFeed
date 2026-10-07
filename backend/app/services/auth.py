@@ -45,6 +45,7 @@ async def update_profile(
     locale: str | None = None,
     display_name: str | None = None,
     digest_hour: int | None = None,
+    digest_days: int | None = None,
 ) -> User:
     """Apply only the provided fields (fields = the keys actually sent)."""
     if "locale" in fields and locale is not None:
@@ -52,6 +53,8 @@ async def update_profile(
     if "display_name" in fields:
         cleaned = (display_name or "").strip()
         user.display_name = cleaned or None
+    if "digest_days" in fields and digest_days is not None:
+        user.digest_days = digest_days
     if "digest_hour" in fields:
         user.digest_hour = digest_hour
         # If today's hour has already gone, the first one goes out tomorrow.

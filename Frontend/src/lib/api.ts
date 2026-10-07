@@ -124,7 +124,7 @@ export const api = {
 	article: (id: string) => request<Article>(`/articles/${id}`),
 	digest: (hours = 24, limit = 8) => request<Digest>(`/digest?hours=${hours}&limit=${limit}`),
 	me: () => request<User>('/me'),
-	updateMe: (body: { locale?: Locale; display_name?: string | null; digest_hour?: number | null }) =>
+	updateMe: (body: { locale?: Locale; display_name?: string | null; digest_hour?: number | null; digest_days?: number }) =>
 		request<User>('/me', { method: 'PATCH', body }),
 	// Returns fresh tokens: other sessions are signed out.
 	changePassword: (current_password: string, new_password: string) =>

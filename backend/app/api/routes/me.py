@@ -32,6 +32,7 @@ async def update_me(body: UserUpdate, user: CurrentUser, db: DbSession) -> UserO
         locale=body.locale,
         display_name=body.display_name,
         digest_hour=body.digest_hour,
+        digest_days=body.digest_days,
     )
     return user
 

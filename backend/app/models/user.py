@@ -36,3 +36,8 @@ class User(Base, TimestampMixin):
     # and the last day it went out (one a day).
     digest_hour: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     digest_sent_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Days it goes out: a bit per weekday, Monday = 1 ... Sunday = 64 (127 = all,
+    # 31 = Monday to Friday, 96 = weekend).
+    digest_days: Mapped[int] = mapped_column(
+        SmallInteger, default=127, server_default="127", nullable=False
+    )

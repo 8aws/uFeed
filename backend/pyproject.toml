@@ -23,6 +23,8 @@ dependencies = [
     "pgvector>=0.3.6",
     # Full article text for feeds that only publish an excerpt.
     "trafilatura>=2.0",
+    # Feed icons (often .ico) as small PNGs inside digest emails.
+    "pillow>=11.0",
 ]
 
 [project.optional-dependencies]

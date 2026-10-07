@@ -23,7 +23,12 @@ def enabled() -> bool:
 
 
 def _build(
-    to: str, subject: str, text: str, html: str | None, headers: dict[str, str] | None
+    to: str,
+    subject: str,
+    text: str,
+    html: str | None,
+    headers: dict[str, str] | None,
+    images: dict[str, bytes] | None = None,
 ) -> EmailMessage:
     msg = EmailMessage()
     name, addr = parseaddr(settings.mail_from)
@@ -36,6 +41,10 @@ def _build(
     msg.set_content(text)
     if html:
         msg.add_alternative(html, subtype="html")
+        # Inline images, referenced from the HTML as <img src="cid:NAME">.
+        html_part = msg.get_payload()[-1]
+        for cid, data in (images or {}).items():
+            html_part.add_related(data, maintype="image", subtype="png", cid=f"<{cid}>")
     return msg
 
 
@@ -56,13 +65,15 @@ async def send(
     text: str,
     html: str | None = None,
     headers: dict[str, str] | None = None,
+    images: dict[str, bytes] | None = None,
 ) -> bool:
-    """Send one message; False (and logged) if mail is off or it failed."""
+    """Send one message; False (and logged) if mail is off or it failed.
+    `images` are PNGs shown inline (cid:NAME in the HTML)."""
     if not enabled():
         log.info("mail disabled; not sent: %s", subject)
         return False
     try:
-        await asyncio.to_thread(_send_sync, _build(to, subject, text, html, headers))
+        await asyncio.to_thread(_send_sync, _build(to, subject, text, html, headers, images))
         return True
     except (OSError, smtplib.SMTPException) as exc:
         log.warning("mail to %s failed: %s", to.split("@")[-1], exc)

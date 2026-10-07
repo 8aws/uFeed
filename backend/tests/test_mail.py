@@ -27,8 +27,17 @@ def outbox(monkeypatch) -> list[dict]:
     get_redis.cache_clear()  # the app's Redis client, for this test's loop
     sent: list[dict] = []
 
-    async def fake_send(to, subject, text, html=None, headers=None):
-        sent.append({"to": to, "subject": subject, "text": text, "html": html, "headers": headers})
+    async def fake_send(to, subject, text, html=None, headers=None, images=None):
+        sent.append(
+            {
+                "to": to,
+                "subject": subject,
+                "text": text,
+                "html": html,
+                "headers": headers,
+                "images": images or {},
+            }
+        )
         return True
 
     monkeypatch.setattr(mailer, "send", fake_send)
@@ -182,3 +191,54 @@ async def test_digest_summaries_are_queued_ahead(
     status = await ai_queue.status(uuid.UUID(ids[0]), user.locale[:2])
     assert status["status"] == "queued"
     await get_redis().delete(ai_queue.PENDING)
+
+
+async def test_digest_email_has_logo_and_feed_icons(
+    api: AsyncClient, db_session: AsyncSession, outbox: list[dict], monkeypatch
+) -> None:
+    from app.models.source import Source
+    from app.services import favicons
+
+    h, ids = await _reader_with_news(api, db_session, n=1)
+    art = await db_session.get(Article, uuid.UUID(ids[0]))
+    src = await db_session.get(Source, art.source_id)
+    src.favicon_url = "https://example.com/favicon.ico"
+    await db_session.commit()
+
+    async def fake_png(url):
+        return b"\x89PNG-fake" if url == "https://example.com/favicon.ico" else None
+
+    monkeypatch.setattr(favicons, "png", fake_png)
+    me = (await api.get("/api/me", headers=h)).json()
+    user = await db_session.get(User, uuid.UUID(me["id"]))
+    assert await digest.send_one(db_session, user, date.today()) is True
+    mail = outbox[-1]
+    assert "logo@ufeed" in mail["images"] and "cid:logo@ufeed" in mail["html"]
+    icon_cids = [c for c in mail["images"] if c.startswith("feed")]
+    assert len(icon_cids) == 1 and f"cid:{icon_cids[0]}" in mail["html"]
+
+
+def test_feed_icons_become_small_pngs() -> None:
+    import io
+
+    from PIL import Image
+
+    from app.services import favicons
+
+    ico = io.BytesIO()
+    Image.new("RGBA", (64, 64), (37, 99, 235, 255)).save(ico, "ICO", sizes=[(16, 16), (64, 64)])
+    png = favicons._to_png(ico.getvalue())
+    with Image.open(io.BytesIO(png)) as img:
+        assert img.format == "PNG" and img.size == (32, 32)
+    assert favicons._to_png(b"not an image") is None
+
+
+async def test_digest_days(api: AsyncClient, db_session: AsyncSession) -> None:
+    h, _ = await _reader_with_news(api, db_session, n=1)
+    me = (await api.patch("/api/me", headers=h, json={"digest_hour": 8, "digest_days": 31})).json()
+    assert me["digest_days"] == 31  # Monday to Friday
+    user = await db_session.get(User, uuid.UUID(me["id"]))
+    monday, saturday = date(2026, 10, 5), date(2026, 10, 10)
+    assert digest.on_day(user, monday) and not digest.on_day(user, saturday)
+    bad = await api.patch("/api/me", headers=h, json={"digest_days": 0})
+    assert bad.status_code == 422  # at least one day

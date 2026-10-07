@@ -12,6 +12,7 @@ export interface User {
 	must_change_password: boolean;
 	created_at: string;
 	digest_hour?: number | null; // daily digest email hour; null = off
+	digest_days?: number; // bit per weekday, Monday = 1 … Sunday = 64
 }
 
 export interface Tokens {

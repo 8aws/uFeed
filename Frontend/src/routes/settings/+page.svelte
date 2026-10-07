@@ -52,11 +52,20 @@
 
 	// Daily digest email: an hour (in the server's time zone) or off.
 	let digestHour = $state<number | null>($user?.digest_hour ?? null);
+	// Days it goes out: a bit per weekday, Monday = 1 … Sunday = 64.
+	let digestDays = $state<number>($user?.digest_days ?? 127);
+	const DAY_PRESETS = [
+		{ key: 'digest_every_day', days: 127 },
+		{ key: 'digest_weekdays', days: 31 },
+		{ key: 'digest_weekends', days: 96 }
+	] as const;
+	let digestCustom = $state(![127, 31, 96].includes($user?.digest_days ?? 127));
 	let digestSaved = $state(false);
-	async function saveDigest(value: number | null) {
+	async function saveDigest(value: number | null, days = digestDays) {
 		digestHour = value;
+		digestDays = days;
 		try {
-			user.set(await api.updateMe({ digest_hour: value }));
+			user.set(await api.updateMe({ digest_hour: value, digest_days: days }));
 			digestSaved = true;
 			setTimeout(() => (digestSaved = false), 1500);
 		} catch {
@@ -473,6 +482,32 @@
 				</select>
 				{#if digestSaved}<span class="muted small">✓</span>{/if}
 			</div>
+			{#if digestHour !== null}
+				<div class="row">
+					{#each DAY_PRESETS as p (p.key)}
+						<button
+							class:active={!digestCustom && digestDays === p.days}
+							onclick={() => ((digestCustom = false), saveDigest(digestHour, p.days))}>{$t(p.key)}</button
+						>
+					{/each}
+					<button class:active={digestCustom} onclick={() => (digestCustom = true)}>{$t('digest_custom')}</button>
+				</div>
+				{#if digestCustom}
+					<div class="row days">
+						{#each $t('digest_day_letters').split(',') as letter, i (i)}
+							{@const bit = 1 << i}
+							<button
+								class:active={(digestDays & bit) !== 0}
+								aria-pressed={(digestDays & bit) !== 0}
+								onclick={() => {
+									const next = digestDays ^ bit;
+									if (next) saveDigest(digestHour, next); // at least one day
+								}}>{letter}</button
+							>
+						{/each}
+					</div>
+				{/if}
+			{/if}
 		{/if}
 	</section>
 
@@ -1011,6 +1046,11 @@
 	h2 {
 		margin: 0 0 0.75rem;
 		font-size: 0.95rem;
+	}
+	.row.days button {
+		min-width: 2.4rem;
+		padding-left: 0;
+		padding-right: 0;
 	}
 	.row {
 		display: flex;
