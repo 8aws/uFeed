@@ -229,6 +229,20 @@ class ApiClient {
     Article.fromJson,
   );
 
+  /// Articles picked for this user from what they read (no paging).
+  Future<List<Article>> forYou({int limit = 40}) =>
+      _list('/foryou', Article.fromJson, query: {'limit': limit});
+
+  /// Trending rankings over the last `windowHours`.
+  Future<Insights> insights({int windowHours = 720, int limit = 12}) async =>
+      Insights.fromJson(
+        await _json(
+          'GET',
+          '/insights',
+          query: {'window_hours': windowHours, 'limit': limit},
+        ),
+      );
+
   Future<void> setRead(String id, bool read) =>
       _request(read ? 'POST' : 'DELETE', '/articles/$id/read');
 

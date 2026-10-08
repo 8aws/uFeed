@@ -88,11 +88,14 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 
 - [x] Login, registro (si el sitio lo permite: `GET /site`), recuperar contraseña y refresco del token.
 - [x] Barra lateral / cajón: Todo, Sin leer, Guardados, Favoritos, carpetas y fuentes con contadores.
-- [ ] Lista de artículos: paginación y tirar para actualizar hechos; faltan las vistas tarjetas/mosaico.
+- [x] Lista de artículos con paginación, tirar para actualizar y las cuatro vistas de la web
+      (lista, lista de tarjetas, tarjetas y mosaico), recordada en el dispositivo.
 - [x] Gestos: deslizar para leído/guardado y pulsación larga para marcar leído.
 - [x] Marcar todo como leído (hasta lo listado, como la web).
-- [ ] Tendencias y "Para ti".
-- [ ] Modo claro/oscuro y tamaño de texto (Dynamic Type).
+- [x] Tendencias (pestañas: tendencia ahora, top, más guardados, lecturas profundas,
+      joyas ocultas) y "Para ti".
+- [x] Modo claro/oscuro con los colores de la web. El tamaño de texto del sistema
+      (Dynamic Type) lo aplica Flutter; el ajuste propio de la app llega con el lector.
 
 ### Etapa 2 — Lector (3–4 días)
 

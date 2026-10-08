@@ -1,10 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../api/models.dart';
 import '../../auth/session.dart';
+import '../../core/prefs.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 import 'article_tile.dart';
@@ -47,6 +49,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         FilterKind.unread => t.unread,
         FilterKind.saved => t.saved,
         FilterKind.favorites => t.favorites,
+        FilterKind.forYou => t.forYou,
         FilterKind.folder =>
           side?.folders.where((x) => x.id == f.id).firstOrNull?.name ??
               t.folders,
@@ -64,8 +67,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final scoped =
         filter.kind == FilterKind.folder || filter.kind == FilterKind.source;
     final onlyUnread = ref.watch(onlyUnreadProvider);
-    final canMarkAll =
-        filter.kind != FilterKind.saved && filter.kind != FilterKind.favorites;
+    final canMarkAll = !const {
+      FilterKind.saved,
+      FilterKind.favorites,
+      FilterKind.forYou,
+    }.contains(filter.kind);
+    final style = ref.watch(listStyleProvider);
 
     ref.listen(filterProvider, (_, _) {
       if (_scroll.hasClients) _scroll.jumpTo(0);
@@ -100,15 +107,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ? ctrl.markAllRead
                   : null,
             ),
+          PopupMenuButton<ListStyle>(
+            tooltip: t.view,
+            icon: Icon(_styleIcon(style)),
+            initialValue: style,
+            onSelected: ref.read(listStyleProvider.notifier).set,
+            itemBuilder: (_) => [
+              for (final s in ListStyle.values)
+                CheckedPopupMenuItem(
+                  value: s,
+                  checked: s == style,
+                  child: Text(_styleName(t, s)),
+                ),
+            ],
+          ),
         ],
       ),
       drawer: const _SideMenu(),
       body: RefreshIndicator(
         onRefresh: ctrl.refresh,
-        child: _body(t, c, list, side, ctrl),
+        child: _body(t, c, list, side, ctrl, style, scoped && onlyUnread),
       ),
     );
   }
+
+  static IconData _styleIcon(ListStyle s) => switch (s) {
+    ListStyle.list => Icons.view_headline,
+    ListStyle.cardList => Icons.view_list,
+    ListStyle.cards => Icons.view_agenda_outlined,
+    ListStyle.masonry => Icons.dashboard_outlined,
+  };
+
+  static String _styleName(AppLocalizations t, ListStyle s) => switch (s) {
+    ListStyle.list => t.viewList,
+    ListStyle.cardList => t.viewCardList,
+    ListStyle.cards => t.viewCards,
+    ListStyle.masonry => t.viewMasonry,
+  };
 
   Widget _body(
     AppLocalizations t,
@@ -116,6 +151,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ArticleList list,
     Sidebar? side,
     ArticleListNotifier ctrl,
+    ListStyle style,
+    bool onlyUnreadHere,
   ) {
     if (list.items.isEmpty) {
       final String message;
@@ -140,38 +177,61 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onPressed: () => ctrl.load(reset: true),
                 child: Text(t.retry),
               ),
+            )
+          else if (onlyUnreadHere)
+            Center(
+              child: TextButton(
+                onPressed: ref.read(onlyUnreadProvider.notifier).toggle,
+                child: Text(t.showAllPosts),
+              ),
             ),
         ],
+      );
+    }
+    final count = list.items.length + (list.done ? 0 : 1);
+    Widget item(BuildContext context, int i) {
+      if (i == list.items.length) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: list.error != null
+                ? TextButton(onPressed: ctrl.load, child: Text(t.retry))
+                : const CircularProgressIndicator(),
+          ),
+        );
+      }
+      final a = list.items[i];
+      return ArticleTile(
+        key: ValueKey(a.id),
+        article: a,
+        style: style,
+        sourceTitle: side?.subFor(a.sourceId)?.title ?? '',
+        onOpen: () {
+          ctrl.setRead(a, true);
+          context.push('/article/${a.id}', extra: a);
+        },
+        onToggleRead: () => ctrl.setRead(a, !a.isRead),
+        onToggleSaved: () => ctrl.setSaved(a, !a.isSaved),
+      );
+    }
+
+    if (style == ListStyle.masonry) {
+      return MasonryGridView.count(
+        controller: _scroll,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(10),
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        itemCount: count,
+        itemBuilder: item,
       );
     }
     return ListView.builder(
       controller: _scroll,
       physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: list.items.length + (list.done ? 0 : 1),
-      itemBuilder: (context, i) {
-        if (i == list.items.length) {
-          return Padding(
-            padding: const EdgeInsets.all(24),
-            child: Center(
-              child: list.error != null
-                  ? TextButton(onPressed: ctrl.load, child: Text(t.retry))
-                  : const CircularProgressIndicator(),
-            ),
-          );
-        }
-        final a = list.items[i];
-        return ArticleTile(
-          key: ValueKey(a.id),
-          article: a,
-          sourceTitle: side?.subFor(a.sourceId)?.title ?? '',
-          onOpen: () {
-            ctrl.setRead(a, true);
-            context.push('/article/${a.id}', extra: a);
-          },
-          onToggleRead: () => ctrl.setRead(a, !a.isRead),
-          onToggleSaved: () => ctrl.setSaved(a, !a.isSaved),
-        );
-      },
+      itemCount: count,
+      itemBuilder: item,
     );
   }
 }
@@ -277,6 +337,21 @@ class _SideMenu extends ConsumerWidget {
               const Filter(FilterKind.favorites),
               const Icon(Icons.favorite_border),
               t.favorites,
+            ),
+            item(
+              const Filter(FilterKind.forYou),
+              const Icon(Icons.auto_awesome_outlined),
+              t.forYou,
+            ),
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.local_fire_department_outlined),
+              minLeadingWidth: 20,
+              title: Text(t.trending),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/trending');
+              },
             ),
             const Divider(),
             if (side.isLoading && data == null)

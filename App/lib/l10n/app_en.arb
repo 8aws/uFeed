@@ -78,5 +78,24 @@
   "listenPlan": "Your plan doesn't include the server voice.",
   "listenRateLimited": "Too many audio requests this hour; try again later.",
   "listenUnavailable": "The server voice isn't available right now.",
-  "listenLangUnsupported": "No server voice for this article's language."
+  "listenLangUnsupported": "No server voice for this article's language.",
+  "view": "View",
+  "viewList": "List",
+  "viewCardList": "Card list",
+  "viewCards": "Cards",
+  "viewMasonry": "Masonry",
+  "showAllPosts": "Show read posts too",
+  "readers": "{n, plural, =1{1 reader} other{{n} readers}}",
+  "@readers": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "trendingNow": "Trending now",
+  "top": "Top",
+  "mostSaved": "Most saved",
+  "deepReads": "Deep reads",
+  "hiddenGems": "Hidden gems"
 }

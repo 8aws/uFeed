@@ -6,7 +6,7 @@ import '../../api/api_client.dart';
 import '../../api/models.dart';
 import '../../auth/session.dart';
 
-enum FilterKind { all, unread, saved, favorites, folder, source }
+enum FilterKind { all, unread, saved, favorites, forYou, folder, source }
 
 /// What the article list shows.
 class Filter {
@@ -166,6 +166,12 @@ class ArticleListNotifier extends Notifier<ArticleList> {
         ? const ArticleList(loading: true)
         : state.copyWith(loading: true);
     try {
+      if (f.kind == FilterKind.forYou) {
+        final items = await _api.forYou();
+        if (seq != _seq) return;
+        state = ArticleList(items: items, done: true, listedAt: DateTime.now());
+        return;
+      }
       final page = await _api.articles(
         unread: unreadView,
         saved: f.kind == FilterKind.saved,

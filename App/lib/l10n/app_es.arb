@@ -78,5 +78,24 @@
   "listenPlan": "Tu plan no incluye la voz del servidor.",
   "listenRateLimited": "Demasiadas peticiones de audio esta hora; prueba más tarde.",
   "listenUnavailable": "La voz del servidor no está disponible ahora.",
-  "listenLangUnsupported": "No hay voz de servidor para el idioma de este artículo."
+  "listenLangUnsupported": "No hay voz de servidor para el idioma de este artículo.",
+  "view": "Vista",
+  "viewList": "Lista",
+  "viewCardList": "Lista de tarjetas",
+  "viewCards": "Tarjetas",
+  "viewMasonry": "Mosaico",
+  "showAllPosts": "Ver también los leídos",
+  "readers": "{n, plural, =1{1 lector} other{{n} lectores}}",
+  "@readers": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "trendingNow": "Tendencia ahora",
+  "top": "Top",
+  "mostSaved": "Más guardados",
+  "deepReads": "Lecturas profundas",
+  "hiddenGems": "Joyas ocultas"
 }

@@ -173,4 +173,48 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get listenLangUnsupported =>
       'No server voice for this article\'s language.';
+
+  @override
+  String get view => 'View';
+
+  @override
+  String get viewList => 'List';
+
+  @override
+  String get viewCardList => 'Card list';
+
+  @override
+  String get viewCards => 'Cards';
+
+  @override
+  String get viewMasonry => 'Masonry';
+
+  @override
+  String get showAllPosts => 'Show read posts too';
+
+  @override
+  String readers(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n readers',
+      one: '1 reader',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get trendingNow => 'Trending now';
+
+  @override
+  String get top => 'Top';
+
+  @override
+  String get mostSaved => 'Most saved';
+
+  @override
+  String get deepReads => 'Deep reads';
+
+  @override
+  String get hiddenGems => 'Hidden gems';
 }

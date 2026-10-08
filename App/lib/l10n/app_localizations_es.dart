@@ -174,4 +174,48 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get listenLangUnsupported =>
       'No hay voz de servidor para el idioma de este artículo.';
+
+  @override
+  String get view => 'Vista';
+
+  @override
+  String get viewList => 'Lista';
+
+  @override
+  String get viewCardList => 'Lista de tarjetas';
+
+  @override
+  String get viewCards => 'Tarjetas';
+
+  @override
+  String get viewMasonry => 'Mosaico';
+
+  @override
+  String get showAllPosts => 'Ver también los leídos';
+
+  @override
+  String readers(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n lectores',
+      one: '1 lector',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get trendingNow => 'Tendencia ahora';
+
+  @override
+  String get top => 'Top';
+
+  @override
+  String get mostSaved => 'Más guardados';
+
+  @override
+  String get deepReads => 'Lecturas profundas';
+
+  @override
+  String get hiddenGems => 'Joyas ocultas';
 }

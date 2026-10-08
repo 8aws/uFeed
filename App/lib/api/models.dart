@@ -237,3 +237,41 @@ class SiteConfig {
     contactEmail: j['contact_email'] as String?,
   );
 }
+
+/// An article in one of the Trending rankings.
+class RankedArticle {
+  const RankedArticle({required this.article, required this.readers});
+
+  final Article article;
+  final int readers;
+
+  factory RankedArticle.fromJson(Json j) => RankedArticle(
+    article: Article.fromJson(j['article'] as Json),
+    readers: j['readers'] as int? ?? 0,
+  );
+}
+
+/// The Trending rankings (most read lately, top, most saved…).
+enum Ranking { trendingNow, top, mostSaved, deepReads, hiddenGems }
+
+class Insights {
+  const Insights(this.rankings);
+
+  final Map<Ranking, List<RankedArticle>> rankings;
+
+  static const _keys = {
+    Ranking.trendingNow: 'trending_now',
+    Ranking.top: 'top',
+    Ranking.mostSaved: 'most_saved',
+    Ranking.deepReads: 'deep_reads',
+    Ranking.hiddenGems: 'hidden_gems',
+  };
+
+  factory Insights.fromJson(Json j) => Insights({
+    for (final r in Ranking.values)
+      r: [
+        for (final e in (j[_keys[r]] as List?) ?? const [])
+          RankedArticle.fromJson(e as Json),
+      ],
+  });
+}

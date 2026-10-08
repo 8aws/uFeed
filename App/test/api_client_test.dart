@@ -193,4 +193,36 @@ void main() {
     );
     expect(audio.cached, isTrue);
   });
+
+  test('parses the Trending rankings', () async {
+    final article = {
+      'id': 'a1',
+      'source_id': 's1',
+      'title': 'Hola',
+      'is_read': false,
+      'is_saved': false,
+      'is_favorite': false,
+    };
+    adapter = FakeAdapter(
+      (req) => (
+        status: 200,
+        body: {
+          'trending_now': [
+            {'article': article, 'readers': 7, 'score': 1.0},
+          ],
+          'top': <Object>[],
+          'most_saved': <Object>[],
+          'deep_reads': <Object>[],
+          'hidden_gems': <Object>[],
+        },
+        headers: null,
+      ),
+    );
+    final insights = await client(adapter).insights();
+    expect(adapter.calls.single.path, '/insights');
+    final now = insights.rankings[Ranking.trendingNow]!;
+    expect(now.single.readers, 7);
+    expect(now.single.article.title, 'Hola');
+    expect(insights.rankings[Ranking.hiddenGems], isEmpty);
+  });
 }

@@ -403,6 +403,78 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No hay voz de servidor para el idioma de este artículo.'**
   String get listenLangUnsupported;
+
+  /// No description provided for @view.
+  ///
+  /// In es, this message translates to:
+  /// **'Vista'**
+  String get view;
+
+  /// No description provided for @viewList.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista'**
+  String get viewList;
+
+  /// No description provided for @viewCardList.
+  ///
+  /// In es, this message translates to:
+  /// **'Lista de tarjetas'**
+  String get viewCardList;
+
+  /// No description provided for @viewCards.
+  ///
+  /// In es, this message translates to:
+  /// **'Tarjetas'**
+  String get viewCards;
+
+  /// No description provided for @viewMasonry.
+  ///
+  /// In es, this message translates to:
+  /// **'Mosaico'**
+  String get viewMasonry;
+
+  /// No description provided for @showAllPosts.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver también los leídos'**
+  String get showAllPosts;
+
+  /// No description provided for @readers.
+  ///
+  /// In es, this message translates to:
+  /// **'{n, plural, =1{1 lector} other{{n} lectores}}'**
+  String readers(int n);
+
+  /// No description provided for @trendingNow.
+  ///
+  /// In es, this message translates to:
+  /// **'Tendencia ahora'**
+  String get trendingNow;
+
+  /// No description provided for @top.
+  ///
+  /// In es, this message translates to:
+  /// **'Top'**
+  String get top;
+
+  /// No description provided for @mostSaved.
+  ///
+  /// In es, this message translates to:
+  /// **'Más guardados'**
+  String get mostSaved;
+
+  /// No description provided for @deepReads.
+  ///
+  /// In es, this message translates to:
+  /// **'Lecturas profundas'**
+  String get deepReads;
+
+  /// No description provided for @hiddenGems.
+  ///
+  /// In es, this message translates to:
+  /// **'Joyas ocultas'**
+  String get hiddenGems;
 }
 
 class _AppLocalizationsDelegate

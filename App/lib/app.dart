@@ -9,6 +9,7 @@ import 'core/theme.dart';
 import 'features/home/home_screen.dart';
 import 'features/login/login_screen.dart';
 import 'features/reader/reader_screen.dart';
+import 'features/trending/trending_screen.dart';
 import 'l10n/app_localizations.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -32,6 +33,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/start', builder: (_, _) => const _StartScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
+      GoRoute(path: '/trending', builder: (_, _) => const TrendingScreen()),
       GoRoute(
         path: '/article/:id',
         builder: (_, state) => ReaderScreen(article: state.extra! as Article),
