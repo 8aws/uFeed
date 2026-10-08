@@ -76,14 +76,29 @@ def translate(texts: list[str], src: str, dst: str) -> tuple[list[str], int]:
                 flat.append((i, s.strip()))
     out: list[list[str]] = [[] for _ in texts]
     t0 = time.time()
+
+    def run(sentences: list[str]) -> list[str]:
+        enc = tok(sentences, return_tensors="pt", padding=True, truncation=True, max_length=400)
+        gen = model.generate(**enc, num_beams=1, max_new_tokens=400)
+        return tok.batch_decode(gen, skip_special_tokens=True)
+
     with _gen_lock:
         for b in range(0, len(flat), BATCH):
             chunk = flat[b : b + BATCH]
-            enc = tok([s for _, s in chunk], return_tensors="pt", padding=True, truncation=True, max_length=400)
-            gen = model.generate(**enc, num_beams=1, max_new_tokens=400)
-            for (i, _), res in zip(chunk, tok.batch_decode(gen, skip_special_tokens=True), strict=True):
+            results = run([s for _, s in chunk])
+            for (i, src_text), res in zip(chunk, results, strict=True):
+                if truncated(src_text, res):
+                    # A batch now and then comes back with sentences cut after
+                    # a few words; that sentence alone translates fine.
+                    res = max(res, run([src_text])[0], key=len)
                 out[i].append(res)
     return [" ".join(parts) for parts in out], int((time.time() - t0) * 1000)
+
+
+def truncated(source: str, result: str) -> bool:
+    """A translation far shorter than its sentence (EN<->ES lengths are
+    close, so under a third means words were lost)."""
+    return len(source) >= 30 and len(result.strip()) < len(source) * 0.33
 
 
 def warm_up_in_background() -> None:
