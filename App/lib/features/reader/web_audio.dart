@@ -112,13 +112,21 @@ class WebAudio {
     await controller.loadHtmlString(_page);
   }
 
-  Future<void> resume() => controller.runJavaScript('a.play()');
-  Future<void> pause() => controller.runJavaScript('a.pause()');
-  Future<void> seekBy(Duration d) =>
-      controller.runJavaScript('seekBy(${d.inMilliseconds / 1000})');
-  Future<void> setRate(double r) => controller.runJavaScript(
-    'a.playbackRate = $r; a.defaultPlaybackRate = $r;',
-  );
+  Future<void> resume() => _js('a.play()');
+  Future<void> pause() => _js('a.pause()');
+  Future<void> seekBy(Duration d) => _js('seekBy(${d.inMilliseconds / 1000})');
+  Future<void> setRate(double r) =>
+      _js('a.playbackRate = $r; a.defaultPlaybackRate = $r;');
+
+  /// Commands to a page that was already cleared (audio handed over to the
+  /// native player) are simply ignored.
+  Future<void> _js(String code) async {
+    try {
+      await controller.runJavaScript(code);
+    } on Object {
+      // no <audio> on the page any more
+    }
+  }
 
   /// Silence it and free the page (e.g. when native playback takes over).
   Future<void> stop() async {

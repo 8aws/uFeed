@@ -566,7 +566,8 @@ class ListenController extends Notifier<ListenState> implements ListenCommands {
     _run++;
     await _silence();
     state = ListenState(rate: state.rate);
-    await audioHandler?.stop.call();
+    // Not audioHandler.stop(): that's the lock screen's button, which calls
+    // back into this method.
     audioHandler?.playbackState.add(PlaybackState());
   }
 

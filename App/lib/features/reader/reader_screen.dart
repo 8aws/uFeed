@@ -222,11 +222,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final t = AppLocalizations.of(context);
     final c = context.colors;
     // Post radio moving on: show the post being read.
-    ref.listen(listenProvider.select((s) => s.radio?.pos), (_, _) {
-      final playing = ref.read(listenProvider).article;
-      final i = playing == null
-          ? -1
-          : _articles.indexWhere((x) => x.id == playing.id);
+    // The radio moves on before the controller switches article, so the post
+    // comes from its queue.
+    ref.listen(listenProvider.select((s) => s.radio?.pos), (_, pos) {
+      final radio = ref.read(listenProvider).radio;
+      if (radio == null || pos == null) return;
+      final id = radio.queue[pos].id;
+      final i = _articles.indexWhere((x) => x.id == id);
       if (i >= 0 && i != _index && _pages.hasClients) {
         _pages.animateToPage(
           i,

@@ -1,4 +1,5 @@
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/foundation.dart';
 
 /// What the lock screen, Control Center, headphones and CarPlay can ask for.
 abstract class ListenCommands {
@@ -53,7 +54,8 @@ Future<void> initAudioHandler() async {
         rewindInterval: Duration(seconds: 15),
       ),
     );
-  } on Object {
+  } on Object catch (e) {
     audioHandler = null; // the app still plays, without lock-screen controls
+    debugPrint('audio_service unavailable: $e');
   }
 }
