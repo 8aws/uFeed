@@ -37,7 +37,8 @@ function send() {
  'durationchange'].forEach(ev => a.addEventListener(ev, send));
 a.addEventListener('error', () =>
   ufeed.postMessage(JSON.stringify({ err: 'media ' + (a.error && a.error.code) })));
-function load(u, title, artist) {
+function seekBy(s) { a.currentTime = Math.max(0, a.currentTime + s); }
+function load(u, title, artist, rate) {
   // Lock screen / Control Center: the article instead of the page's host.
   if ('mediaSession' in navigator) {
     const ms = navigator.mediaSession;
@@ -48,6 +49,8 @@ function load(u, title, artist) {
     ms.setActionHandler('seekforward', () => { a.currentTime += 15; });
   }
   a.src = u;
+  a.playbackRate = rate;
+  a.defaultPlaybackRate = rate;
   a.play().catch(e => ufeed.postMessage(JSON.stringify({ err: String(e) })));
 }
 </script></body></html>''';
@@ -89,8 +92,18 @@ class WebAudio {
 
   /// Load the page, then start playing `url` (the page must be in the widget
   /// tree: see [view]).
-  Future<void> play(Uri url, {String title = '', String artist = ''}) async {
-    final args = [url.toString(), title, artist].map(jsonEncode).join(', ');
+  Future<void> play(
+    Uri url, {
+    String title = '',
+    String artist = '',
+    double rate = 1,
+  }) async {
+    final args = [
+      url.toString(),
+      title,
+      artist,
+      rate,
+    ].map(jsonEncode).join(', ');
     await controller.setNavigationDelegate(
       NavigationDelegate(
         onPageFinished: (_) => controller.runJavaScript('load($args)'),
@@ -101,6 +114,17 @@ class WebAudio {
 
   Future<void> resume() => controller.runJavaScript('a.play()');
   Future<void> pause() => controller.runJavaScript('a.pause()');
+  Future<void> seekBy(Duration d) =>
+      controller.runJavaScript('seekBy(${d.inMilliseconds / 1000})');
+  Future<void> setRate(double r) => controller.runJavaScript(
+    'a.playbackRate = $r; a.defaultPlaybackRate = $r;',
+  );
+
+  /// Silence it and free the page (e.g. when native playback takes over).
+  Future<void> stop() async {
+    await controller.loadHtmlString('<html></html>');
+    state.value = const WebAudioState();
+  }
 
   /// The (invisible) web view; must stay mounted while playing.
   Widget view() => SizedBox(

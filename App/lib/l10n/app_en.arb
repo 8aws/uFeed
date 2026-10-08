@@ -138,5 +138,57 @@
         "type": "int"
       }
     }
-  }
+  },
+  "listenDevice": "Device",
+  "listenServer": "Server",
+  "listenSpeed": "Speed",
+  "serverVoice": "Server voice",
+  "voiceFemale": "Female",
+  "voiceMale": "Male",
+  "deviceVoice": "Device voice",
+  "deviceVoiceHint": "On iPhone, download the \"Enhanced\" or \"Premium\" voices (Settings → Accessibility → Spoken Content) for a much better sound.",
+  "serverVoiceHint": "Neural voice generated on the server: sounds the same on all your devices.",
+  "autoRead": "Read articles aloud when opening them",
+  "readMyLang": "Always read in my language",
+  "readMyLangHint": "Articles in another language (English ↔ Spanish) are translated before being read.",
+  "speechEngine": "Preferred voice",
+  "postRadio": "Post radio",
+  "postRadioStart": "Post radio: listen to this list",
+  "radioNext": "Next post",
+  "radioStop": "Stop the radio",
+  "radioHint": "Reads the posts of the list one after another, with a short chime in between. A post is marked read only if at least 70 % was heard.",
+  "radioStopAfter": "Stop after",
+  "radioPosts": "posts",
+  "radioMinutes": "min",
+  "radioDone": "Post radio finished",
+  "radioUnlimited": "no limit",
+  "radioPosition": "Post {n} of {total}",
+  "@radioPosition": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sentence": "Sentence {n} of {total}",
+  "@sentence": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "voiceSettings": "Voice and reading",
+  "back15": "Back 15 s",
+  "forward15": "Forward 15 s",
+  "play": "Play",
+  "pause": "Pause",
+  "stop": "Stop",
+  "listenGenerating": "generating"
 }

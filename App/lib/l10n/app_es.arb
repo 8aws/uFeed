@@ -138,5 +138,57 @@
         "type": "int"
       }
     }
-  }
+  },
+  "listenDevice": "Dispositivo",
+  "listenServer": "Servidor",
+  "listenSpeed": "Velocidad",
+  "serverVoice": "Voz del servidor",
+  "voiceFemale": "Femenina",
+  "voiceMale": "Masculina",
+  "deviceVoice": "Voz del dispositivo",
+  "deviceVoiceHint": "En iPhone, descarga las voces «Mejorada» o «Premium» (Ajustes → Accesibilidad → Contenido leído) para un sonido mucho mejor.",
+  "serverVoiceHint": "Voz neuronal generada en el servidor: suena igual en todos tus dispositivos.",
+  "autoRead": "Leer los artículos en voz alta al abrirlos",
+  "readMyLang": "Leer siempre en mi idioma",
+  "readMyLangHint": "Los artículos en otro idioma (inglés ↔ español) se traducen antes de leerlos.",
+  "speechEngine": "Voz preferida",
+  "postRadio": "Post radio",
+  "postRadioStart": "Post radio: escuchar esta lista",
+  "radioNext": "Siguiente post",
+  "radioStop": "Parar la radio",
+  "radioHint": "Lee los posts de la lista uno tras otro, con un breve sonido entre ellos. Un post solo se marca como leído si se ha escuchado al menos el 70 %.",
+  "radioStopAfter": "Parar tras",
+  "radioPosts": "posts",
+  "radioMinutes": "min",
+  "radioDone": "Post radio terminada",
+  "radioUnlimited": "sin límite",
+  "radioPosition": "Post {n} de {total}",
+  "@radioPosition": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sentence": "Frase {n} de {total}",
+  "@sentence": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "voiceSettings": "Voz y lectura",
+  "back15": "Atrás 15 s",
+  "forward15": "Adelante 15 s",
+  "play": "Reproducir",
+  "pause": "Pausa",
+  "stop": "Parar",
+  "listenGenerating": "generando"
 }

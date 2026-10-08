@@ -33,6 +33,8 @@ dependencies:
   connectivity_plus: ^7.3.2
   path_provider: ^2.1.6
   flutter_cache_manager: ^3.4.5
+  audio_service: ^0.18.19
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:
@@ -63,6 +65,7 @@ flutter:
 
   assets:
     - assets/icon/ufeed_icon.png
+    - assets/audio/jingle.wav
 
   # Atkinson Hyperlegible (Braille Institute, OFL: assets/fonts/OFL.txt), the
   # reader's accessibility font, as in the web app.

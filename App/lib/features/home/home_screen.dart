@@ -8,6 +8,8 @@ import '../../api/models.dart';
 import '../../auth/session.dart';
 import '../../core/prefs.dart';
 import '../../core/theme.dart';
+import '../../listen/listen_bar.dart';
+import '../../listen/listen_controller.dart';
 import '../../offline/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../reader/reader_screen.dart';
@@ -79,6 +81,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.listen(filterProvider, (_, _) {
       if (_scroll.hasClients) _scroll.jumpTo(0);
     });
+    ref.listen(listenProvider.select((s) => s.radioDone), (_, done) {
+      if (done) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('📻 ${t.radioDone}')));
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -126,6 +135,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       drawer: const _SideMenu(),
+      bottomNavigationBar: MiniPlayer(
+        onOpen: (a) =>
+            context.push('/article/${a.id}', extra: ReaderArgs.single(a)),
+      ),
       body: Column(
         children: [
           _OfflineBanner(offline: list.offline),

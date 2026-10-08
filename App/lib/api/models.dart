@@ -278,18 +278,57 @@ class Page<T> {
   );
 }
 
+/// What a plan allows (Admin > Plans).
+class PlanLimits {
+  const PlanLimits({
+    this.aiFeatures = false,
+    this.ttsServer = false,
+    this.postRadio = false,
+    this.radioMaxPosts,
+    this.radioMaxMinutes,
+  });
+
+  final bool aiFeatures;
+  final bool ttsServer; // the server's neural voice
+  final bool postRadio;
+  final int? radioMaxPosts; // null = unlimited
+  final int? radioMaxMinutes;
+
+  Json toJson() => {
+    'ai_features': aiFeatures,
+    'tts_server': ttsServer,
+    'post_radio': postRadio,
+    'radio_max_posts': radioMaxPosts,
+    'radio_max_minutes': radioMaxMinutes,
+  };
+
+  factory PlanLimits.fromJson(Json j) => PlanLimits(
+    aiFeatures: j['ai_features'] as bool? ?? false,
+    ttsServer: j['tts_server'] as bool? ?? false,
+    postRadio: j['post_radio'] as bool? ?? false,
+    radioMaxPosts: j['radio_max_posts'] as int?,
+    radioMaxMinutes: j['radio_max_minutes'] as int?,
+  );
+}
+
 class SiteConfig {
   const SiteConfig({
     required this.registrationOpen,
     required this.contactEmail,
+    this.planLimits = const {},
   });
 
   final bool registrationOpen;
   final String? contactEmail;
+  final Map<Role, PlanLimits> planLimits;
 
   factory SiteConfig.fromJson(Json j) => SiteConfig(
     registrationOpen: j['registration_open'] as bool? ?? false,
     contactEmail: j['contact_email'] as String?,
+    planLimits: {
+      for (final e in ((j['plan_limits'] as Map?) ?? const {}).entries)
+        Role.parse(e.key): PlanLimits.fromJson(e.value as Json),
+    },
   );
 }
 

@@ -637,6 +637,198 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'{n, plural, =1{1 cambio pendiente de sincronizar} other{{n} cambios pendientes de sincronizar}}'**
   String pendingSync(int n);
+
+  /// No description provided for @listenDevice.
+  ///
+  /// In es, this message translates to:
+  /// **'Dispositivo'**
+  String get listenDevice;
+
+  /// No description provided for @listenServer.
+  ///
+  /// In es, this message translates to:
+  /// **'Servidor'**
+  String get listenServer;
+
+  /// No description provided for @listenSpeed.
+  ///
+  /// In es, this message translates to:
+  /// **'Velocidad'**
+  String get listenSpeed;
+
+  /// No description provided for @serverVoice.
+  ///
+  /// In es, this message translates to:
+  /// **'Voz del servidor'**
+  String get serverVoice;
+
+  /// No description provided for @voiceFemale.
+  ///
+  /// In es, this message translates to:
+  /// **'Femenina'**
+  String get voiceFemale;
+
+  /// No description provided for @voiceMale.
+  ///
+  /// In es, this message translates to:
+  /// **'Masculina'**
+  String get voiceMale;
+
+  /// No description provided for @deviceVoice.
+  ///
+  /// In es, this message translates to:
+  /// **'Voz del dispositivo'**
+  String get deviceVoice;
+
+  /// No description provided for @deviceVoiceHint.
+  ///
+  /// In es, this message translates to:
+  /// **'En iPhone, descarga las voces «Mejorada» o «Premium» (Ajustes → Accesibilidad → Contenido leído) para un sonido mucho mejor.'**
+  String get deviceVoiceHint;
+
+  /// No description provided for @serverVoiceHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Voz neuronal generada en el servidor: suena igual en todos tus dispositivos.'**
+  String get serverVoiceHint;
+
+  /// No description provided for @autoRead.
+  ///
+  /// In es, this message translates to:
+  /// **'Leer los artículos en voz alta al abrirlos'**
+  String get autoRead;
+
+  /// No description provided for @readMyLang.
+  ///
+  /// In es, this message translates to:
+  /// **'Leer siempre en mi idioma'**
+  String get readMyLang;
+
+  /// No description provided for @readMyLangHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Los artículos en otro idioma (inglés ↔ español) se traducen antes de leerlos.'**
+  String get readMyLangHint;
+
+  /// No description provided for @speechEngine.
+  ///
+  /// In es, this message translates to:
+  /// **'Voz preferida'**
+  String get speechEngine;
+
+  /// No description provided for @postRadio.
+  ///
+  /// In es, this message translates to:
+  /// **'Post radio'**
+  String get postRadio;
+
+  /// No description provided for @postRadioStart.
+  ///
+  /// In es, this message translates to:
+  /// **'Post radio: escuchar esta lista'**
+  String get postRadioStart;
+
+  /// No description provided for @radioNext.
+  ///
+  /// In es, this message translates to:
+  /// **'Siguiente post'**
+  String get radioNext;
+
+  /// No description provided for @radioStop.
+  ///
+  /// In es, this message translates to:
+  /// **'Parar la radio'**
+  String get radioStop;
+
+  /// No description provided for @radioHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Lee los posts de la lista uno tras otro, con un breve sonido entre ellos. Un post solo se marca como leído si se ha escuchado al menos el 70 %.'**
+  String get radioHint;
+
+  /// No description provided for @radioStopAfter.
+  ///
+  /// In es, this message translates to:
+  /// **'Parar tras'**
+  String get radioStopAfter;
+
+  /// No description provided for @radioPosts.
+  ///
+  /// In es, this message translates to:
+  /// **'posts'**
+  String get radioPosts;
+
+  /// No description provided for @radioMinutes.
+  ///
+  /// In es, this message translates to:
+  /// **'min'**
+  String get radioMinutes;
+
+  /// No description provided for @radioDone.
+  ///
+  /// In es, this message translates to:
+  /// **'Post radio terminada'**
+  String get radioDone;
+
+  /// No description provided for @radioUnlimited.
+  ///
+  /// In es, this message translates to:
+  /// **'sin límite'**
+  String get radioUnlimited;
+
+  /// No description provided for @radioPosition.
+  ///
+  /// In es, this message translates to:
+  /// **'Post {n} de {total}'**
+  String radioPosition(int n, int total);
+
+  /// No description provided for @sentence.
+  ///
+  /// In es, this message translates to:
+  /// **'Frase {n} de {total}'**
+  String sentence(int n, int total);
+
+  /// No description provided for @voiceSettings.
+  ///
+  /// In es, this message translates to:
+  /// **'Voz y lectura'**
+  String get voiceSettings;
+
+  /// No description provided for @back15.
+  ///
+  /// In es, this message translates to:
+  /// **'Atrás 15 s'**
+  String get back15;
+
+  /// No description provided for @forward15.
+  ///
+  /// In es, this message translates to:
+  /// **'Adelante 15 s'**
+  String get forward15;
+
+  /// No description provided for @play.
+  ///
+  /// In es, this message translates to:
+  /// **'Reproducir'**
+  String get play;
+
+  /// No description provided for @pause.
+  ///
+  /// In es, this message translates to:
+  /// **'Pausa'**
+  String get pause;
+
+  /// No description provided for @stop.
+  ///
+  /// In es, this message translates to:
+  /// **'Parar'**
+  String get stop;
+
+  /// No description provided for @listenGenerating.
+  ///
+  /// In es, this message translates to:
+  /// **'generando'**
+  String get listenGenerating;
 }
 
 class _AppLocalizationsDelegate

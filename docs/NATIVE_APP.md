@@ -125,19 +125,25 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 
 ### Etapa 4 — Escucha (4–5 días)
 
-- [ ] Barra de escucha fija: reproducir/pausa, ±15 s, velocidad.
-- [ ] Voz del servidor (según plan `tts_server`) o del dispositivo; sexo y ritmo.
-- [ ] Pantalla de bloqueo y Centro de control con título, fuente e imagen.
-- [ ] Interrupciones (llamadas, Siri), auriculares desconectados y AirPods.
-- [ ] Resaltado de la frase leída (con `flutter_tts` hay progreso por palabra; con
-      la voz del servidor, posición proporcional como en la web).
-- [ ] Lectura automática al abrir.
-- [ ] **Post radio:**
-  - [ ] cola de posts y jingle entre ellos;
-  - [ ] 70 % escuchado = leído;
-  - [ ] límites del plan (`radio_max_posts`, `radio_max_minutes`);
-  - [ ] "siguiente" desde la pantalla de bloqueo;
-  - [ ] precarga del siguiente audio.
+- [x] Barra de escucha fija: reproducir/pausa, ±15 s (una frase con la voz del
+      dispositivo), velocidad y parar. Mini reproductor en la lista: el audio
+      sigue mientras se navega.
+- [x] Voz del servidor (según plan `tts_server`) o del dispositivo (`flutter_tts`);
+      voz femenina/masculina y velocidad, en un panel "Voz y lectura".
+- [x] Audio en generación por WebKit y, en cuanto el servidor lo termina, paso al
+      reproductor nativo en el mismo punto (duración, saltos, pantalla de bloqueo).
+- [x] Pantalla de bloqueo y Centro de control con título, fuente e imagen
+      (`audio_service`), con siguiente post en Post radio.
+- [x] Interrupciones y auriculares desconectados: pausa (también la voz del dispositivo).
+- [ ] Resaltado de la frase leída: pendiente (el texto se pinta con widgets
+      nativos; hay que marcar la frase dentro de ellos).
+- [x] Lectura automática al abrir (accesibilidad) y "Leer en mi idioma".
+- [x] **Post radio:** cola desde el artículo abierto, sintonía entre posts, 70 %
+      escuchado = leído, límites del plan y propios, "siguiente" desde la pantalla
+      de bloqueo, precarga del audio del siguiente y el lector sigue al post.
+- [ ] Probar en un iPhone real: pantalla de bloqueo, AirPods, llamadas y la voz
+      del dispositivo con la pantalla bloqueada (el simulador no lo refleja bien).
+- [ ] Audio sin conexión de los guardados (la web ya lo tiene): pendiente.
 
 ### Etapa 5 — Gestión y ajustes (2–3 días)
 

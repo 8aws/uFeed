@@ -312,4 +312,108 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get listenDevice => 'Device';
+
+  @override
+  String get listenServer => 'Server';
+
+  @override
+  String get listenSpeed => 'Speed';
+
+  @override
+  String get serverVoice => 'Server voice';
+
+  @override
+  String get voiceFemale => 'Female';
+
+  @override
+  String get voiceMale => 'Male';
+
+  @override
+  String get deviceVoice => 'Device voice';
+
+  @override
+  String get deviceVoiceHint =>
+      'On iPhone, download the \"Enhanced\" or \"Premium\" voices (Settings → Accessibility → Spoken Content) for a much better sound.';
+
+  @override
+  String get serverVoiceHint =>
+      'Neural voice generated on the server: sounds the same on all your devices.';
+
+  @override
+  String get autoRead => 'Read articles aloud when opening them';
+
+  @override
+  String get readMyLang => 'Always read in my language';
+
+  @override
+  String get readMyLangHint =>
+      'Articles in another language (English ↔ Spanish) are translated before being read.';
+
+  @override
+  String get speechEngine => 'Preferred voice';
+
+  @override
+  String get postRadio => 'Post radio';
+
+  @override
+  String get postRadioStart => 'Post radio: listen to this list';
+
+  @override
+  String get radioNext => 'Next post';
+
+  @override
+  String get radioStop => 'Stop the radio';
+
+  @override
+  String get radioHint =>
+      'Reads the posts of the list one after another, with a short chime in between. A post is marked read only if at least 70 % was heard.';
+
+  @override
+  String get radioStopAfter => 'Stop after';
+
+  @override
+  String get radioPosts => 'posts';
+
+  @override
+  String get radioMinutes => 'min';
+
+  @override
+  String get radioDone => 'Post radio finished';
+
+  @override
+  String get radioUnlimited => 'no limit';
+
+  @override
+  String radioPosition(int n, int total) {
+    return 'Post $n of $total';
+  }
+
+  @override
+  String sentence(int n, int total) {
+    return 'Sentence $n of $total';
+  }
+
+  @override
+  String get voiceSettings => 'Voice and reading';
+
+  @override
+  String get back15 => 'Back 15 s';
+
+  @override
+  String get forward15 => 'Forward 15 s';
+
+  @override
+  String get play => 'Play';
+
+  @override
+  String get pause => 'Pause';
+
+  @override
+  String get stop => 'Stop';
+
+  @override
+  String get listenGenerating => 'generating';
 }

@@ -11,6 +11,7 @@ import 'features/login/login_screen.dart';
 import 'features/reader/reader_screen.dart';
 import 'features/trending/trending_screen.dart';
 import 'l10n/app_localizations.dart';
+import 'listen/listen_controller.dart';
 import 'offline/sync.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -65,7 +66,18 @@ class UFeedApp extends ConsumerWidget {
           data: mq.copyWith(
             textScaler: TextScaler.linear(system * display.textScale),
           ),
-          child: child!,
+          child: Stack(
+            children: [
+              child!,
+              // The live-audio web view must stay mounted while it plays,
+              // whatever screen is open (invisible, 1 px).
+              Positioned(
+                left: 0,
+                bottom: 0,
+                child: ref.watch(liveAudioProvider).view(),
+              ),
+            ],
+          ),
         );
       },
       localizationsDelegates: const [

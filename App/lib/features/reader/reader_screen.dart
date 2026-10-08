@@ -4,6 +4,8 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../api/models.dart';
 import '../../core/prefs.dart';
+import '../../listen/listen_bar.dart';
+import '../../listen/listen_controller.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../home/home_state.dart';
@@ -11,7 +13,6 @@ import '../../offline/outbox.dart';
 import '../../offline/providers.dart';
 import 'article_html.dart';
 import 'article_page.dart';
-import 'listen_bar.dart';
 
 /// What the reader opens: a list and where in it (swipe for the others).
 class ReaderArgs {
@@ -50,8 +51,23 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     super.initState();
     // Not during the first build: it updates the list's providers.
     Future.microtask(() {
-      if (mounted) setState(() => _markRead(_index));
+      if (!mounted) return;
+      setState(() => _markRead(_index));
+      _autoRead();
     });
+  }
+
+  String _sourceOf(Article a) =>
+      ref.read(sidebarProvider).value?.subFor(a.sourceId)?.title ?? '';
+
+  /// Accessibility: start reading as soon as an article is shown.
+  void _autoRead() {
+    if (!ref.read(speechPrefsProvider).autoRead) return;
+    final listen = ref.read(listenProvider);
+    if (listen.radio != null) return; // the radio decides what plays
+    final a = _current;
+    if (listen.isFor(a) && listen.active) return;
+    ref.read(listenProvider.notifier).start(a, source: _sourceOf(a)).ignore();
   }
 
   @override
@@ -205,6 +221,20 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final c = context.colors;
+    // Post radio moving on: show the post being read.
+    ref.listen(listenProvider.select((s) => s.radio?.pos), (_, _) {
+      final playing = ref.read(listenProvider).article;
+      final i = playing == null
+          ? -1
+          : _articles.indexWhere((x) => x.id == playing.id);
+      if (i >= 0 && i != _index && _pages.hasClients) {
+        _pages.animateToPage(
+          i,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
     final a = _current;
     final view = _view(a.id);
     final side = ref.watch(sidebarProvider).value;
@@ -269,6 +299,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         onPageChanged: (i) {
           _markRead(i);
           setState(() => _index = i);
+          _autoRead();
         },
         itemBuilder: (context, i) => ArticlePage(
           key: ValueKey(_articles[i].id),
@@ -287,9 +318,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
             child: ListenBar(
-              key: ValueKey('listen-${a.id}'),
               article: a,
-              sourceTitle: side?.subFor(a.sourceId)?.title ?? '',
+              source: side?.subFor(a.sourceId)?.title ?? '',
+              list: _articles,
+              index: _index,
+              sourceOf: _sourceOf,
             ),
           ),
         ),
