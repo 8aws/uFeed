@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../api/models.dart';
-import '../../auth/session.dart';
 import '../../core/prefs.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../home/home_state.dart';
+import '../../offline/outbox.dart';
+import '../../offline/providers.dart';
 import 'article_html.dart';
 import 'article_page.dart';
 import 'listen_bar.dart';
@@ -95,7 +96,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final a = _current;
     final url = safeUri(a.url);
     if (url == null) return;
-    ref.read(apiProvider).engage(a.id, 'share').ignore();
+    ref
+        .read(outboxProvider)
+        .run(Engage(DateTime.now(), a.id, 'share'))
+        .ignore();
     SharePlus.instance.share(ShareParams(uri: url, subject: a.title)).ignore();
   }
 

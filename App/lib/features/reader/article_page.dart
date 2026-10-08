@@ -12,6 +12,8 @@ import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../home/article_tile.dart';
 import '../home/home_state.dart';
+import '../../offline/outbox.dart';
+import '../../offline/providers.dart';
 import 'article_html.dart';
 
 String baseLang(String? lang) =>
@@ -101,7 +103,7 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
           if (mounted) setState(() => _similar = s);
         })
         .catchError((_) {});
-    _api.engage(a.id, 'open').ignore();
+    ref.read(outboxProvider).run(Engage(_opened, a.id, 'open')).ignore();
   }
 
   @override
@@ -125,7 +127,10 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
                   (p.maxScrollExtent + p.viewportDimension))
               .clamp(0.0, 1.0);
     }
-    _api.readEvent(a.id, dwell, completion).ignore();
+    ref
+        .read(outboxProvider)
+        .run(ReadEvent(_opened, a.id, dwell, completion))
+        .ignore();
   }
 
   void _onFullToggle() {
@@ -137,6 +142,13 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
 
   Future<void> _loadFull({bool manual = false}) async {
     if (_fullHtml != null || a.url == null) return;
+    // A saved article keeps its full text on the device.
+    final kept = ref.read(offlineSavedProvider)[a.id]?.fullHtml;
+    if (kept != null) {
+      setState(() => _fullHtml = kept);
+      widget.view.full.value = true;
+      return;
+    }
     setState(() {
       _fullBusy = true;
       _fullMsg = null;

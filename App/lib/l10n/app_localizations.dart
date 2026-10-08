@@ -625,6 +625,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Más'**
   String get more;
+
+  /// No description provided for @offlineBanner.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin conexión: mostrando la copia guardada en el dispositivo.'**
+  String get offlineBanner;
+
+  /// No description provided for @pendingSync.
+  ///
+  /// In es, this message translates to:
+  /// **'{n, plural, =1{1 cambio pendiente de sincronizar} other{{n} cambios pendientes de sincronizar}}'**
+  String pendingSync(int n);
 }
 
 class _AppLocalizationsDelegate

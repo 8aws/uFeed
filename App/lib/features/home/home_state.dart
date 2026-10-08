@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/api_client.dart';
 import '../../api/models.dart';
 import '../../auth/session.dart';
+import '../../offline/local_store.dart';
+import '../../offline/outbox.dart';
+import '../../offline/providers.dart';
 
 enum FilterKind { all, unread, saved, favorites, forYou, folder, source }
 
@@ -21,6 +24,9 @@ class Filter {
 
   @override
   int get hashCode => Object.hash(kind, id);
+
+  /// For the start-up snapshot (which list it is).
+  String get key => id == null ? kind.name : '${kind.name}:$id';
 }
 
 class Sidebar {
@@ -60,9 +66,22 @@ class SidebarNotifier extends AsyncNotifier<Sidebar> {
   @override
   Future<Sidebar> build() async {
     final api = ref.watch(apiProvider);
-    final (folders, subs) = await (api.folders(), api.sources()).wait;
-    folders.sort((a, b) => a.position.compareTo(b.position));
-    return Sidebar(folders: folders, subs: subs);
+    try {
+      final (folders, subs) = await (api.folders(), api.sources()).wait;
+      folders.sort((a, b) => a.position.compareTo(b.position));
+      return Sidebar(folders: folders, subs: subs);
+    } on ParallelWaitError<(List<Folder>?, List<Subscription>?), Object> {
+      // No network: the menu from the last session.
+      final snap = await _snapshot();
+      if (snap != null) return Sidebar(folders: snap.folders, subs: snap.subs);
+      rethrow;
+    }
+  }
+
+  Future<HomeSnapshot?> _snapshot() async {
+    final user = ref.read(sessionProvider).value;
+    if (user == null) return null;
+    return ref.read(localStoreProvider).loadHome(user.id);
   }
 
   void adjustUnread(String sourceId, int delta) {
@@ -71,7 +90,9 @@ class SidebarNotifier extends AsyncNotifier<Sidebar> {
   }
 
   Future<void> reload() async {
-    state = await AsyncValue.guard(build);
+    final next = await AsyncValue.guard(build);
+    // Keep what's on screen if the reload fails.
+    if (next.hasValue || !state.hasValue) state = next;
   }
 }
 
@@ -106,9 +127,13 @@ class ArticleList {
     this.done = false,
     this.error,
     this.listedAt,
+    this.offline = false,
   });
 
   final List<Article> items;
+
+  /// Showing the copy kept on the device (no connection).
+  final bool offline;
   final String? cursor;
   final bool loading;
   final bool done;
@@ -124,6 +149,7 @@ class ArticleList {
     bool? done,
     ApiException? error,
     DateTime? listedAt,
+    bool? offline,
   }) => ArticleList(
     items: items ?? this.items,
     cursor: cursor ?? this.cursor,
@@ -131,6 +157,7 @@ class ArticleList {
     done: done ?? this.done,
     error: error,
     listedAt: listedAt ?? this.listedAt,
+    offline: offline ?? this.offline,
   );
 }
 
@@ -142,6 +169,7 @@ class ArticleListNotifier extends Notifier<ArticleList> {
   int _seq = 0;
 
   ApiClient get _api => ref.read(apiProvider);
+  Outbox get _outbox => ref.read(outboxProvider);
 
   @override
   ArticleList build() {
@@ -158,18 +186,38 @@ class ArticleListNotifier extends Notifier<ArticleList> {
             ref.read(onlyUnreadProvider));
   }
 
+  /// Changes still queued offline win over what the server says.
+  List<Article> _pending(List<Article> items) {
+    final side = ref.read(sidebarProvider).value;
+    return _outbox.applyPending(
+      items,
+      folderOf: (id) => side?.subFor(id)?.folderId,
+    );
+  }
+
+  String? get _userId => ref.read(sessionProvider).value?.id;
+
   Future<void> load({bool reset = false}) async {
     if (!reset && (state.loading || state.done)) return;
     final seq = ++_seq;
     final f = ref.read(filterProvider);
-    state = reset
-        ? const ArticleList(loading: true)
-        : state.copyWith(loading: true);
+    if (reset) {
+      // Paint the copy from the last session at once, then refresh it.
+      final cached = await _cached(f);
+      if (seq != _seq) return;
+      state = ArticleList(items: cached ?? const [], loading: true);
+    } else {
+      state = state.copyWith(loading: true);
+    }
     try {
       if (f.kind == FilterKind.forYou) {
         final items = await _api.forYou();
         if (seq != _seq) return;
-        state = ArticleList(items: items, done: true, listedAt: DateTime.now());
+        state = ArticleList(
+          items: _pending(items),
+          done: true,
+          listedAt: DateTime.now(),
+        );
         return;
       }
       final page = await _api.articles(
@@ -181,21 +229,63 @@ class ArticleListNotifier extends Notifier<ArticleList> {
         cursor: reset ? null : state.cursor,
       );
       if (seq != _seq) return;
+      final items = _pending(page.items);
       state = ArticleList(
-        items: reset ? page.items : [...state.items, ...page.items],
+        items: reset ? items : [...state.items, ...items],
         cursor: page.nextCursor,
         done: page.nextCursor == null,
         listedAt: reset ? DateTime.now() : state.listedAt,
       );
+      if (reset) unawaited(_saveSnapshot(f, items));
     } on ApiException catch (e) {
       if (seq != _seq) return;
-      state = state.copyWith(loading: false, error: e);
+      final keep = state.items.isNotEmpty;
+      state = state.copyWith(
+        loading: false,
+        error: e,
+        done: keep && e.isNetwork ? true : null,
+        offline: e.isNetwork && keep,
+      );
     }
   }
 
-  /// Pull to refresh: fetch due feeds, then reload list and counters.
-  /// `onlyIfNew` (app start, list already loading): skip if nothing arrived.
+  /// The copy on the device for this list: the start-up snapshot, or the
+  /// saved articles kept for offline reading.
+  Future<List<Article>?> _cached(Filter f) async {
+    final user = _userId;
+    if (user == null) return null;
+    if (f.kind == FilterKind.saved) {
+      final saved = ref.read(offlineSavedProvider);
+      if (saved.isNotEmpty) {
+        return _pending([for (final o in saved.values) o.article]);
+      }
+    }
+    final snap = await ref.read(localStoreProvider).loadHome(user);
+    if (snap == null || snap.filterKey != _snapshotKey(f)) return null;
+    return _pending(snap.articles);
+  }
+
+  String _snapshotKey(Filter f) => '${f.key}:${unreadView ? 'unread' : 'all'}';
+
+  Future<void> _saveSnapshot(Filter f, List<Article> items) async {
+    final user = _userId;
+    final side = ref.read(sidebarProvider).value;
+    if (user == null || side == null) return;
+    await ref
+        .read(localStoreProvider)
+        .saveHome(
+          userId: user,
+          folders: side.folders,
+          subs: side.subs,
+          filterKey: _snapshotKey(f),
+          articles: items,
+        );
+  }
+
+  /// Pull to refresh: send what's queued, fetch due feeds, then reload
+  /// the list and counters. `onlyIfNew` (app start): skip if nothing new.
   Future<void> refresh({bool onlyIfNew = false}) async {
+    await _outbox.flush();
     var arrived = 0;
     try {
       arrived = await _api.sync();
@@ -215,45 +305,53 @@ class ArticleListNotifier extends Notifier<ArticleList> {
     );
   }
 
+  /// Applied on screen at once; sent now or queued until there's network.
+  Future<void> _set(Article before, Article after, Field field, bool v) async {
+    _replace(after);
+    // Keep the start-up copy in step with what's on screen.
+    unawaited(_saveSnapshot(ref.read(filterProvider), state.items));
+    try {
+      await _outbox.setState(before.id, field, v);
+    } on ApiException {
+      _replace(before); // permanent failure (e.g. the article is gone)
+      if (field == Field.read) {
+        ref
+            .read(sidebarProvider.notifier)
+            .adjustUnread(before.sourceId, v ? 1 : -1);
+      }
+    }
+  }
+
   Future<void> setRead(Article a, bool read) async {
     if (a.isRead == read) return;
-    _replace(a.copyWith(isRead: read));
     ref.read(sidebarProvider.notifier).adjustUnread(a.sourceId, read ? -1 : 1);
-    try {
-      await _api.setRead(a.id, read);
-    } on ApiException {
-      _replace(a);
-      ref
-          .read(sidebarProvider.notifier)
-          .adjustUnread(a.sourceId, read ? 1 : -1);
-    }
+    await _set(a, a.copyWith(isRead: read), Field.read, read);
   }
 
   Future<void> setSaved(Article a, bool saved) async {
-    _replace(a.copyWith(isSaved: saved));
-    try {
-      await _api.setSaved(a.id, saved);
-    } on ApiException {
-      _replace(a);
-    }
+    await _set(a, a.copyWith(isSaved: saved), Field.saved, saved);
+    ref.read(savedChangesProvider.notifier).bump();
   }
 
-  Future<void> setFavorite(Article a, bool fav) async {
-    _replace(a.copyWith(isFavorite: fav));
-    try {
-      await _api.setFavorite(a.id, fav);
-    } on ApiException {
-      _replace(a);
-    }
-  }
+  Future<void> setFavorite(Article a, bool fav) =>
+      _set(a, a.copyWith(isFavorite: fav), Field.favorite, fav);
 
   Future<void> markAllRead() async {
     final f = ref.read(filterProvider);
-    await _api.markAllRead(
-      folderId: f.kind == FilterKind.folder ? f.id : null,
-      sourceId: f.kind == FilterKind.source ? f.id : null,
-      before: state.listedAt,
+    final sent = await _outbox.run(
+      MarkAll(
+        state.listedAt ?? DateTime.now(),
+        folderId: f.kind == FilterKind.folder ? f.id : null,
+        sourceId: f.kind == FilterKind.source ? f.id : null,
+      ),
     );
+    if (sent == Sent.queued) {
+      // Offline: shown read now, sent when the connection is back.
+      state = state.copyWith(
+        items: [for (final a in state.items) a.copyWith(isRead: true)],
+      );
+      return;
+    }
     await Future.wait([
       load(reset: true),
       ref.read(sidebarProvider.notifier).reload(),

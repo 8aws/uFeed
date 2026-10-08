@@ -8,6 +8,7 @@ import '../../api/models.dart';
 import '../../auth/session.dart';
 import '../../core/prefs.dart';
 import '../../core/theme.dart';
+import '../../offline/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../reader/reader_screen.dart';
 import 'article_tile.dart';
@@ -125,9 +126,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       drawer: const _SideMenu(),
-      body: RefreshIndicator(
-        onRefresh: ctrl.refresh,
-        child: _body(t, c, list, side, ctrl, style, scoped && onlyUnread),
+      body: Column(
+        children: [
+          _OfflineBanner(offline: list.offline),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: ctrl.refresh,
+              child: _body(t, c, list, side, ctrl, style, scoped && onlyUnread),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -402,6 +410,52 @@ class _SideMenu extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "Offline" and/or "N changes waiting to sync", above the list.
+class _OfflineBanner extends ConsumerWidget {
+  const _OfflineBanner({required this.offline});
+
+  final bool offline;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final c = context.colors;
+    final outbox = ref.watch(outboxProvider);
+    return StreamBuilder<int>(
+      stream: outbox.pending.stream,
+      initialData: outbox.count,
+      builder: (context, snap) {
+        final n = snap.data ?? 0;
+        if (!offline && n == 0) return const SizedBox.shrink();
+        return Container(
+          width: double.infinity,
+          color: c.accentSoft,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Icon(
+                offline ? Icons.cloud_off : Icons.sync,
+                size: 16,
+                color: c.muted,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  [
+                    if (offline) t.offlineBanner,
+                    if (n > 0) t.pendingSync(n),
+                  ].join(' · '),
+                  style: TextStyle(color: c.muted, fontSize: 12.5),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

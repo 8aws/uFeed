@@ -129,5 +129,14 @@
   "fullUnavailable": "Couldn't load the full article from the website.",
   "autoFull": "Load the full article when the feed only has an excerpt",
   "similar": "Similar",
-  "more": "More"
+  "more": "More",
+  "offlineBanner": "Offline — showing the copy kept on this device.",
+  "pendingSync": "{n, plural, =1{1 change waiting to sync} other{{n} changes waiting to sync}}",
+  "@pendingSync": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -45,6 +45,16 @@ class User {
   final Role role;
   final bool mustChangePassword;
 
+  /// For the offline copy (opening the app without network).
+  Json toJson() => {
+    'id': id,
+    'email': email,
+    'display_name': displayName,
+    'locale': locale,
+    'role': role.name,
+    'must_change_password': mustChangePassword,
+  };
+
   factory User.fromJson(Json j) => User(
     id: j['id'] as String,
     email: j['email'] as String,
@@ -61,6 +71,8 @@ class Folder {
   final String id;
   final String name;
   final int position;
+
+  Json toJson() => {'id': id, 'name': name, 'position': position};
 
   factory Folder.fromJson(Json j) => Folder(
     id: j['id'] as String,
@@ -83,6 +95,14 @@ class Source {
   final String? siteUrl;
   final String? title;
   final String? faviconUrl;
+
+  Json toJson() => {
+    'id': id,
+    'feed_url': feedUrl,
+    'site_url': siteUrl,
+    'title': title,
+    'favicon_url': faviconUrl,
+  };
 
   factory Source.fromJson(Json j) => Source(
     id: j['id'] as String,
@@ -121,6 +141,15 @@ class Subscription {
     muted: muted,
   );
 
+  Json toJson() => {
+    'id': id,
+    'source': source.toJson(),
+    'folder_id': folderId,
+    'custom_title': customTitle,
+    'unread_count': unreadCount,
+    'muted': muted,
+  };
+
   factory Subscription.fromJson(Json j) => Subscription(
     id: j['id'] as String,
     source: Source.fromJson(j['source'] as Json),
@@ -145,6 +174,7 @@ class Article {
     required this.lang,
     required this.wordCount,
     required this.publishedAt,
+    this.fetchedAt,
     required this.fullStatus,
     required this.isRead,
     required this.isSaved,
@@ -164,6 +194,7 @@ class Article {
   final String? lang;
   final int? wordCount;
   final DateTime? publishedAt;
+  final DateTime? fetchedAt;
   final String? fullStatus;
   final bool isRead;
   final bool isSaved;
@@ -183,12 +214,35 @@ class Article {
     lang: lang,
     wordCount: wordCount,
     publishedAt: publishedAt,
+    fetchedAt: fetchedAt,
     fullStatus: fullStatus,
     isRead: isRead ?? this.isRead,
     isSaved: isSaved ?? this.isSaved,
     isFavorite: isFavorite ?? this.isFavorite,
     dupCount: dupCount,
   );
+
+  /// For the offline copy (same shape as the API's).
+  Json toJson() => {
+    'id': id,
+    'source_id': sourceId,
+    'url': url,
+    'title': title,
+    'author': author,
+    'summary': summary,
+    'ai_summary': aiSummary,
+    'content_html': contentHtml,
+    'image_url': imageUrl,
+    'lang': lang,
+    'word_count': wordCount,
+    'published_at': publishedAt?.toIso8601String(),
+    'fetched_at': fetchedAt?.toIso8601String(),
+    'full_status': fullStatus,
+    'is_read': isRead,
+    'is_saved': isSaved,
+    'is_favorite': isFavorite,
+    'dup_count': dupCount,
+  };
 
   factory Article.fromJson(Json j) => Article(
     id: j['id'] as String,
@@ -203,6 +257,7 @@ class Article {
     lang: j['lang'] as String?,
     wordCount: j['word_count'] as int?,
     publishedAt: _date(j['published_at']),
+    fetchedAt: _date(j['fetched_at']),
     fullStatus: j['full_status'] as String?,
     isRead: j['is_read'] as bool? ?? false,
     isSaved: j['is_saved'] as bool? ?? false,

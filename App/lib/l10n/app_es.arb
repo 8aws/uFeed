@@ -129,5 +129,14 @@
   "fullUnavailable": "No se pudo cargar el artículo completo desde la web.",
   "autoFull": "Cargar el artículo completo cuando la fuente solo da un extracto",
   "similar": "Similares",
-  "more": "Más"
+  "more": "Más",
+  "offlineBanner": "Sin conexión: mostrando la copia guardada en el dispositivo.",
+  "pendingSync": "{n, plural, =1{1 cambio pendiente de sincronizar} other{{n} cambios pendientes de sincronizar}}",
+  "@pendingSync": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -110,10 +110,18 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 
 ### Etapa 3 — Sin conexión y sincronización (2–3 días)
 
-- [ ] Cola de cambios en drift (leído, guardado, favorito, marcar todo, eventos con
-      su hora), enviada al recuperar red o abrir la app. Mismo contrato que la web (`/sync`).
-- [ ] Guardados disponibles sin red: texto completo, imágenes y audio.
-- [ ] Caché de la última lista para arranque instantáneo.
+- [x] Cola de cambios (leído, guardado, favorito, marcar todo, eventos con su
+      hora), enviada al recuperar red, al volver la app al frente o al tirar para
+      actualizar. Mismo comportamiento que la web (`outbox.ts`): último valor por
+      artículo, operaciones en orden, cambios de más de 30 días descartados.
+- [x] Guardados disponibles sin red: texto completo (si el servidor pudo sacarlo)
+      e imágenes. El audio sin conexión va con la escucha (etapa 4).
+- [x] Copia de la última lista y del menú para arranque instantáneo; la app abre
+      sin red con la cuenta guardada. Aviso "Sin conexión" y cambios pendientes.
+- Decisión: JSON en ficheros y `shared_preferences` en vez de drift (sin
+  generación de código; los datos son pocos). Al cerrar sesión se borra todo.
+- Probado contra producción con la cuenta demo, simulando la falta de red con
+  un servidor inalcanzable.
 
 ### Etapa 4 — Escucha (4–5 días)
 

@@ -287,16 +287,28 @@ class ApiClient {
       _list('/articles/$id/similar', Article.fromJson, query: {'limit': limit});
 
   /// How long the article was open and how far it was read (Trending).
-  Future<void> readEvent(String id, Duration dwell, double completion) =>
-      _request(
-        'POST',
-        '/articles/$id/read-event',
-        body: {'dwell_ms': dwell.inMilliseconds, 'completion': completion},
-      );
+  /// `at`: when it happened, for changes sent later from the offline queue.
+  Future<void> readEvent(
+    String id,
+    Duration dwell,
+    double completion, {
+    DateTime? at,
+  }) => _request(
+    'POST',
+    '/articles/$id/read-event',
+    body: {
+      'dwell_ms': dwell.inMilliseconds,
+      'completion': completion,
+      'at': at?.toUtc().toIso8601String(),
+    },
+  );
 
   /// open | share | skip, for the ranking signals.
-  Future<void> engage(String id, String kind) =>
-      _request('POST', '/articles/$id/engage', body: {'kind': kind});
+  Future<void> engage(String id, String kind, {DateTime? at}) => _request(
+    'POST',
+    '/articles/$id/engage',
+    body: {'kind': kind, 'at': at?.toUtc().toIso8601String()},
+  );
 
   /// The article read aloud by the server voice (plan `tts_server`): a signed
   /// URL that plays the finished MP3, or follows it live while it's generated.

@@ -299,4 +299,19 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get more => 'Más';
+
+  @override
+  String get offlineBanner =>
+      'Sin conexión: mostrando la copia guardada en el dispositivo.';
+
+  @override
+  String pendingSync(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n cambios pendientes de sincronizar',
+      one: '1 cambio pendiente de sincronizar',
+    );
+    return '$_temp0';
+  }
 }
