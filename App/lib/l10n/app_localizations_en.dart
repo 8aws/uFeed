@@ -217,4 +217,85 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get hiddenGems => 'Hidden gems';
+
+  @override
+  String get by => 'by';
+
+  @override
+  String get planLimitAi => 'Your plan doesn\'t include AI features.';
+
+  @override
+  String get aiGenerating => 'Generating…';
+
+  @override
+  String aiQueued(int n) {
+    return 'Queued, position $n';
+  }
+
+  @override
+  String get aiFailed =>
+      'The summary could not be generated. Tap the bar to try again.';
+
+  @override
+  String get aiDailyLimit =>
+      'You have used today\'s AI summaries. Existing ones are still available.';
+
+  @override
+  String get aiSummary => 'AI summary';
+
+  @override
+  String get aiUnavailable => 'AI is not available right now.';
+
+  @override
+  String get aiRate => 'Too many AI summaries this hour; try later.';
+
+  @override
+  String get translate => 'Translate';
+
+  @override
+  String get translating => 'Translating…';
+
+  @override
+  String get showOriginal => 'Show original';
+
+  @override
+  String get machineTranslation => 'Machine translation';
+
+  @override
+  String get translateUnavailable => 'Translation is not available right now.';
+
+  @override
+  String get textSize => 'Text size';
+
+  @override
+  String get font => 'Font';
+
+  @override
+  String get fontSystem => 'System';
+
+  @override
+  String get fullArticle => 'Full article';
+
+  @override
+  String get showExcerpt => 'Feed excerpt';
+
+  @override
+  String get fullLoading => 'Loading the full article…';
+
+  @override
+  String get fullNote => 'Full article from the website';
+
+  @override
+  String get fullUnavailable =>
+      'Couldn\'t load the full article from the website.';
+
+  @override
+  String get autoFull =>
+      'Load the full article when the feed only has an excerpt';
+
+  @override
+  String get similar => 'Similar';
+
+  @override
+  String get more => 'More';
 }

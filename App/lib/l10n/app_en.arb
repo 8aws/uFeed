@@ -97,5 +97,37 @@
   "top": "Top",
   "mostSaved": "Most saved",
   "deepReads": "Deep reads",
-  "hiddenGems": "Hidden gems"
+  "hiddenGems": "Hidden gems",
+  "by": "by",
+  "planLimitAi": "Your plan doesn't include AI features.",
+  "aiGenerating": "Generating…",
+  "aiQueued": "Queued, position {n}",
+  "@aiQueued": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "aiFailed": "The summary could not be generated. Tap the bar to try again.",
+  "aiDailyLimit": "You have used today's AI summaries. Existing ones are still available.",
+  "aiSummary": "AI summary",
+  "aiUnavailable": "AI is not available right now.",
+  "aiRate": "Too many AI summaries this hour; try later.",
+  "translate": "Translate",
+  "translating": "Translating…",
+  "showOriginal": "Show original",
+  "machineTranslation": "Machine translation",
+  "translateUnavailable": "Translation is not available right now.",
+  "textSize": "Text size",
+  "font": "Font",
+  "fontSystem": "System",
+  "fullArticle": "Full article",
+  "showExcerpt": "Feed excerpt",
+  "fullLoading": "Loading the full article…",
+  "fullNote": "Full article from the website",
+  "fullUnavailable": "Couldn't load the full article from the website.",
+  "autoFull": "Load the full article when the feed only has an excerpt",
+  "similar": "Similar",
+  "more": "More"
 }

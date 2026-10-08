@@ -252,6 +252,52 @@ class ApiClient {
   Future<void> setFavorite(String id, bool favorite) =>
       _request(favorite ? 'POST' : 'DELETE', '/articles/$id/favorite');
 
+  /// The full article from its web page (feeds that publish an excerpt).
+  /// Null when the page couldn't be read.
+  Future<String?> fullText(String id) async =>
+      (await _json('POST', '/articles/$id/full'))['html'] as String?;
+
+  /// Machine translation into `lang`; `generate` creates it (~3-4 s).
+  Future<Translation> translation(
+    String id,
+    String lang, {
+    bool generate = false,
+  }) async => Translation.fromJson(
+    await _json(
+      'GET',
+      '/articles/$id/translation',
+      query: {'lang': lang, 'generate': generate},
+    ),
+  );
+
+  /// The AI summary in `lang`; `generate` queues it (plan priority).
+  Future<AiSummary> aiSummary(
+    String id,
+    String lang, {
+    bool generate = false,
+  }) async => AiSummary.fromJson(
+    await _json(
+      'GET',
+      '/articles/$id/ai-summary',
+      query: {'lang': lang, 'generate': generate},
+    ),
+  );
+
+  Future<List<Article>> similar(String id, {int limit = 6}) =>
+      _list('/articles/$id/similar', Article.fromJson, query: {'limit': limit});
+
+  /// How long the article was open and how far it was read (Trending).
+  Future<void> readEvent(String id, Duration dwell, double completion) =>
+      _request(
+        'POST',
+        '/articles/$id/read-event',
+        body: {'dwell_ms': dwell.inMilliseconds, 'completion': completion},
+      );
+
+  /// open | share | skip, for the ranking signals.
+  Future<void> engage(String id, String kind) =>
+      _request('POST', '/articles/$id/engage', body: {'kind': kind});
+
   /// The article read aloud by the server voice (plan `tts_server`): a signed
   /// URL that plays the finished MP3, or follows it live while it's generated.
   Future<({Uri url, String lang, bool cached})> articleAudio(

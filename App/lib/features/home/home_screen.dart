@@ -9,6 +9,7 @@ import '../../auth/session.dart';
 import '../../core/prefs.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
+import '../reader/reader_screen.dart';
 import 'article_tile.dart';
 import 'home_state.dart';
 
@@ -206,10 +207,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         article: a,
         style: style,
         sourceTitle: side?.subFor(a.sourceId)?.title ?? '',
-        onOpen: () {
-          ctrl.setRead(a, true);
-          context.push('/article/${a.id}', extra: a);
-        },
+        onOpen: () =>
+            context.push('/article/${a.id}', extra: ReaderArgs(list.items, i)),
         onToggleRead: () => ctrl.setRead(a, !a.isRead),
         onToggleSaved: () => ctrl.setSaved(a, !a.isSaved),
       );

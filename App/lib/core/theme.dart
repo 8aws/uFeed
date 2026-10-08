@@ -68,7 +68,7 @@ extension UColorsX on BuildContext {
   UColors get colors => Theme.of(this).extension<UColors>()!;
 }
 
-ThemeData buildTheme(Brightness brightness) {
+ThemeData buildTheme(Brightness brightness, {String? fontFamily}) {
   final c = brightness == Brightness.dark ? UColors.dark : UColors.light;
   final scheme =
       ColorScheme.fromSeed(
@@ -83,6 +83,7 @@ ThemeData buildTheme(Brightness brightness) {
       );
   return ThemeData(
     colorScheme: scheme,
+    fontFamily: fontFamily,
     scaffoldBackgroundColor: c.bg,
     dividerColor: c.border,
     appBarTheme: AppBarTheme(

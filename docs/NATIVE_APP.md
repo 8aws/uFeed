@@ -99,14 +99,14 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 
 ### Etapa 2 — Lector (3–4 días)
 
-- [ ] Render del HTML con imágenes, listas, citas, YouTube/Vimeo como tarjeta y podcast como reproductor.
-- [ ] Artículo completo automático para extractos (`/full`) y conmutador completo/extracto.
-- [ ] Resumen IA plegable con botón "✨ Resumir" y contador de segundos.
-- [ ] Traducir (EN↔ES) y "Leer en mi idioma".
-- [ ] Siguiente/anterior deslizando y marcar leído al abrir.
-- [ ] Eventos de lectura (`read-event`, `engage`).
-- [ ] Compartir, abrir en web, guardar y favorito.
-- [ ] Tipografía Atkinson Hyperlegible y tamaño de texto.
+- [x] Render del HTML con imágenes, listas, citas, YouTube/Vimeo como tarjeta y podcast como reproductor.
+- [x] Artículo completo automático para extractos (`/full`) y conmutador completo/extracto.
+- [x] Resumen IA plegable, con puesto en la cola y contador de segundos.
+- [x] Traducir (EN↔ES). "Leer en mi idioma" pasa a la etapa 4 (es de la escucha).
+- [x] Siguiente/anterior deslizando y marcar leído al abrir.
+- [x] Eventos de lectura (`read-event`, `engage`).
+- [x] Compartir, abrir en web, guardar, favorito y similares.
+- [x] Tipografía Atkinson Hyperlegible y tamaño de texto (sobre el del sistema).
 
 ### Etapa 3 — Sin conexión y sincronización (2–3 días)
 
@@ -244,3 +244,8 @@ los extras.
   plataformas; la 1.0 se centra en iPhone (iPad en modo iPhone). Los extras
   nativos (IA del dispositivo, iCloud, segundo plano) se hacen primero en iOS.
   Destino mínimo iOS 16.
+- 2026-10-08: el lector usa `flutter_widget_from_html_core` (widgets nativos,
+  sin WebView): el HTML del feed no ejecuta nada; enlaces al navegador,
+  vídeos como tarjeta que abre YouTube/Vimeo. En local el resumen IA y la
+  traducción dan error porque el contenedor de IA del Mac no tiene los
+  modelos; probar esas dos funciones contra el Bee.

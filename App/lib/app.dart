@@ -3,8 +3,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'api/models.dart';
 import 'auth/session.dart';
+import 'core/prefs.dart';
 import 'core/theme.dart';
 import 'features/home/home_screen.dart';
 import 'features/login/login_screen.dart';
@@ -36,7 +36,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/trending', builder: (_, _) => const TrendingScreen()),
       GoRoute(
         path: '/article/:id',
-        builder: (_, state) => ReaderScreen(article: state.extra! as Article),
+        builder: (_, state) => ReaderScreen(args: state.extra! as ReaderArgs),
       ),
     ],
   );
@@ -47,10 +47,23 @@ class UFeedApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final display = ref.watch(displayPrefsProvider);
+    final font = display.atkinson ? 'Atkinson Hyperlegible' : null;
     return MaterialApp.router(
       onGenerateTitle: (context) => AppLocalizations.of(context).appName,
-      theme: buildTheme(Brightness.light),
-      darkTheme: buildTheme(Brightness.dark),
+      theme: buildTheme(Brightness.light, fontFamily: font),
+      darkTheme: buildTheme(Brightness.dark, fontFamily: font),
+      // The app's text size goes on top of the system's (Dynamic Type).
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        final system = mq.textScaler.scale(1);
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: TextScaler.linear(system * display.textScale),
+          ),
+          child: child!,
+        );
+      },
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,

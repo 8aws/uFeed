@@ -275,3 +275,50 @@ class Insights {
       ],
   });
 }
+
+/// An on-demand AI summary in one language, or where it is in the AI queue.
+class AiSummary {
+  const AiSummary({
+    required this.summary,
+    required this.title,
+    required this.model,
+    required this.status,
+    required this.position,
+    required this.etaS,
+  });
+
+  final String? summary;
+
+  /// The headline translated, when the article is in another language.
+  final String? title;
+  final String? model;
+
+  /// ready | queued | running | failed | none (not asked for yet).
+  final String status;
+  final int? position;
+  final int? etaS;
+
+  bool get pending => status == 'queued' || status == 'running';
+
+  factory AiSummary.fromJson(Json j) => AiSummary(
+    summary: j['summary'] as String?,
+    title: j['title'] as String?,
+    model: j['model'] as String?,
+    status: j['status'] as String? ?? (j['summary'] != null ? 'ready' : 'none'),
+    position: j['position'] as int?,
+    etaS: j['eta_s'] as int?,
+  );
+}
+
+/// An article machine-translated into the reader's language.
+class Translation {
+  const Translation({required this.title, required this.paragraphs});
+
+  final String? title;
+  final List<String>? paragraphs; // null until generated
+
+  factory Translation.fromJson(Json j) => Translation(
+    title: j['title'] as String?,
+    paragraphs: (j['paragraphs'] as List?)?.cast<String>(),
+  );
+}

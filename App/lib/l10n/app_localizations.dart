@@ -475,6 +475,156 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Joyas ocultas'**
   String get hiddenGems;
+
+  /// No description provided for @by.
+  ///
+  /// In es, this message translates to:
+  /// **'por'**
+  String get by;
+
+  /// No description provided for @planLimitAi.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu plan no incluye funciones de IA.'**
+  String get planLimitAi;
+
+  /// No description provided for @aiGenerating.
+  ///
+  /// In es, this message translates to:
+  /// **'Generando…'**
+  String get aiGenerating;
+
+  /// No description provided for @aiQueued.
+  ///
+  /// In es, this message translates to:
+  /// **'En cola, puesto {n}'**
+  String aiQueued(int n);
+
+  /// No description provided for @aiFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo generar el resumen. Pulsa la barra para reintentar.'**
+  String get aiFailed;
+
+  /// No description provided for @aiDailyLimit.
+  ///
+  /// In es, this message translates to:
+  /// **'Has usado los resúmenes IA de hoy. Los que ya existen siguen disponibles.'**
+  String get aiDailyLimit;
+
+  /// No description provided for @aiSummary.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumen IA'**
+  String get aiSummary;
+
+  /// No description provided for @aiUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'La IA no está disponible ahora.'**
+  String get aiUnavailable;
+
+  /// No description provided for @aiRate.
+  ///
+  /// In es, this message translates to:
+  /// **'Demasiados resúmenes IA esta hora; prueba más tarde.'**
+  String get aiRate;
+
+  /// No description provided for @translate.
+  ///
+  /// In es, this message translates to:
+  /// **'Traducir'**
+  String get translate;
+
+  /// No description provided for @translating.
+  ///
+  /// In es, this message translates to:
+  /// **'Traduciendo…'**
+  String get translating;
+
+  /// No description provided for @showOriginal.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver original'**
+  String get showOriginal;
+
+  /// No description provided for @machineTranslation.
+  ///
+  /// In es, this message translates to:
+  /// **'Traducción automática'**
+  String get machineTranslation;
+
+  /// No description provided for @translateUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'La traducción no está disponible ahora.'**
+  String get translateUnavailable;
+
+  /// No description provided for @textSize.
+  ///
+  /// In es, this message translates to:
+  /// **'Tamaño del texto'**
+  String get textSize;
+
+  /// No description provided for @font.
+  ///
+  /// In es, this message translates to:
+  /// **'Tipo de letra'**
+  String get font;
+
+  /// No description provided for @fontSystem.
+  ///
+  /// In es, this message translates to:
+  /// **'Del sistema'**
+  String get fontSystem;
+
+  /// No description provided for @fullArticle.
+  ///
+  /// In es, this message translates to:
+  /// **'Artículo completo'**
+  String get fullArticle;
+
+  /// No description provided for @showExcerpt.
+  ///
+  /// In es, this message translates to:
+  /// **'Extracto del feed'**
+  String get showExcerpt;
+
+  /// No description provided for @fullLoading.
+  ///
+  /// In es, this message translates to:
+  /// **'Cargando el artículo completo…'**
+  String get fullLoading;
+
+  /// No description provided for @fullNote.
+  ///
+  /// In es, this message translates to:
+  /// **'Artículo completo desde la web'**
+  String get fullNote;
+
+  /// No description provided for @fullUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo cargar el artículo completo desde la web.'**
+  String get fullUnavailable;
+
+  /// No description provided for @autoFull.
+  ///
+  /// In es, this message translates to:
+  /// **'Cargar el artículo completo cuando la fuente solo da un extracto'**
+  String get autoFull;
+
+  /// No description provided for @similar.
+  ///
+  /// In es, this message translates to:
+  /// **'Similares'**
+  String get similar;
+
+  /// No description provided for @more.
+  ///
+  /// In es, this message translates to:
+  /// **'Más'**
+  String get more;
 }
 
 class _AppLocalizationsDelegate

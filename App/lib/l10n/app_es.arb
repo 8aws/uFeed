@@ -97,5 +97,37 @@
   "top": "Top",
   "mostSaved": "Más guardados",
   "deepReads": "Lecturas profundas",
-  "hiddenGems": "Joyas ocultas"
+  "hiddenGems": "Joyas ocultas",
+  "by": "por",
+  "planLimitAi": "Tu plan no incluye funciones de IA.",
+  "aiGenerating": "Generando…",
+  "aiQueued": "En cola, puesto {n}",
+  "@aiQueued": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "aiFailed": "No se pudo generar el resumen. Pulsa la barra para reintentar.",
+  "aiDailyLimit": "Has usado los resúmenes IA de hoy. Los que ya existen siguen disponibles.",
+  "aiSummary": "Resumen IA",
+  "aiUnavailable": "La IA no está disponible ahora.",
+  "aiRate": "Demasiados resúmenes IA esta hora; prueba más tarde.",
+  "translate": "Traducir",
+  "translating": "Traduciendo…",
+  "showOriginal": "Ver original",
+  "machineTranslation": "Traducción automática",
+  "translateUnavailable": "La traducción no está disponible ahora.",
+  "textSize": "Tamaño del texto",
+  "font": "Tipo de letra",
+  "fontSystem": "Del sistema",
+  "fullArticle": "Artículo completo",
+  "showExcerpt": "Extracto del feed",
+  "fullLoading": "Cargando el artículo completo…",
+  "fullNote": "Artículo completo desde la web",
+  "fullUnavailable": "No se pudo cargar el artículo completo desde la web.",
+  "autoFull": "Cargar el artículo completo cuando la fuente solo da un extracto",
+  "similar": "Similares",
+  "more": "Más"
 }

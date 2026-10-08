@@ -218,4 +218,85 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get hiddenGems => 'Joyas ocultas';
+
+  @override
+  String get by => 'por';
+
+  @override
+  String get planLimitAi => 'Tu plan no incluye funciones de IA.';
+
+  @override
+  String get aiGenerating => 'Generando…';
+
+  @override
+  String aiQueued(int n) {
+    return 'En cola, puesto $n';
+  }
+
+  @override
+  String get aiFailed =>
+      'No se pudo generar el resumen. Pulsa la barra para reintentar.';
+
+  @override
+  String get aiDailyLimit =>
+      'Has usado los resúmenes IA de hoy. Los que ya existen siguen disponibles.';
+
+  @override
+  String get aiSummary => 'Resumen IA';
+
+  @override
+  String get aiUnavailable => 'La IA no está disponible ahora.';
+
+  @override
+  String get aiRate => 'Demasiados resúmenes IA esta hora; prueba más tarde.';
+
+  @override
+  String get translate => 'Traducir';
+
+  @override
+  String get translating => 'Traduciendo…';
+
+  @override
+  String get showOriginal => 'Ver original';
+
+  @override
+  String get machineTranslation => 'Traducción automática';
+
+  @override
+  String get translateUnavailable => 'La traducción no está disponible ahora.';
+
+  @override
+  String get textSize => 'Tamaño del texto';
+
+  @override
+  String get font => 'Tipo de letra';
+
+  @override
+  String get fontSystem => 'Del sistema';
+
+  @override
+  String get fullArticle => 'Artículo completo';
+
+  @override
+  String get showExcerpt => 'Extracto del feed';
+
+  @override
+  String get fullLoading => 'Cargando el artículo completo…';
+
+  @override
+  String get fullNote => 'Artículo completo desde la web';
+
+  @override
+  String get fullUnavailable =>
+      'No se pudo cargar el artículo completo desde la web.';
+
+  @override
+  String get autoFull =>
+      'Cargar el artículo completo cuando la fuente solo da un extracto';
+
+  @override
+  String get similar => 'Similares';
+
+  @override
+  String get more => 'Más';
 }

@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../home/article_tile.dart';
 import '../home/home_state.dart';
+import '../reader/reader_screen.dart';
 
 /// Trending rankings over the last 30 days, as in the web's 🔥 panel.
 final insightsProvider = FutureProvider.autoDispose<Insights>(
@@ -32,7 +33,6 @@ class TrendingScreen extends ConsumerWidget {
     final c = context.colors;
     final insights = ref.watch(insightsProvider);
     final side = ref.watch(sidebarProvider).value;
-    final api = ref.read(apiProvider);
 
     return DefaultTabController(
       length: Ranking.values.length,
@@ -84,10 +84,10 @@ class TrendingScreen extends ConsumerWidget {
                       : _RankingList(
                           items: data.rankings[r]!,
                           side: side,
-                          onOpen: (a) {
-                            if (!a.isRead) api.setRead(a.id, true).ignore();
-                            context.push('/article/${a.id}', extra: a);
-                          },
+                          onOpen: (articles, i) => context.push(
+                            '/article/${articles[i].id}',
+                            extra: ReaderArgs(articles, i),
+                          ),
                         ),
                 ),
             ],
@@ -108,7 +108,7 @@ class _RankingList extends ConsumerStatefulWidget {
 
   final List<RankedArticle> items;
   final Sidebar? side;
-  final void Function(Article) onOpen;
+  final void Function(List<Article> articles, int index) onOpen;
 
   @override
   ConsumerState<_RankingList> createState() => _RankingListState();
@@ -146,8 +146,8 @@ class _RankingListState extends ConsumerState<_RankingList> {
           sourceTitle: widget.side?.subFor(a.sourceId)?.title ?? '',
           note: t.readers(widget.items[i].readers),
           onOpen: () {
+            widget.onOpen(List.of(_articles), i);
             setState(() => _articles[i] = a.copyWith(isRead: true));
-            widget.onOpen(a);
           },
           onToggleRead: () => _update(
             i,
