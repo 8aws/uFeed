@@ -294,5 +294,6 @@
   },
   "offlineAudio": "Audio sin conexión de los guardados",
   "offlineAudioHint": "Guarda en este iPhone la voz del servidor de tus 20 últimos artículos guardados (~1,5 MB cada uno) para escucharlos sin conexión. La voz del dispositivo ya funciona sin conexión.",
-  "offlineAudioStarted": "Descargando el audio de tus guardados… (puedes seguir usando la app)"
+  "offlineAudioStarted": "Descargando el audio de tus guardados… (puedes seguir usando la app)",
+  "serverUnavailable": "El servidor no responde ahora mismo. Inténtalo en un rato."
 }

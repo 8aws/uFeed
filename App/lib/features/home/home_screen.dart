@@ -211,7 +211,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (list.loading) {
         return const Center(child: CircularProgressIndicator());
       } else if (list.error != null) {
-        message = list.error!.isNetwork ? t.offline : list.error!.message;
+        final e = list.error!;
+        message = e.isNetwork
+            ? t.offline
+            : e.status >= 500
+            ? t.serverUnavailable
+            : t.somethingFailed;
       } else {
         message = ctrl.unreadView ? t.noUnreadHere : t.noArticles;
       }
@@ -270,7 +275,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         controller: _scroll,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(6),
-        crossAxisCount: 2,
+        // One column when the text is very large, so titles stay readable.
+        crossAxisCount: MediaQuery.textScalerOf(context).scale(1) > 1.6 ? 1 : 2,
         mainAxisSpacing: 5,
         crossAxisSpacing: 5,
         itemCount: count,

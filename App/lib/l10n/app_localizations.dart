@@ -1309,6 +1309,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Descargando el audio de tus guardados… (puedes seguir usando la app)'**
   String get offlineAudioStarted;
+
+  /// No description provided for @serverUnavailable.
+  ///
+  /// In es, this message translates to:
+  /// **'El servidor no responde ahora mismo. Inténtalo en un rato.'**
+  String get serverUnavailable;
 }
 
 class _AppLocalizationsDelegate

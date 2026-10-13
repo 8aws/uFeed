@@ -677,4 +677,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get offlineAudioStarted =>
       'Downloading the audio of your saved articles… (you can keep using the app)';
+
+  @override
+  String get serverUnavailable =>
+      'The server isn\'t responding right now. Try again in a while.';
 }

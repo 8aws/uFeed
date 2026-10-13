@@ -143,7 +143,8 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
       de bloqueo, precarga del audio del siguiente y el lector sigue al post.
 - [ ] Probar en un iPhone real: pantalla de bloqueo, AirPods, llamadas y la voz
       del dispositivo con la pantalla bloqueada (el simulador no lo refleja bien).
-- [ ] Audio sin conexión de los guardados (la web ya lo tiene): pendiente.
+- [x] Audio sin conexión de los guardados: voz del servidor de los 20 últimos
+      guardados en el iPhone (opcional en "Voz y lectura"), se borra al cerrar sesión.
 
 ### Etapa 5 — Gestión y ajustes (2–3 días)
 
@@ -160,8 +161,8 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 - [x] Arranque en iOS 27 (adopción de `UIScene`, sin ella iOS cierra la app al abrir).
 - [x] Mosaico más denso (≈ 7 noticias por pantalla), "marcar todo leído" en
       rojo con confirmación y aviso de novedades que cuenta lo que entra en la vista.
-- [ ] Probar en el simulador: catálogo, OPML y eliminar cuenta (no se puede
-      del todo con la demo, que está protegida).
+- [x] Probado en el simulador (demo): catálogo (añadir y quitar) y exportar OPML.
+- [ ] Pendiente: importar OPML y eliminar cuenta (con la cuenta de prueba local).
 
 ### Etapa 6 — Extras nativos de iOS (3–4 días)
 
@@ -197,18 +198,25 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 
 ### Etapa 7 — Pulido y accesibilidad (2–3 días)
 
-- [ ] VoiceOver: etiquetas en todos los botones-icono.
-- [ ] Dynamic Type y contraste.
-- [ ] iPad: diseño en dos columnas.
-- [ ] Estados vacíos y de error, sin red y servidor caído.
+- [x] VoiceOver: etiquetas en todos los botones-icono; leído/guardar de cada
+      artículo como acciones de VoiceOver (deslizar no le sirve).
+- [x] Dynamic Type hasta el tamaño máximo: el artículo crece libre, los
+      controles de escucha tienen tope y el mosaico pasa a una columna.
+- [ ] Contraste: revisar en modo oscuro.
+- [ ] iPad: diseño en dos columnas (después de la 1.0; la 1.0 es solo iPhone).
+- [x] Estados vacíos y de error, sin red y servidor caído (mensaje propio, sin
+      textos en inglés del proxy).
 - [ ] Rendimiento con listas largas.
 - [ ] Pruebas de widgets y de la cola sin conexión.
 
 ### Etapa 8 — Publicación (1–2 días + espera de Apple)
 
-- [ ] Firma automática en Xcode (descarga certificados y perfiles) y archivo de Release.
+- [x] Firma automática y archivo para la App Store (`flutter build ipa`, bundle
+      `es.uverse.ufeed`); solo iPhone, declaración de cifrado y manifiesto de
+      privacidad; pantalla de arranque propia.
 - [ ] **TestFlight interno** para probar en tus dispositivos.
-- [ ] Crear la ficha en App Store Connect con `docs/APPSTORE.md`. Actualizar los
+- [ ] Crear la ficha en App Store Connect con `docs/APPSTORE.md` (el nombre
+      "uFeed" está cogido: decidir nombre de tienda; SKU `ufeed-ios-1`). Actualizar los
       textos con lo que de verdad tenga la app (notificaciones, iCloud…).
 - [ ] Capturas 6,9" en ES y EN (lista, lector, escucha, Post radio, traducción, ajustes).
 - [ ] Cuestionario de privacidad: añadir lo que cambie (p. ej. iCloud no cuenta

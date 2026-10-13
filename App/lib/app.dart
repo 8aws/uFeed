@@ -68,7 +68,9 @@ class UFeedApp extends ConsumerWidget {
         final system = mq.textScaler.scale(1);
         return MediaQuery(
           data: mq.copyWith(
-            textScaler: TextScaler.linear(system * display.textScale),
+            textScaler: TextScaler.linear(
+              (system * display.textScale).clamp(0.8, 3.2),
+            ),
           ),
           child: Stack(
             children: [

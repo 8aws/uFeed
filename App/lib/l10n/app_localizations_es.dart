@@ -681,4 +681,8 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get offlineAudioStarted =>
       'Descargando el audio de tus guardados… (puedes seguir usando la app)';
+
+  @override
+  String get serverUnavailable =>
+      'El servidor no responde ahora mismo. Inténtalo en un rato.';
 }

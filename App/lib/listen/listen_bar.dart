@@ -45,8 +45,16 @@ class ListenBar extends ConsumerWidget {
   final int index;
   final String Function(Article) sourceOf;
 
+  // Controls keep a usable size with the largest system text (the article
+  // itself grows freely).
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context, WidgetRef ref) =>
+      MediaQuery.withClampedTextScaling(
+        maxScaleFactor: _maxControlsScale,
+        child: _build(context, ref),
+      );
+
+  Widget _build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final c = context.colors;
     final s = ref.watch(listenProvider);
@@ -96,8 +104,16 @@ class PlayerControls extends ConsumerWidget {
   final ListenState state;
   final bool compact;
 
+  // Controls keep a usable size with the largest system text (the article
+  // itself grows freely).
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context, WidgetRef ref) =>
+      MediaQuery.withClampedTextScaling(
+        maxScaleFactor: _maxControlsScale,
+        child: _build(context, ref),
+      );
+
+  Widget _build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final c = context.colors;
     final s = state;
@@ -231,6 +247,8 @@ class MiniPlayer extends ConsumerWidget {
     );
   }
 }
+
+const _maxControlsScale = 1.35;
 
 /// Voice and reading options (the app has no Settings screen yet).
 Future<void> showVoiceSheet(BuildContext context) => showModalBottomSheet<void>(
