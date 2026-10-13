@@ -1,6 +1,6 @@
 # uFeed en iPhone Duo y HomeView — estudio para versiones futuras
 
-Estado: estudio, nada implementado. Fecha: 2026-10-13.
+Estado: estudio, nada implementado. Fecha: 2026-10-13 (actualizado tras el evento "Welcome home").
 
 Objetivo: llegar pronto a los dos dispositivos nuevos de Apple como reclamo
 para los primeros usuarios. Quien compra un plegable de 2.000 $ busca apps que
@@ -24,10 +24,21 @@ iOS 27.1. Datos de MacRumors:
 - Split View con dos apps o dos ventanas de la misma app. Dock vertical al
   lado. Las apps se reajustan al plegar, al girar y al darle la vuelta.
 - Apple ya acepta apps adaptadas al Duo en la App Store (desde el 5 de octubre).
+- **Guía de diseño de Apple ("Designing for iPhone Duo", HIG):**
+  - **Mismo estado en las dos pantallas.** La pantalla grande muestra un nivel
+    más de jerarquía. El ejemplo de Apple es Mail: cerrado, lista *o* correo;
+    abierto, lista *y* correo lado a lado. Es nuestra disposición de dos paneles.
+  - **Controles en el lateral.** La pantalla exterior es más ancha y baja, así
+    que el sistema pasa los controles a los lados para no gastar altura. En
+    horizontal también se quedan en un lado.
+  - **Pliegue y asimetría.** Recomienda contenedores adaptables, como vistas
+    partidas que ajustan el ancho de cada panel, y la API `ReservedRegion` para
+    que nada importante quede en la franja central del pliegue.
 - **No sabemos todavía:**
   - la escala de puntos (@2x o @3x);
-  - si hay una "bisagra" que la app pueda detectar (Apple la anuncia sin pliegue
-    visible);
+  - cómo llega `ReservedRegion` a Flutter. Lo más probable es que haga falta
+    un pequeño canal nativo que pase la franja a Dart; mirar primero si Flutter
+    la expone en `MediaQuery.displayFeatures`;
   - cómo se muestran las apps de iPhone no adaptadas.
 
   Confirmarlo con el SDK de Xcode 27.1 en el simulador del Duo.
@@ -50,14 +61,25 @@ Se presenta hoy, 13 de octubre (evento "Welcome home"). Se espera que llegue a
 las tiendas a mediados de noviembre. Todo lo de abajo es rumor hasta ver lo
 anunciado:
 
-- Pantalla cuadrada de unas 6", en dos versiones: sobremesa con altavoz y de pared.
-- homeOS, basado en tvOS. Solo apps de Apple y **sin App Store**.
-- Las apps de terceros aparecerían como **widgets desde un iPhone cercano**.
-- Mucho Siri, cámara para reconocer quién mira y elementos que crecen o
-  encogen según la distancia. Pensada para verse desde el otro lado de la
-  habitación.
+Presentada hoy, 13 de octubre (evento "Welcome home"). Se espera en tiendas a
+mediados de noviembre.
 
-Revisar esta sección cuando Apple publique la información para desarrolladores.
+- Pantalla táctil Liquid Retina de 7". Cuadrícula de apps y widgets como en
+  iPhone y iPad. Siri AI.
+- **Hasta seis personas reconocidas por la cámara**, cada una con su propia
+  pantalla de inicio, sus apps y sus widgets, en privado.
+- **Más o menos detalle según la distancia:** desde lejos, información general
+  y simplificada; al acercarse, detalles más ricos.
+- Se configura desde el iPhone.
+- **Sin App Store propia.** Las apps de terceros llegan como en CarPlay:
+  - HomeView muestra las **apps de audio y vídeo compatibles del iPhone (o
+    iPad) cercano**;
+  - las apps de audio hechas para CarPlay, como Spotify o Audible,
+    funcionan tal cual y pueden aparecer solas tras la configuración;
+  - Apple aún no ha detallado si hacen falta pasos extra, cómo funciona la
+    proximidad del iPhone ni si habrá widgets de terceros.
+
+Revisar cuando Apple publique la documentación para desarrolladores.
 
 ## 2. Propuesta para iPhone Duo
 
@@ -88,6 +110,16 @@ Bocetos (Duo abierto, vertical, unos 626 pt):
 
 Detalles que marcan la diferencia:
 
+- **Barra de escucha en el lateral, según la guía de Apple:**
+  - cerrado: en vertical, pegada a un lado en lugar de abajo;
+  - abierto: en el panel del lector;
+  - en horizontal: siempre en un lado.
+
+  Así la lista conserva altura en la pantalla exterior.
+- **Nada en el pliegue:** la división entre paneles se coloca en la franja de
+  `ReservedRegion`, y el lector deja un margen en ella. Si la franja no llega
+  a Flutter, la división va al 40/60 como respaldo.
+
 - **Mosaico de 3–4 columnas** en el panel de lista cuando se usa el modo
   mosaico. El perfil denso que acabamos de hacer (imagen de 84 px, título de
   13 px) escala bien: solo cambia el número de columnas.
@@ -102,9 +134,6 @@ Detalles que marcan la diferencia:
 - **Dos ventanas de uFeed en Split View**, por ejemplo una fuente en cada una.
   Llega casi gratis con `UIScene`, pero hay que comprobar que el
   estado compartido (outbox y caché local) aguanta dos instancias a la vez.
-- **Pliegue:** si el SDK informa de una bisagra (`MediaQuery.displayFeatures`
-  en Flutter), se pone la división entre paneles justo en ella. Si no, la
-  división va al 40/60.
 - **Arrastrar y soltar** un artículo de uFeed a Notas o Mail en Split View
   (como enlace).
 
@@ -120,33 +149,53 @@ iPhone en la 1.0") en una versión posterior.
 
 ## 3. Propuesta para HomeView
 
-Sin App Store, uFeed entraría por tres vías que no dependen de homeOS:
+La entrada natural es **uFeed como app de audio de CarPlay**: Post radio ya
+es una "radio de noticias". Con una sola pieza, uFeed sale en tres sitios:
 
-1. **Widget de titulares (WidgetKit):**
-   - los 3–5 últimos titulares sin leer, en letra grande, con fuente e
-     imagen y pensados para leerse de lejos;
-   - sirve también en la pantalla de inicio y de bloqueo del iPhone, así que
-     no se pierde nada si HomeView no lo muestra;
-   - necesita una extensión nativa en Swift; los datos se comparten con
-     Flutter por un App Group (paquete `home_widget`).
+- en el coche (CarPlay);
+- en HomeView;
+- en la pantalla de bloqueo del iPhone, que ya funciona.
+
+1. **App de audio CarPlay (prioridad):**
+   - **Plantillas:**
+     - `CPListTemplate` con "Post radio", "Sin leer" y las carpetas;
+     - `CPNowPlayingTemplate` con título, fuente e imagen, que ya publica
+       `audio_service`;
+     - siguiente y anterior post.
+   - **Requisito:** el permiso `com.apple.developer.carplay-audio`, que se
+     pide a Apple y tarda. Pedirlo pronto.
+   - **Implementación:**
+     - parte en Swift (escena de CarPlay; ya tenemos `UIScene`) que habla con
+       el `ListenController` de Flutter por un canal;
+     - existe el paquete `flutter_carplay`, a evaluar.
+   - **Perfiles por persona:** en HomeView cada persona tiene su pantalla y su
+     iPhone, así que cada uno oye sus propias fuentes. Encaja con uFeed, donde
+     todo va por cuenta.
+   - **Distancia:** en el lado de la app no hay nada que hacer. Las plantillas
+     de CarPlay son del sistema, y HomeView las adapta (letra grande de lejos,
+     más detalle de cerca).
 2. **Siri y App Intents:**
-   - «Oye Siri, ¿qué hay nuevo en uFeed?» lee los titulares;
-   - «Pon la radio de uFeed» arranca Post radio.
+   - «Oye Siri, pon la radio de uFeed» arranca Post radio;
+   - «¿Qué hay nuevo en uFeed?» lee los titulares (vía `/digest`).
 
-   Encaja con lo que ya existe: `/digest` para el resumen y la voz del
-   servidor para el audio.
-3. **Audio por AirPlay:** Post radio ya publica la información de "Ahora
-   suena" (`audio_service`). Si HomeView hace de altavoz AirPlay, las noticias
-   sonarían en casa sin hacer nada más.
+   Sirve en iPhone, CarPlay y HomeView.
+3. **Widget de titulares (WidgetKit):**
+   - útil en el iPhone pase lo que pase;
+   - en HomeView solo si Apple abre los widgets de terceros, que hoy no está
+     confirmado;
+   - con dos tamaños (lejos: número de sin leer y el titular principal;
+     cerca: 3–5 titulares), por si llega a usarse con la distancia;
+   - datos compartidos con Flutter por un App Group (paquete `home_widget`).
+4. **AirPlay:** la salida de seguridad. Post radio ya suena en cualquier
+   altavoz AirPlay.
 
-Coste estimado: 4–5 días.
+Coste estimado: 4–6 días, más la espera del permiso de CarPlay.
 
-- Widget: 2–3 días.
+- CarPlay audio: 2–3 días.
 - App Intents: 1–2 días.
-- Pruebas de AirPlay: medio día.
+- Widget: 1–2 días.
 
-Gran parte del trabajo coincide con la etapa 6 del plan nativo (widgets y
-Siri). Conviene hacerlo a la vez.
+Se solapa con la etapa 6 del plan nativo (Siri y widgets).
 
 ## 4. Orden propuesto
 
@@ -154,8 +203,10 @@ Siri). Conviene hacerlo a la vez.
    app de iPhone; confirmar en el simulador cómo se ve cuando salga el SDK.
 2. **1.1 "Duo":** disposición adaptable de dos y tres paneles. Es lo que más se
    nota y lo que se puede anunciar ("uFeed, preparada para iPhone Duo").
-3. **1.2 "Casa":** widget de titulares y App Intents. Sirve en iPhone desde el
-   primer día y en HomeView si Apple abre los widgets.
+3. **1.2 "Casa y coche":** uFeed como app de audio de CarPlay, más Siri.
+   Sale a la vez en el coche y en HomeView. **Pedir ya el permiso de CarPlay
+   audio**, aunque se implemente después, porque Apple tarda. El widget va
+   en el mismo paquete o justo después.
 4. iPad, sobre la misma disposición de la 1.1.
 
 ## 5. Ideas para atraer a los primeros usuarios
@@ -170,4 +221,7 @@ Siri). Conviene hacerlo a la vez.
 - MacRumors, [iPhone Duo: Everything We Know](https://www.macrumors.com/roundup/iphone-duo/)
 - MacRumors, [Apple's All-New Home Hub Will Be Revealed October 13](https://www.macrumors.com/2026/10/10/apple-to-unveil-all-new-type-of-device/)
 - Tech Times, [Apple 'HomeView' Smart Home Hub Will Ship Out Next Month](https://www.techtimes.com/articles/328898/20261012/apple-homeview-smart-home-hub-will-ship-out-next-month-what-expect.htm)
+- MacRumors, [HomeView Runs Third-Party Apps From Your iPhone or iPad](https://www.macrumors.com/2026/10/13/homeview-third-party-apps/)
+- 9to5Mac, [Will HomeView support third-party apps?](https://9to5mac.com/2026/10/13/will-homeview-support-third-party-apps-heres-what-apple-says/)
+- Apple HIG, "Designing for iPhone Duo" y presentación de HomeView (resumen aportado por el usuario)
 - Mac Observer, [Apple HomeView (HomePad): Everything To Know](https://www.macobserver.com/tips/round-ups/apple-homeview-homepad-everything-to-know-about-the-smart-display-before-launch/)

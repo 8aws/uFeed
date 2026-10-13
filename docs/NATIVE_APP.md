@@ -237,7 +237,7 @@ los extras.
 ## 4b. Dispositivos nuevos (después de la 1.0)
 
 iPhone Duo (plegable) y HomeView: disposición de dos y tres paneles, widget de
-titulares y Siri. Estudio en [FUTURE_DEVICES.md](FUTURE_DEVICES.md).
+titulares, CarPlay audio (que también sale en HomeView) y Siri. Estudio en [FUTURE_DEVICES.md](FUTURE_DEVICES.md).
 
 ## 5. Riesgos
 
