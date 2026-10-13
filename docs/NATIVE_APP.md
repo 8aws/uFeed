@@ -147,14 +147,21 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 
 ### Etapa 5 — Gestión y ajustes (2–3 días)
 
-- [ ] Añadir fuente (URL o búsqueda con `/discover`) y catálogo de temas para empezar (onboarding).
-- [ ] Carpetas, silenciar fuentes y filtros por palabra.
-- [ ] Importar/exportar OPML (selector de archivos y compartir).
-- [ ] Ajustes:
-  - [ ] cuenta y cambiar contraseña;
-  - [ ] **eliminar mi cuenta** (obligatorio en la App Store);
-  - [ ] voz, accesibilidad, apariencia e idioma.
-- [ ] Enlaces a Privacidad, Soporte y, según el rol, Admin/Curación en web.
+- [x] Añadir fuente (URL o búsqueda con `/discover`) y catálogo de temas para
+      empezar (servidor o el integrado), con "añadir todo" por tema.
+- [x] Carpetas (crear, renombrar, borrar), mover, renombrar y silenciar
+      fuentes (pulsación larga en el menú) y filtros por palabra.
+- [x] Importar/exportar OPML (selector de archivos y compartir).
+- [x] Ajustes:
+  - [x] cuenta, plan y cambiar contraseña; resumen diario por correo;
+  - [x] **eliminar mi cuenta** (obligatorio en la App Store);
+  - [x] voz, tamaño del texto y estilo de lista; el idioma sigue al del sistema.
+- [x] Enlaces a Privacidad, Soporte y, según el rol, Admin/Curación en web.
+- [x] Arranque en iOS 27 (adopción de `UIScene`, sin ella iOS cierra la app al abrir).
+- [x] Mosaico más denso (≈ 7 noticias por pantalla), "marcar todo leído" en
+      rojo con confirmación y aviso de novedades que cuenta lo que entra en la vista.
+- [ ] Probar en el simulador: catálogo, OPML y eliminar cuenta (no se puede
+      del todo con la demo, que está protegida).
 
 ### Etapa 6 — Extras nativos de iOS (3–4 días)
 
@@ -227,6 +234,11 @@ los extras.
 - [ ] Fuentes, carpetas, filtros, OPML, catálogo y onboarding
 - [ ] Eliminar cuenta; privacidad; soporte
 
+## 4b. Dispositivos nuevos (después de la 1.0)
+
+iPhone Duo (plegable) y HomeView: disposición de dos y tres paneles, widget de
+titulares y Siri. Estudio en [FUTURE_DEVICES.md](FUTURE_DEVICES.md).
+
 ## 5. Riesgos
 
 | Riesgo | Mitigación |
@@ -263,3 +275,5 @@ los extras.
   vídeos como tarjeta que abre YouTube/Vimeo. En local el resumen IA y la
   traducción dan error porque el contenedor de IA del Mac no tiene los
   modelos; probar esas dos funciones contra el Bee.
+- 2026-10-13: clave API "OneDay (App Review)" (permisos read + state) creada en
+  la cuenta demo para que el revisor de OneDay pruebe la conexión.
