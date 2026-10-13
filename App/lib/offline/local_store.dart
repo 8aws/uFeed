@@ -90,12 +90,59 @@ class LocalStore {
     ];
   }
 
+  // Offline audio: the server voice's MP3 of saved articles, one file per
+  // article, language and voice (`<id>-<lang><voice>.mp3`).
+
+  Future<Directory> _audioDir() async =>
+      Directory('${(await _dir()).path}/ufeed_audio');
+
+  /// The kept recording of article [id] in [lang] and [voice], if any.
+  Future<File?> audioFile(String id, String lang, String voice) async {
+    final f = File('${(await _audioDir()).path}/$id-$lang$voice.mp3');
+    return await f.exists() ? f : null;
+  }
+
+  /// Stores a recording, written whole or not at all.
+  Future<void> putAudio(
+    String id,
+    String lang,
+    String voice,
+    Future<void> Function(File to) write,
+  ) async {
+    final dir = await _audioDir();
+    await dir.create(recursive: true);
+    final f = File('${dir.path}/$id-$lang$voice.mp3');
+    final tmp = File('${f.path}.tmp');
+    try {
+      await write(tmp);
+      await tmp.rename(f.path);
+    } finally {
+      if (await tmp.exists()) await tmp.delete();
+    }
+  }
+
+  /// Drops the recordings of articles not in [keep].
+  Future<void> pruneAudio(Set<String> keep) async {
+    final dir = await _audioDir();
+    if (!await dir.exists()) return;
+    await for (final f in dir.list()) {
+      final name = f.uri.pathSegments.last;
+      if (!keep.contains(name.split('-').take(5).join('-'))) await f.delete();
+    }
+  }
+
+  Future<void> clearAudio() async {
+    final dir = await _audioDir();
+    if (await dir.exists()) await dir.delete(recursive: true);
+  }
+
   /// On sign out: nothing of that account stays on the device.
   Future<void> clear() async {
     for (final name in ['home', 'saved']) {
       final f = await _file(name);
       if (await f.exists()) await f.delete();
     }
+    await clearAudio();
     await DefaultCacheManager().emptyCache();
   }
 }

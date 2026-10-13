@@ -291,5 +291,8 @@
         "type": "int"
       }
     }
-  }
+  },
+  "offlineAudio": "Offline audio for saved articles",
+  "offlineAudioHint": "Keeps the server voice of your 20 most recent saved articles on this iPhone (~1.5 MB each) to listen without connection. The device voice already works offline.",
+  "offlineAudioStarted": "Downloading the audio of your saved articles… (you can keep using the app)"
 }

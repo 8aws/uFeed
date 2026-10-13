@@ -17,6 +17,7 @@ import '../features/home/home_state.dart';
 import '../features/reader/article_html.dart';
 import '../features/reader/article_page.dart';
 import '../features/reader/web_audio.dart';
+import '../offline/offline_audio.dart';
 import '../offline/providers.dart';
 import 'audio_handler.dart';
 import 'readable.dart';
@@ -238,12 +239,19 @@ class ListenController extends Notifier<ListenState> implements ListenCommands {
       radio: keepRadio ? state.radio : null,
     );
     _publishItem();
+    final (:lang, :translated) = speechLang(a, prefs);
+    // A recording kept for offline use plays at once (and without connection).
+    final stored = prefs.server
+        ? await ref.read(localStoreProvider).audioFile(a.id, lang, prefs.gender)
+        : null;
+    if (run != _run) return;
+    if (stored != null) {
+      await _playNative(Uri.file(stored.path), Duration.zero, prefs.rate);
+      _schedulePrefetch();
+      return;
+    }
     final plan = await ref.read(planProvider.future);
     if (run != _run) return;
-    final translated = prefs.myLanguage && canTranslate(a);
-    final lang = translated
-        ? deviceLocale()
-        : baseLang(a.lang ?? deviceLocale());
     final useServer =
         prefs.server && plan.ttsServer && _serverLangs.contains(lang);
     if (useServer && await _startServer(a, run, lang, translated, prefs)) {
@@ -652,11 +660,13 @@ class ListenController extends Notifier<ListenState> implements ListenCommands {
     final next = r.queue[r.pos + 1];
     final prefs = ref.read(speechPrefsProvider);
     _prefetch = Timer(const Duration(seconds: 12), () {
+      final (:lang, :translated) = speechLang(next, prefs);
       _api
           .articleAudio(
             next.id,
-            lang: baseLang(next.lang ?? deviceLocale()),
+            lang: lang,
             voice: prefs.gender,
+            translated: translated,
           )
           .ignore();
     });

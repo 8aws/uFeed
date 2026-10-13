@@ -551,6 +551,7 @@ class _FiltersState extends ConsumerState<_Filters> {
               hintText: t.addKeyword,
               counterText: '',
               suffixIcon: IconButton(
+                tooltip: t.addKeyword,
                 icon: const Icon(Icons.add),
                 onPressed: _add,
               ),

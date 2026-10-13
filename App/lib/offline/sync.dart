@@ -7,11 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
 import '../api/models.dart';
+import '../auth/plan.dart';
 import '../auth/session.dart';
+import '../core/prefs.dart';
 import '../features/home/home_state.dart';
 import '../features/reader/article_html.dart';
 import '../features/reader/article_page.dart';
 import 'local_store.dart';
+import 'offline_audio.dart';
 import 'providers.dart';
 
 /// How much of the saved list is kept on the device.
@@ -67,6 +70,24 @@ Future<void> syncSaved(WidgetRef ref) async {
   await store.saveSaved(user.id, out);
   ref.read(offlineSavedProvider.notifier).set(out);
   unawaited(_cacheImages(out.where((o) => !before.containsKey(o.article.id))));
+  unawaited(warmSavedAudio(ref, [for (final o in out) o.article]));
+}
+
+/// The server voice of the saved articles, when the user turned it on.
+Future<void> warmSavedAudio(WidgetRef ref, List<Article> saved) async {
+  final prefs = ref.read(speechPrefsProvider);
+  if (!prefs.offlineAudio) return;
+  try {
+    if (!(await ref.read(planProvider.future)).ttsServer) return;
+  } on Object {
+    return;
+  }
+  await warmAudio(
+    api: ref.read(apiProvider),
+    store: ref.read(localStoreProvider),
+    saved: saved,
+    prefs: prefs,
+  );
 }
 
 /// Pictures of newly saved articles into the image cache the reader uses.

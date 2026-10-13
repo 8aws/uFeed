@@ -106,6 +106,18 @@ def flutter_app() -> None:
     full_bleed().resize((1024, 1024), Image.LANCZOS).convert("RGB").save(
         out / "ufeed_icon.png", optimize=True
     )
+    # Launch screen: the rounded logo (100 pt) on the LaunchBackground colour,
+    # which follows light/dark mode.
+    from PIL import ImageDraw
+
+    launch = ROOT / "App" / "ios" / "Runner" / "Assets.xcassets" / "LaunchImage.imageset"
+    for scale, name in ((1, "LaunchImage.png"), (2, "LaunchImage@2x.png"), (3, "LaunchImage@3x.png")):
+        side = 100 * scale
+        logo = full_bleed().resize((side, side), Image.LANCZOS).convert("RGBA")
+        mask = Image.new("L", logo.size, 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, side, side), radius=round(side * 0.225), fill=255)
+        logo.putalpha(mask)
+        logo.save(launch / name, optimize=True)
 
 
 if __name__ == "__main__":

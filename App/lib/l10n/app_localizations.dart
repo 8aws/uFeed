@@ -1291,6 +1291,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Disponible en {n} min'**
   String refreshWait(int n);
+
+  /// No description provided for @offlineAudio.
+  ///
+  /// In es, this message translates to:
+  /// **'Audio sin conexión de los guardados'**
+  String get offlineAudio;
+
+  /// No description provided for @offlineAudioHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Guarda en este iPhone la voz del servidor de tus 20 últimos artículos guardados (~1,5 MB cada uno) para escucharlos sin conexión. La voz del dispositivo ya funciona sin conexión.'**
+  String get offlineAudioHint;
+
+  /// No description provided for @offlineAudioStarted.
+  ///
+  /// In es, this message translates to:
+  /// **'Descargando el audio de tus guardados… (puedes seguir usando la app)'**
+  String get offlineAudioStarted;
 }
 
 class _AppLocalizationsDelegate

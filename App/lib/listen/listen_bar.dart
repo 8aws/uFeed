@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/models.dart';
 import '../auth/plan.dart';
+import '../core/dialogs.dart';
 import '../core/prefs.dart';
 import '../core/theme.dart';
 import '../l10n/app_localizations.dart';
+import '../offline/providers.dart';
+import '../offline/sync.dart';
 import 'listen_controller.dart';
 
 String _clock(Duration d) {
@@ -280,6 +283,24 @@ Future<void> showVoiceSheet(BuildContext context) => showModalBottomSheet<void>(
                     onSelectionChanged: (v) => set(p.copyWith(gender: v.first)),
                   ),
                   const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(t.offlineAudio),
+                    value: p.offlineAudio,
+                    onChanged: (v) async {
+                      set(p.copyWith(offlineAudio: v));
+                      if (!v) {
+                        await ref.read(localStoreProvider).clearAudio();
+                        return;
+                      }
+                      toast(context, t.offlineAudioStarted);
+                      final saved = ref.read(offlineSavedProvider);
+                      await warmSavedAudio(ref, [
+                        for (final o in saved.values) o.article,
+                      ]);
+                    },
+                  ),
+                  hint(t.offlineAudioHint),
                 ],
               ] else
                 hint(t.deviceVoiceHint),

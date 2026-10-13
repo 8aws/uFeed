@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 
 import '../../api/models.dart';
 import '../../core/theme.dart';
@@ -100,49 +101,58 @@ class ArticleTile extends StatelessWidget {
     };
     final grid = style == ListStyle.masonry;
 
-    return Dismissible(
-      key: ValueKey('swipe-${a.id}'),
-      dismissThresholds: const {
-        DismissDirection.startToEnd: 0.25,
-        DismissDirection.endToStart: 0.25,
+    // VoiceOver can't swipe the row: the same two actions as rotor actions.
+    return Semantics(
+      customSemanticsActions: {
+        CustomSemanticsAction(label: a.isRead ? t.markUnread : t.markRead):
+            onToggleRead,
+        CustomSemanticsAction(label: a.isSaved ? t.unsave : t.save):
+            onToggleSaved,
       },
-      confirmDismiss: (dir) async {
-        if (dir == DismissDirection.startToEnd) {
-          onToggleRead();
-        } else {
-          onToggleSaved();
-        }
-        return false; // the row stays; only its state changes
-      },
-      background: hint(
-        a.isRead ? Icons.mark_email_unread_outlined : Icons.done,
-        a.isRead ? t.markUnread : t.markRead,
-        Alignment.centerLeft,
-        c.accent,
-      ),
-      secondaryBackground: hint(
-        a.isSaved ? Icons.star_border : Icons.star,
-        a.isSaved ? t.unsave : t.save,
-        Alignment.centerRight,
-        _gold,
-      ),
-      child: Material(
-        color: c.surface,
-        borderRadius: grid ? BorderRadius.circular(10) : null,
-        clipBehavior: grid ? Clip.antiAlias : Clip.none,
-        child: InkWell(
-          onTap: onOpen,
-          onLongPress: a.isRead ? null : onToggleRead,
-          child: Container(
-            decoration: grid
-                ? BoxDecoration(
-                    border: Border.all(color: c.border),
-                    borderRadius: BorderRadius.circular(10),
-                  )
-                : BoxDecoration(
-                    border: Border(bottom: BorderSide(color: c.border)),
-                  ),
-            child: Opacity(opacity: a.isRead ? 0.55 : 1.0, child: body),
+      child: Dismissible(
+        key: ValueKey('swipe-${a.id}'),
+        dismissThresholds: const {
+          DismissDirection.startToEnd: 0.25,
+          DismissDirection.endToStart: 0.25,
+        },
+        confirmDismiss: (dir) async {
+          if (dir == DismissDirection.startToEnd) {
+            onToggleRead();
+          } else {
+            onToggleSaved();
+          }
+          return false; // the row stays; only its state changes
+        },
+        background: hint(
+          a.isRead ? Icons.mark_email_unread_outlined : Icons.done,
+          a.isRead ? t.markUnread : t.markRead,
+          Alignment.centerLeft,
+          c.accent,
+        ),
+        secondaryBackground: hint(
+          a.isSaved ? Icons.star_border : Icons.star,
+          a.isSaved ? t.unsave : t.save,
+          Alignment.centerRight,
+          _gold,
+        ),
+        child: Material(
+          color: c.surface,
+          borderRadius: grid ? BorderRadius.circular(10) : null,
+          clipBehavior: grid ? Clip.antiAlias : Clip.none,
+          child: InkWell(
+            onTap: onOpen,
+            onLongPress: a.isRead ? null : onToggleRead,
+            child: Container(
+              decoration: grid
+                  ? BoxDecoration(
+                      border: Border.all(color: c.border),
+                      borderRadius: BorderRadius.circular(10),
+                    )
+                  : BoxDecoration(
+                      border: Border(bottom: BorderSide(color: c.border)),
+                    ),
+              child: Opacity(opacity: a.isRead ? 0.55 : 1.0, child: body),
+            ),
           ),
         ),
       ),

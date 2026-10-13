@@ -7,9 +7,10 @@ brackets; texts are within them.
 
 | Field | Value |
 | --- | --- |
-| Name [30] | uFeed |
-| Bundle ID | `es.uverse.ufeed` |
-| SKU | `ufeed-ios-1` |
+| Name [30] | **To decide:** "uFeed" is taken (see below). Proposal: `uFeed: RSS y noticias` (ES) / `uFeed: RSS & News` (EN) |
+| Name on the Home Screen | uFeed (`CFBundleDisplayName`, can differ from the store name) |
+| Bundle ID | `es.uverse.ufeed` (iOS and Android; App Store build checked 2026-10-13) |
+| SKU | `ufeed-ios-1` (final; can't be changed after the app record is created) |
 | Primary category | News |
 | Secondary category | Productivity |
 | Support URL | https://ufeed.uverse.es/support |
@@ -17,6 +18,12 @@ brackets; texts are within them.
 | Privacy policy URL | https://ufeed.uverse.es/privacy |
 | Copyright | © 2026 Manuel Rodríguez |
 | Price | Free (no in-app purchases) |
+
+Name check (2026-10-13, iTunes Search API, Spain and US stores): an app
+called **"ufeed"** already exists (Portuguese-language social network by
+josue araujo moreira, `com.negoplay.ufeed.social`, updated 2026-08). App Store
+names are unique, so plain "uFeed" will be refused when creating the record.
+"uFeed RSS", "uFeed Reader" and "uFeed: RSS y noticias" return no match.
 
 ## Localized text
 

@@ -100,6 +100,7 @@ class SpeechPrefs {
     this.myLanguage = false,
     this.radioPosts = 10,
     this.radioMinutes = 30,
+    this.offlineAudio = false,
   });
 
   /// The server's neural voice (plan feature) instead of the device's.
@@ -110,6 +111,7 @@ class SpeechPrefs {
   final bool myLanguage; // translate articles in another language first
   final int radioPosts; // Post radio: stop after this many (0 = plan max)
   final int radioMinutes; // ...or after this many minutes (0 = plan max)
+  final bool offlineAudio; // keep the server voice of saved articles
 
   static const rates = [0.75, 0.85, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0];
 
@@ -121,6 +123,7 @@ class SpeechPrefs {
     bool? myLanguage,
     int? radioPosts,
     int? radioMinutes,
+    bool? offlineAudio,
   }) => SpeechPrefs(
     server: server ?? this.server,
     gender: gender ?? this.gender,
@@ -129,6 +132,7 @@ class SpeechPrefs {
     myLanguage: myLanguage ?? this.myLanguage,
     radioPosts: radioPosts ?? this.radioPosts,
     radioMinutes: radioMinutes ?? this.radioMinutes,
+    offlineAudio: offlineAudio ?? this.offlineAudio,
   );
 
   Map<String, Object> toJson() => {
@@ -139,6 +143,7 @@ class SpeechPrefs {
     'myLanguage': myLanguage,
     'radioPosts': radioPosts,
     'radioMinutes': radioMinutes,
+    'offlineAudio': offlineAudio,
   };
 
   factory SpeechPrefs.fromJson(Map<String, dynamic> j) => SpeechPrefs(
@@ -149,6 +154,7 @@ class SpeechPrefs {
     myLanguage: j['myLanguage'] as bool? ?? false,
     radioPosts: j['radioPosts'] as int? ?? 10,
     radioMinutes: j['radioMinutes'] as int? ?? 30,
+    offlineAudio: j['offlineAudio'] as bool? ?? false,
   );
 }
 

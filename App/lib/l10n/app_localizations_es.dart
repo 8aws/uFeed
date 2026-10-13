@@ -670,4 +670,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String refreshWait(int n) {
     return 'Disponible en $n min';
   }
+
+  @override
+  String get offlineAudio => 'Audio sin conexión de los guardados';
+
+  @override
+  String get offlineAudioHint =>
+      'Guarda en este iPhone la voz del servidor de tus 20 últimos artículos guardados (~1,5 MB cada uno) para escucharlos sin conexión. La voz del dispositivo ya funciona sin conexión.';
+
+  @override
+  String get offlineAudioStarted =>
+      'Descargando el audio de tus guardados… (puedes seguir usando la app)';
 }

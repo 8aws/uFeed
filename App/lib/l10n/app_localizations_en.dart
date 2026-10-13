@@ -666,4 +666,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String refreshWait(int n) {
     return 'Available in $n min';
   }
+
+  @override
+  String get offlineAudio => 'Offline audio for saved articles';
+
+  @override
+  String get offlineAudioHint =>
+      'Keeps the server voice of your 20 most recent saved articles on this iPhone (~1.5 MB each) to listen without connection. The device voice already works offline.';
+
+  @override
+  String get offlineAudioStarted =>
+      'Downloading the audio of your saved articles… (you can keep using the app)';
 }
