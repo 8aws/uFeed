@@ -132,7 +132,7 @@ class _OfflineSyncState extends ConsumerState<OfflineSync> {
     if (!mounted) return;
     final list = ref.read(articleListProvider);
     if (sent > 0 || list.offline || list.error != null) {
-      await ref.read(articleListProvider.notifier).refresh();
+      await ref.read(articleListProvider.notifier).startUp(force: true);
     }
     if (mounted) await syncSaved(ref);
   }

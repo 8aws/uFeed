@@ -273,5 +273,23 @@
   "web": "Open on the web",
   "demoAccount": "The demo account can't be changed or deleted.",
   "lastAdmin": "Make someone else admin before deleting this account.",
-  "settingsMenu": "Settings"
+  "settingsMenu": "Settings",
+  "confirmMarkAllRead": "Mark every article in this view as read?",
+  "newItems": "{n, plural, =1{1 new article} other{{n} new articles}}",
+  "@newItems": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "noNew": "No new items",
+  "refreshWait": "Available in {n} min",
+  "@refreshWait": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

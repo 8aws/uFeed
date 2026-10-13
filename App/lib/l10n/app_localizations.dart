@@ -1267,6 +1267,30 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Ajustes'**
   String get settingsMenu;
+
+  /// No description provided for @confirmMarkAllRead.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Marcar como leídos todos los artículos de esta vista?'**
+  String get confirmMarkAllRead;
+
+  /// No description provided for @newItems.
+  ///
+  /// In es, this message translates to:
+  /// **'{n, plural, =1{1 artículo nuevo} other{{n} artículos nuevos}}'**
+  String newItems(int n);
+
+  /// No description provided for @noNew.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin novedades'**
+  String get noNew;
+
+  /// No description provided for @refreshWait.
+  ///
+  /// In es, this message translates to:
+  /// **'Disponible en {n} min'**
+  String refreshWait(int n);
 }
 
 class _AppLocalizationsDelegate

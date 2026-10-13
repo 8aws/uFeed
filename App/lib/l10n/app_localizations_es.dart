@@ -647,4 +647,27 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settingsMenu => 'Ajustes';
+
+  @override
+  String get confirmMarkAllRead =>
+      '¿Marcar como leídos todos los artículos de esta vista?';
+
+  @override
+  String newItems(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n artículos nuevos',
+      one: '1 artículo nuevo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get noNew => 'Sin novedades';
+
+  @override
+  String refreshWait(int n) {
+    return 'Disponible en $n min';
+  }
 }

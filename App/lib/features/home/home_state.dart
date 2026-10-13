@@ -282,21 +282,64 @@ class ArticleListNotifier extends Notifier<ArticleList> {
         );
   }
 
-  /// Pull to refresh: send what's queued, fetch due feeds, then reload
-  /// the list and counters. `onlyIfNew` (app start): skip if nothing new.
-  Future<void> refresh({bool onlyIfNew = false}) async {
+  /// App start: send what's queued and fetch due feeds (cheap; the server
+  /// skips feeds checked lately), reloading only if something arrived (or
+  /// always with `force`, e.g. back online after showing the offline copy).
+  Future<void> startUp({bool force = false}) async {
     await _outbox.flush();
+    final before = _unreadInView();
     var arrived = 0;
     try {
       arrived = await _api.sync();
     } on ApiException {
-      // still reload what we have
+      if (!force) return;
     }
-    if (onlyIfNew && arrived == 0) return;
+    await ref.read(sidebarProvider.notifier).reload();
+    if (force || arrived > 0 || _unreadInView() != before) {
+      await load(reset: true);
+    }
+  }
+
+  /// Pull to refresh: fetch this view's feeds now and reload. Returns how
+  /// many articles reached the view; counting what's new to the reader, not
+  /// only what this request fetched (another fetch may have stored them).
+  Future<int> refresh() async {
+    await _outbox.flush();
+    final f = ref.read(filterProvider);
+    final before = _unreadInView();
+    var fetched = 0;
+    ApiException? failure;
+    try {
+      fetched = await _api.refresh(
+        source: f.kind == FilterKind.source ? f.id : null,
+      );
+    } on ApiException catch (e) {
+      failure = e; // still reload what we have
+    }
     await Future.wait([
       load(reset: true),
       ref.read(sidebarProvider.notifier).reload(),
     ]);
+    if (failure != null && failure.code == 'refresh_cooldown') throw failure;
+    final delta = _unreadInView() - before;
+    return delta > fetched ? delta : fetched;
+  }
+
+  /// Unread count of the feeds this view shows (muted ones aside).
+  int _unreadInView() {
+    final side = ref.read(sidebarProvider).value;
+    if (side == null) return 0;
+    final f = ref.read(filterProvider);
+    var n = 0;
+    for (final s in side.subs) {
+      final inView = switch (f.kind) {
+        FilterKind.source => s.source.id == f.id,
+        FilterKind.folder => s.folderId == f.id,
+        _ => !s.muted,
+      };
+      if (inView) n += s.unreadCount;
+    }
+    return n;
   }
 
   void _replace(Article a) {

@@ -201,6 +201,17 @@ class ApiClient {
   Future<int> sync() async =>
       (await _json('POST', '/sync'))['new_articles'] as int? ?? 0;
 
+  /// "Refresh" (pull down): fetch this user's feeds now, or one feed.
+  /// Plans have a cooldown (429 refresh_cooldown with Retry-After).
+  Future<int> refresh({String? source}) async =>
+      (await _json(
+            'POST',
+            '/refresh',
+            query: {'source': source},
+          ))['new_articles']
+          as int? ??
+      0;
+
   // feeds and folders
 
   /// Feeds found at a site or feed address.

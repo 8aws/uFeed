@@ -74,13 +74,38 @@ Future<void> showFeedActions(
 
   switch (choice) {
     case 'rename':
-      final name = await promptText(
-        context,
-        title: t.rename,
-        initial: sub.title,
+      // Empty = back to the feed's own title.
+      final ctrl = TextEditingController(text: sub.customTitle ?? sub.title);
+      final name = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(t.rename),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: InputDecoration(hintText: sub.source.title),
+            onSubmitted: (v) => Navigator.of(context).pop(v),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(t.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(ctrl.text),
+              child: Text(t.done),
+            ),
+          ],
+        ),
       );
+      ctrl.dispose();
       if (name != null) {
-        await run(() => api.updateSubscription(sub.id, {'custom_title': name}));
+        final v = name.trim();
+        await run(
+          () => api.updateSubscription(sub.id, {
+            'custom_title': v.isEmpty ? null : v,
+          }),
+        );
       }
     case 'move':
       final folders = side?.folders ?? const <Folder>[];

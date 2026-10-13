@@ -654,17 +654,31 @@
 		}
 	}
 
+	/** Unread count of the feeds the current view shows (muted ones aside). */
+	function unreadInView(): number {
+		const inView = (x: Subscription) =>
+			filter.kind === 'source'
+				? x.source.id === filter.id
+				: filter.kind === 'folder'
+					? x.folder_id === filter.id
+					: !x.muted;
+		return subs.filter(inView).reduce((n, x) => n + (x.unread_count || 0), 0);
+	}
+
 	async function refresh() {
 		if (refreshing) return;
 		refreshing = true;
 		refreshMsg = $t('searching');
 		try {
 			const src = filter.kind === 'source' ? filter.id : undefined;
+			// What reaches this view counts, not only what this request fetched:
+			// articles another fetch already stored are new to the reader too.
+			const unreadBefore = unreadInView();
 			const res = await api.refresh(src);
 			await Promise.all([loadArticles(true), loadSidebar()]);
 			loadInsights();
-			refreshMsg =
-				res.new_articles > 0 ? `+${res.new_articles} ${$t('new_items')}` : $t('no_new');
+			const arrived = Math.max(res.new_articles, unreadInView() - unreadBefore);
+			refreshMsg = arrived > 0 ? `+${arrived} ${$t('new_items')}` : $t('no_new');
 		} catch (e) {
 			// Plan cooldown: tell the user when they can refresh again.
 			if (e instanceof ApiError && e.code === 'refresh_cooldown') {
@@ -713,6 +727,20 @@
 
 	function folderUnread(subsIn: Subscription[]): number {
 		return subsIn.reduce((n, s) => n + (s.muted ? 0 : s.unread_count), 0);
+	}
+
+	/** Own name for a feed whose title is missing or unhelpful; an empty name
+	 *  goes back to the feed's own title. */
+	async function renameFeed(sub: Subscription) {
+		const current = sub.custom_title || sub.source.title || '';
+		const name = prompt($t('rename_feed'), current);
+		if (name === null || name.trim() === current) return;
+		try {
+			const updated = await api.updateSubscription(sub.id, { custom_title: name.trim() || null });
+			subs = subs.map((x) => (x.id === sub.id ? { ...x, custom_title: updated.custom_title } : x));
+		} catch {
+			/* ignore */
+		}
 	}
 
 	async function toggleMute(sub: Subscription) {
@@ -834,6 +862,7 @@
 	}
 
 	async function markAllRead() {
+		if (!confirm($t('confirm_mark_all_read'))) return;
 		const source_id = filter.kind === 'source' ? filter.id : null;
 		const folder_id = filter.kind === 'folder' ? filter.id : null;
 		// Apply it here at once; without connection it's queued and synced later
@@ -1546,6 +1575,7 @@
 						<option value={f.id} selected={s.folder_id === f.id}>{f.name}</option>
 					{/each}
 				</select>
+				<button class="x" title={$t('rename_feed')} onclick={() => renameFeed(s)}>✎</button>
 				<button class="x" title={s.muted ? $t('unmute') : $t('mute')} onclick={() => toggleMute(s)}>
 					{s.muted ? '🔊' : '🔇'}
 				</button>
@@ -2199,6 +2229,11 @@
 		align-self: center;
 		margin-left: 0;
 		color: var(--muted);
+	}
+	/* Destructive for the whole view: red, and it asks first. */
+	.markall {
+		color: var(--danger);
+		border-color: var(--danger);
 	}
 	.acard {
 		display: flex;

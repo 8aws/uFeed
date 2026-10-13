@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../api/api_client.dart';
 import '../../api/models.dart';
 import '../../auth/session.dart';
 import '../../core/prefs.dart';
+import '../../core/dialogs.dart';
 import '../../core/theme.dart';
 import '../../listen/listen_bar.dart';
 import '../manage/feed_actions.dart';
@@ -37,9 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     });
     // Fetch due feeds once when the app opens.
-    Future.microtask(
-      () => ref.read(articleListProvider.notifier).refresh(onlyIfNew: true),
-    );
+    Future.microtask(() => ref.read(articleListProvider.notifier).startUp());
   }
 
   @override
@@ -115,8 +115,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             IconButton(
               tooltip: t.markAllRead,
               icon: const Icon(Icons.done_all),
+              color: c.danger,
               onPressed: list.items.any((a) => !a.isRead)
-                  ? ctrl.markAllRead
+                  ? () async {
+                      final ok = await confirm(
+                        context,
+                        message: t.confirmMarkAllRead,
+                        action: t.markAllRead,
+                      );
+                      if (ok) await ctrl.markAllRead();
+                    }
                   : null,
             ),
           PopupMenuButton<ListStyle>(
@@ -145,13 +153,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _OfflineBanner(offline: list.offline),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: ctrl.refresh,
+              onRefresh: () => _pullToRefresh(t, ctrl),
               child: _body(t, c, list, side, ctrl, style, scoped && onlyUnread),
             ),
           ),
         ],
       ),
     );
+  }
+
+  /// "+3 artículos nuevos", "Sin novedades" or the plan's wait.
+  Future<void> _pullToRefresh(
+    AppLocalizations t,
+    ArticleListNotifier ctrl,
+  ) async {
+    String msg;
+    try {
+      final n = await ctrl.refresh();
+      msg = n > 0 ? '+${t.newItems(n)}' : t.noNew;
+    } on ApiException catch (e) {
+      final mins = ((e.retryAfter ?? 60) / 60).ceil().clamp(1, 999);
+      msg = t.refreshWait(mins);
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
+      );
   }
 
   static IconData _styleIcon(ListStyle s) => switch (s) {
@@ -240,10 +269,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return MasonryGridView.count(
         controller: _scroll,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(6),
         crossAxisCount: 2,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
+        mainAxisSpacing: 5,
+        crossAxisSpacing: 5,
         itemCount: count,
         itemBuilder: item,
       );

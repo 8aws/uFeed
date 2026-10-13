@@ -273,5 +273,23 @@
   "web": "Abrir en la web",
   "demoAccount": "La cuenta de demostración no se puede cambiar ni eliminar.",
   "lastAdmin": "Nombra a otra persona administradora antes de eliminar esta cuenta.",
-  "settingsMenu": "Ajustes"
+  "settingsMenu": "Ajustes",
+  "confirmMarkAllRead": "¿Marcar como leídos todos los artículos de esta vista?",
+  "newItems": "{n, plural, =1{1 artículo nuevo} other{{n} artículos nuevos}}",
+  "@newItems": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "noNew": "Sin novedades",
+  "refreshWait": "Disponible en {n} min",
+  "@refreshWait": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

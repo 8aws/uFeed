@@ -151,20 +151,30 @@ class ArticleTile extends StatelessWidget {
 
   String get _excerpt => plainText(article.aiSummary ?? article.summary);
 
-  Widget _title(UColors c, {int lines = 3, double size = 16}) => Text(
+  Widget _title(
+    UColors c, {
+    int lines = 3,
+    double size = 16,
+    double height = 1.25,
+  }) => Text(
     article.title ?? article.url ?? '',
     maxLines: lines,
     overflow: TextOverflow.ellipsis,
     style: TextStyle(
       fontSize: size,
-      height: 1.25,
+      height: height,
       fontWeight: article.isRead ? FontWeight.w500 : FontWeight.w700,
       color: c.text,
     ),
   );
 
   /// "• Xataka · 5 min ★ ♥"
-  Widget _meta(AppLocalizations t, UColors c, {bool time = true}) {
+  Widget _meta(
+    AppLocalizations t,
+    UColors c, {
+    bool time = true,
+    double size = 12,
+  }) {
     final a = article;
     final text = [
       sourceTitle,
@@ -183,7 +193,7 @@ class ArticleTile extends StatelessWidget {
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: c.muted, fontSize: 12),
+            style: TextStyle(color: c.muted, fontSize: size),
           ),
         ),
         if (a.dupCount > 1)
@@ -284,32 +294,26 @@ class ArticleTile extends StatelessWidget {
   Widget _card(BuildContext context, AppLocalizations t, UColors c) {
     final img = article.imageUrl;
     final excerpt = _excerpt;
-    final grid = style == ListStyle.masonry;
+    if (style == ListStyle.masonry) return _tile(t, c, img, excerpt);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (img != null)
-          grid
-              ? _image(img)
-              : AspectRatio(aspectRatio: 16 / 9, child: _image(img)),
+        if (img != null) AspectRatio(aspectRatio: 16 / 9, child: _image(img)),
         Padding(
-          padding: EdgeInsets.fromLTRB(grid ? 10 : 16, 10, grid ? 10 : 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _title(c, lines: grid ? 4 : 3, size: grid ? 14.5 : 17),
+              _title(c, size: 17),
               const SizedBox(height: 4),
               _meta(t, c),
               if (excerpt.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(
                   excerpt,
-                  maxLines: grid ? 4 : 3,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.muted,
-                    fontSize: grid ? 12.5 : 13.5,
-                  ),
+                  style: TextStyle(color: c.muted, fontSize: 13.5),
                 ),
               ],
             ],
@@ -318,4 +322,40 @@ class ArticleTile extends StatelessWidget {
       ],
     );
   }
+
+  /// Masonry: as many stories per screen as stay readable. The picture is a
+  /// band as tall as the card list's thumbnail (84 px), then source, a
+  /// headline of up to 4 lines and 2 of summary. Measured on iPhone width:
+  /// ~7 stories per screen, against ~5 with 16:10 pictures.
+  Widget _tile(AppLocalizations t, UColors c, String? img, String excerpt) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (img != null) SizedBox(height: 84, child: _image(img)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(7, 5, 7, 7),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _meta(t, c, size: 10.5),
+                const SizedBox(height: 2),
+                _title(c, lines: 4, size: 13, height: 1.2),
+                if (excerpt.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    excerpt,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.muted,
+                      fontSize: 11.5,
+                      height: 1.28,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
 }

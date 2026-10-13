@@ -214,7 +214,7 @@ export const api = {
 		request<Subscription>('/sources', { method: 'POST', body: { url, folder_id } }),
 	updateSubscription: (
 		id: string,
-		body: { folder_id?: string | null; custom_title?: string; muted?: boolean }
+		body: { folder_id?: string | null; custom_title?: string | null; muted?: boolean }
 	) =>
 		request<Subscription>(`/sources/${id}`, { method: 'PATCH', body }),
 	unsubscribe: (id: string) => request<unknown>(`/sources/${id}`, { method: 'DELETE' }),
