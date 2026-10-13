@@ -829,6 +829,444 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'generando'**
   String get listenGenerating;
+
+  /// No description provided for @addFeed.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir fuente'**
+  String get addFeed;
+
+  /// No description provided for @addFeedPlaceholder.
+  ///
+  /// In es, this message translates to:
+  /// **'URL del blog o feed…'**
+  String get addFeedPlaceholder;
+
+  /// No description provided for @discover.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar feeds'**
+  String get discover;
+
+  /// No description provided for @subscribe.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscribirse'**
+  String get subscribe;
+
+  /// No description provided for @subscribed.
+  ///
+  /// In es, this message translates to:
+  /// **'Suscrito'**
+  String get subscribed;
+
+  /// No description provided for @noFeedsFound.
+  ///
+  /// In es, this message translates to:
+  /// **'No se encontraron feeds en esa URL.'**
+  String get noFeedsFound;
+
+  /// No description provided for @unsubscribe.
+  ///
+  /// In es, this message translates to:
+  /// **'Cancelar suscripción'**
+  String get unsubscribe;
+
+  /// No description provided for @confirmUnsubscribe.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Cancelar la suscripción a esta fuente?'**
+  String get confirmUnsubscribe;
+
+  /// No description provided for @importOpml.
+  ///
+  /// In es, this message translates to:
+  /// **'Importar OPML'**
+  String get importOpml;
+
+  /// No description provided for @exportOpml.
+  ///
+  /// In es, this message translates to:
+  /// **'Exportar OPML'**
+  String get exportOpml;
+
+  /// No description provided for @opmlImported.
+  ///
+  /// In es, this message translates to:
+  /// **'{n} fuentes importadas, {m} omitidas.'**
+  String opmlImported(int n, int m);
+
+  /// No description provided for @account.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta'**
+  String get account;
+
+  /// No description provided for @starterSources.
+  ///
+  /// In es, this message translates to:
+  /// **'Sugerencias iniciales'**
+  String get starterSources;
+
+  /// No description provided for @catalogAdd.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir'**
+  String get catalogAdd;
+
+  /// No description provided for @catalogRemove.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar'**
+  String get catalogRemove;
+
+  /// No description provided for @catalogAddAll.
+  ///
+  /// In es, this message translates to:
+  /// **'Añadir todas'**
+  String get catalogAddAll;
+
+  /// No description provided for @allLangs.
+  ///
+  /// In es, this message translates to:
+  /// **'Todas'**
+  String get allLangs;
+
+  /// No description provided for @langEs.
+  ///
+  /// In es, this message translates to:
+  /// **'Español'**
+  String get langEs;
+
+  /// No description provided for @langEn.
+  ///
+  /// In es, this message translates to:
+  /// **'Inglés'**
+  String get langEn;
+
+  /// No description provided for @plan.
+  ///
+  /// In es, this message translates to:
+  /// **'Plan'**
+  String get plan;
+
+  /// No description provided for @roleFree.
+  ///
+  /// In es, this message translates to:
+  /// **'Gratis'**
+  String get roleFree;
+
+  /// No description provided for @roleGeneral.
+  ///
+  /// In es, this message translates to:
+  /// **'General'**
+  String get roleGeneral;
+
+  /// No description provided for @roleVip.
+  ///
+  /// In es, this message translates to:
+  /// **'VIP'**
+  String get roleVip;
+
+  /// No description provided for @roleEditor.
+  ///
+  /// In es, this message translates to:
+  /// **'Editor'**
+  String get roleEditor;
+
+  /// No description provided for @roleAdmin.
+  ///
+  /// In es, this message translates to:
+  /// **'Administrador'**
+  String get roleAdmin;
+
+  /// No description provided for @admin.
+  ///
+  /// In es, this message translates to:
+  /// **'Administración'**
+  String get admin;
+
+  /// No description provided for @curation.
+  ///
+  /// In es, this message translates to:
+  /// **'Curación'**
+  String get curation;
+
+  /// No description provided for @privacy.
+  ///
+  /// In es, this message translates to:
+  /// **'Privacidad'**
+  String get privacy;
+
+  /// No description provided for @support.
+  ///
+  /// In es, this message translates to:
+  /// **'Soporte'**
+  String get support;
+
+  /// No description provided for @currentPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña actual'**
+  String get currentPassword;
+
+  /// No description provided for @newPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva contraseña'**
+  String get newPassword;
+
+  /// No description provided for @confirmPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'Repite la nueva contraseña'**
+  String get confirmPassword;
+
+  /// No description provided for @changePassword.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar contraseña'**
+  String get changePassword;
+
+  /// No description provided for @passwordChanged.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraseña cambiada. Se ha cerrado la sesión en otros dispositivos.'**
+  String get passwordChanged;
+
+  /// No description provided for @passwordMismatch.
+  ///
+  /// In es, this message translates to:
+  /// **'Las contraseñas no coinciden.'**
+  String get passwordMismatch;
+
+  /// No description provided for @wrongPassword.
+  ///
+  /// In es, this message translates to:
+  /// **'La contraseña actual no es correcta.'**
+  String get wrongPassword;
+
+  /// No description provided for @deleteAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar cuenta'**
+  String get deleteAccount;
+
+  /// No description provided for @deleteAccountHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Borra tu cuenta y todos sus datos (fuentes, carpetas, guardados, claves). No se puede deshacer. Escribe tu contraseña para confirmar.'**
+  String get deleteAccountHint;
+
+  /// No description provided for @digestTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Resumen diario por correo'**
+  String get digestTitle;
+
+  /// No description provided for @digestHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Lo más relevante de las últimas 24 horas en tus fuentes, una vez al día.'**
+  String get digestHint;
+
+  /// No description provided for @digestOff.
+  ///
+  /// In es, this message translates to:
+  /// **'Desactivado'**
+  String get digestOff;
+
+  /// No description provided for @digestAt.
+  ///
+  /// In es, this message translates to:
+  /// **'A las'**
+  String get digestAt;
+
+  /// No description provided for @digestEveryDay.
+  ///
+  /// In es, this message translates to:
+  /// **'Todos los días'**
+  String get digestEveryDay;
+
+  /// No description provided for @digestWeekdays.
+  ///
+  /// In es, this message translates to:
+  /// **'Laborables (L–V)'**
+  String get digestWeekdays;
+
+  /// No description provided for @digestWeekends.
+  ///
+  /// In es, this message translates to:
+  /// **'Fin de semana'**
+  String get digestWeekends;
+
+  /// No description provided for @digestCustom.
+  ///
+  /// In es, this message translates to:
+  /// **'Elegir días'**
+  String get digestCustom;
+
+  /// No description provided for @digestDayLetters.
+  ///
+  /// In es, this message translates to:
+  /// **'L,M,X,J,V,S,D'**
+  String get digestDayLetters;
+
+  /// No description provided for @mute.
+  ///
+  /// In es, this message translates to:
+  /// **'Silenciar'**
+  String get mute;
+
+  /// No description provided for @unmute.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar silencio'**
+  String get unmute;
+
+  /// No description provided for @filters.
+  ///
+  /// In es, this message translates to:
+  /// **'Filtros'**
+  String get filters;
+
+  /// No description provided for @filtersHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Oculta los artículos cuyo título o resumen contenga estas palabras. Guardados y favoritos nunca se ocultan.'**
+  String get filtersHint;
+
+  /// No description provided for @addKeyword.
+  ///
+  /// In es, this message translates to:
+  /// **'Añade una palabra o frase…'**
+  String get addKeyword;
+
+  /// No description provided for @mutedSources.
+  ///
+  /// In es, this message translates to:
+  /// **'Fuentes silenciadas'**
+  String get mutedSources;
+
+  /// No description provided for @mutedSourcesHint.
+  ///
+  /// In es, this message translates to:
+  /// **'No aparecen en No leídos, Todo, carpetas ni recomendaciones; abre la fuente para leerla.'**
+  String get mutedSourcesHint;
+
+  /// No description provided for @noMuted.
+  ///
+  /// In es, this message translates to:
+  /// **'Nada silenciado.'**
+  String get noMuted;
+
+  /// No description provided for @planLimitFeeds.
+  ///
+  /// In es, this message translates to:
+  /// **'Has llegado al límite de fuentes de tu plan.'**
+  String get planLimitFeeds;
+
+  /// No description provided for @appearance.
+  ///
+  /// In es, this message translates to:
+  /// **'Apariencia'**
+  String get appearance;
+
+  /// No description provided for @deleteFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar carpeta'**
+  String get deleteFolder;
+
+  /// No description provided for @confirmDeleteFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Eliminar esta carpeta? Sus fuentes pasan a la raíz.'**
+  String get confirmDeleteFolder;
+
+  /// No description provided for @newFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Nueva carpeta'**
+  String get newFolder;
+
+  /// No description provided for @noFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin carpeta'**
+  String get noFolder;
+
+  /// No description provided for @rename.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambiar nombre'**
+  String get rename;
+
+  /// No description provided for @moveTo.
+  ///
+  /// In es, this message translates to:
+  /// **'Mover a carpeta'**
+  String get moveTo;
+
+  /// No description provided for @name.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombre'**
+  String get name;
+
+  /// No description provided for @cancel.
+  ///
+  /// In es, this message translates to:
+  /// **'Cancelar'**
+  String get cancel;
+
+  /// No description provided for @delete.
+  ///
+  /// In es, this message translates to:
+  /// **'Eliminar'**
+  String get delete;
+
+  /// No description provided for @done.
+  ///
+  /// In es, this message translates to:
+  /// **'Hecho'**
+  String get done;
+
+  /// No description provided for @feedsAndFolders.
+  ///
+  /// In es, this message translates to:
+  /// **'Fuentes y carpetas'**
+  String get feedsAndFolders;
+
+  /// No description provided for @somethingFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo completar. Inténtalo de nuevo.'**
+  String get somethingFailed;
+
+  /// No description provided for @web.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir en la web'**
+  String get web;
+
+  /// No description provided for @demoAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'La cuenta de demostración no se puede cambiar ni eliminar.'**
+  String get demoAccount;
+
+  /// No description provided for @lastAdmin.
+  ///
+  /// In es, this message translates to:
+  /// **'Nombra a otra persona administradora antes de eliminar esta cuenta.'**
+  String get lastAdmin;
+
+  /// No description provided for @settingsMenu.
+  ///
+  /// In es, this message translates to:
+  /// **'Ajustes'**
+  String get settingsMenu;
 }
 
 class _AppLocalizationsDelegate

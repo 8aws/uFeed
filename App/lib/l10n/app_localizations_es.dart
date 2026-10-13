@@ -418,4 +418,233 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get listenGenerating => 'generando';
+
+  @override
+  String get addFeed => 'Añadir fuente';
+
+  @override
+  String get addFeedPlaceholder => 'URL del blog o feed…';
+
+  @override
+  String get discover => 'Buscar feeds';
+
+  @override
+  String get subscribe => 'Suscribirse';
+
+  @override
+  String get subscribed => 'Suscrito';
+
+  @override
+  String get noFeedsFound => 'No se encontraron feeds en esa URL.';
+
+  @override
+  String get unsubscribe => 'Cancelar suscripción';
+
+  @override
+  String get confirmUnsubscribe => '¿Cancelar la suscripción a esta fuente?';
+
+  @override
+  String get importOpml => 'Importar OPML';
+
+  @override
+  String get exportOpml => 'Exportar OPML';
+
+  @override
+  String opmlImported(int n, int m) {
+    return '$n fuentes importadas, $m omitidas.';
+  }
+
+  @override
+  String get account => 'Cuenta';
+
+  @override
+  String get starterSources => 'Sugerencias iniciales';
+
+  @override
+  String get catalogAdd => 'Añadir';
+
+  @override
+  String get catalogRemove => 'Quitar';
+
+  @override
+  String get catalogAddAll => 'Añadir todas';
+
+  @override
+  String get allLangs => 'Todas';
+
+  @override
+  String get langEs => 'Español';
+
+  @override
+  String get langEn => 'Inglés';
+
+  @override
+  String get plan => 'Plan';
+
+  @override
+  String get roleFree => 'Gratis';
+
+  @override
+  String get roleGeneral => 'General';
+
+  @override
+  String get roleVip => 'VIP';
+
+  @override
+  String get roleEditor => 'Editor';
+
+  @override
+  String get roleAdmin => 'Administrador';
+
+  @override
+  String get admin => 'Administración';
+
+  @override
+  String get curation => 'Curación';
+
+  @override
+  String get privacy => 'Privacidad';
+
+  @override
+  String get support => 'Soporte';
+
+  @override
+  String get currentPassword => 'Contraseña actual';
+
+  @override
+  String get newPassword => 'Nueva contraseña';
+
+  @override
+  String get confirmPassword => 'Repite la nueva contraseña';
+
+  @override
+  String get changePassword => 'Cambiar contraseña';
+
+  @override
+  String get passwordChanged =>
+      'Contraseña cambiada. Se ha cerrado la sesión en otros dispositivos.';
+
+  @override
+  String get passwordMismatch => 'Las contraseñas no coinciden.';
+
+  @override
+  String get wrongPassword => 'La contraseña actual no es correcta.';
+
+  @override
+  String get deleteAccount => 'Eliminar cuenta';
+
+  @override
+  String get deleteAccountHint =>
+      'Borra tu cuenta y todos sus datos (fuentes, carpetas, guardados, claves). No se puede deshacer. Escribe tu contraseña para confirmar.';
+
+  @override
+  String get digestTitle => 'Resumen diario por correo';
+
+  @override
+  String get digestHint =>
+      'Lo más relevante de las últimas 24 horas en tus fuentes, una vez al día.';
+
+  @override
+  String get digestOff => 'Desactivado';
+
+  @override
+  String get digestAt => 'A las';
+
+  @override
+  String get digestEveryDay => 'Todos los días';
+
+  @override
+  String get digestWeekdays => 'Laborables (L–V)';
+
+  @override
+  String get digestWeekends => 'Fin de semana';
+
+  @override
+  String get digestCustom => 'Elegir días';
+
+  @override
+  String get digestDayLetters => 'L,M,X,J,V,S,D';
+
+  @override
+  String get mute => 'Silenciar';
+
+  @override
+  String get unmute => 'Quitar silencio';
+
+  @override
+  String get filters => 'Filtros';
+
+  @override
+  String get filtersHint =>
+      'Oculta los artículos cuyo título o resumen contenga estas palabras. Guardados y favoritos nunca se ocultan.';
+
+  @override
+  String get addKeyword => 'Añade una palabra o frase…';
+
+  @override
+  String get mutedSources => 'Fuentes silenciadas';
+
+  @override
+  String get mutedSourcesHint =>
+      'No aparecen en No leídos, Todo, carpetas ni recomendaciones; abre la fuente para leerla.';
+
+  @override
+  String get noMuted => 'Nada silenciado.';
+
+  @override
+  String get planLimitFeeds => 'Has llegado al límite de fuentes de tu plan.';
+
+  @override
+  String get appearance => 'Apariencia';
+
+  @override
+  String get deleteFolder => 'Eliminar carpeta';
+
+  @override
+  String get confirmDeleteFolder =>
+      '¿Eliminar esta carpeta? Sus fuentes pasan a la raíz.';
+
+  @override
+  String get newFolder => 'Nueva carpeta';
+
+  @override
+  String get noFolder => 'Sin carpeta';
+
+  @override
+  String get rename => 'Cambiar nombre';
+
+  @override
+  String get moveTo => 'Mover a carpeta';
+
+  @override
+  String get name => 'Nombre';
+
+  @override
+  String get cancel => 'Cancelar';
+
+  @override
+  String get delete => 'Eliminar';
+
+  @override
+  String get done => 'Hecho';
+
+  @override
+  String get feedsAndFolders => 'Fuentes y carpetas';
+
+  @override
+  String get somethingFailed => 'No se pudo completar. Inténtalo de nuevo.';
+
+  @override
+  String get web => 'Abrir en la web';
+
+  @override
+  String get demoAccount =>
+      'La cuenta de demostración no se puede cambiar ni eliminar.';
+
+  @override
+  String get lastAdmin =>
+      'Nombra a otra persona administradora antes de eliminar esta cuenta.';
+
+  @override
+  String get settingsMenu => 'Ajustes';
 }

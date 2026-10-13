@@ -8,6 +8,8 @@ import 'core/prefs.dart';
 import 'core/theme.dart';
 import 'features/home/home_screen.dart';
 import 'features/login/login_screen.dart';
+import 'features/manage/add_feed_screen.dart';
+import 'features/manage/settings_screen.dart';
 import 'features/reader/reader_screen.dart';
 import 'features/trending/trending_screen.dart';
 import 'l10n/app_localizations.dart';
@@ -39,6 +41,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const OfflineSync(child: HomeScreen()),
       ),
       GoRoute(path: '/trending', builder: (_, _) => const TrendingScreen()),
+      GoRoute(path: '/add', builder: (_, _) => const AddFeedScreen()),
+      GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
       GoRoute(
         path: '/article/:id',
         builder: (_, state) => ReaderScreen(args: state.extra! as ReaderArgs),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -199,6 +200,103 @@ class ApiClient {
   /// Returns how many new articles arrived.
   Future<int> sync() async =>
       (await _json('POST', '/sync'))['new_articles'] as int? ?? 0;
+
+  // feeds and folders
+
+  /// Feeds found at a site or feed address.
+  Future<List<DiscoveredFeed>> discover(String url) async {
+    final data =
+        await _request('POST', '/discover', body: {'url': url}) as List;
+    return [for (final e in data) DiscoveredFeed.fromJson(e as Json)];
+  }
+
+  Future<Subscription> subscribe(String url, {String? folderId}) async =>
+      Subscription.fromJson(
+        await _json(
+          'POST',
+          '/sources',
+          body: {'url': url, 'folder_id': folderId},
+        ),
+      );
+
+  /// Only the keys given are changed (`folder_id: null` = top level).
+  Future<Subscription> updateSubscription(
+    String id,
+    Map<String, Object?> fields,
+  ) async =>
+      Subscription.fromJson(await _json('PATCH', '/sources/$id', body: fields));
+
+  Future<void> unsubscribe(String id) => _request('DELETE', '/sources/$id');
+
+  Future<Folder> createFolder(String name) async =>
+      Folder.fromJson(await _json('POST', '/folders', body: {'name': name}));
+
+  Future<Folder> renameFolder(String id, String name) async => Folder.fromJson(
+    await _json('PATCH', '/folders/$id', body: {'name': name}),
+  );
+
+  /// Its feeds move to the top level.
+  Future<void> deleteFolder(String id) => _request('DELETE', '/folders/$id');
+
+  /// The starter list editors curated on this server; null = the built-in.
+  Future<List<CatalogSection>?> catalog() async {
+    final sections = (await _json('GET', '/catalog'))['sections'] as List?;
+    return sections == null
+        ? null
+        : [for (final s in sections) CatalogSection.fromJson(s as Json)];
+  }
+
+  Future<String> exportOpml() async =>
+      await _request('GET', '/opml/export') as String;
+
+  Future<({int imported, int skipped})> importOpml(
+    Uint8List bytes,
+    String filename,
+  ) async {
+    final data = await _json(
+      'POST',
+      '/opml/import',
+      body: FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      }),
+    );
+    return (
+      imported: data['imported'] as int? ?? 0,
+      skipped: data['skipped'] as int? ?? 0,
+    );
+  }
+
+  // filters
+
+  Future<List<MutedKeyword>> keywords() =>
+      _list('/filters/keywords', MutedKeyword.fromJson);
+
+  Future<MutedKeyword> addKeyword(String keyword) async =>
+      MutedKeyword.fromJson(
+        await _json('POST', '/filters/keywords', body: {'keyword': keyword}),
+      );
+
+  Future<void> removeKeyword(String id) =>
+      _request('DELETE', '/filters/keywords/$id');
+
+  // account
+
+  Future<User> updateMe(Map<String, Object?> fields) async =>
+      User.fromJson(await _json('PATCH', '/me', body: fields));
+
+  /// Returns fresh tokens: other sessions are signed out.
+  Future<Tokens> changePassword(String current, String next) async =>
+      Tokens.fromJson(
+        await _json(
+          'POST',
+          '/me/password',
+          body: {'current_password': current, 'new_password': next},
+        ),
+      );
+
+  /// Deletes the account and all its data.
+  Future<void> deleteAccount(String password) =>
+      _request('POST', '/me/delete', body: {'password': password});
 
   // articles
 

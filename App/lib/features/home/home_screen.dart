@@ -9,6 +9,7 @@ import '../../auth/session.dart';
 import '../../core/prefs.dart';
 import '../../core/theme.dart';
 import '../../listen/listen_bar.dart';
+import '../manage/feed_actions.dart';
 import '../../listen/listen_controller.dart';
 import '../../offline/providers.dart';
 import '../../l10n/app_localizations.dart';
@@ -282,6 +283,7 @@ class _SideMenu extends ConsumerWidget {
       String label, {
       int unread = 0,
       double indent = 0,
+      VoidCallback? onLongPress,
     }) => ListTile(
       dense: true,
       contentPadding: EdgeInsets.only(left: 16 + indent, right: 16),
@@ -292,6 +294,7 @@ class _SideMenu extends ConsumerWidget {
       selected: current == f,
       selectedTileColor: c.accentSoft,
       onTap: () => pick(f),
+      onLongPress: onLongPress,
     );
 
     Widget favicon(Subscription s) => ClipRRect(
@@ -386,6 +389,7 @@ class _SideMenu extends ConsumerWidget {
                   const Icon(Icons.folder_outlined),
                   folder.name,
                   unread: data.unreadIn(folder.id),
+                  onLongPress: () => showFolderActions(context, ref, folder),
                 ),
                 for (final s in data.subs.where((s) => s.folderId == folder.id))
                   item(
@@ -394,6 +398,7 @@ class _SideMenu extends ConsumerWidget {
                     s.title,
                     unread: s.muted ? 0 : s.unreadCount,
                     indent: 16,
+                    onLongPress: () => showFeedActions(context, ref, s),
                   ),
               ],
               for (final s in data.subs.where((s) => s.folderId == null))
@@ -402,22 +407,38 @@ class _SideMenu extends ConsumerWidget {
                   favicon(s),
                   s.title,
                   unread: s.muted ? 0 : s.unreadCount,
+                  onLongPress: () => showFeedActions(context, ref, s),
                 ),
             ],
             const Divider(),
-            if (user != null)
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.person_outline),
-                title: Text(user.email, overflow: TextOverflow.ellipsis),
-              ),
             ListTile(
               dense: true,
-              leading: const Icon(Icons.logout),
-              title: Text(t.logout),
+              leading: const Icon(Icons.add),
+              minLeadingWidth: 20,
+              title: Text(t.addFeed),
               onTap: () {
                 Navigator.of(context).pop();
-                ref.read(sessionProvider.notifier).logout();
+                context.push('/add');
+              },
+            ),
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.create_new_folder_outlined),
+              minLeadingWidth: 20,
+              title: Text(t.newFolder),
+              onTap: () => createFolder(context, ref),
+            ),
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.settings_outlined),
+              minLeadingWidth: 20,
+              title: Text(t.settings),
+              subtitle: user == null
+                  ? null
+                  : Text(user.email, overflow: TextOverflow.ellipsis),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/settings');
               },
             ),
           ],

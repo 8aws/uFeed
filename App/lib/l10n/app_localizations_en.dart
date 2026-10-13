@@ -416,4 +416,232 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get listenGenerating => 'generating';
+
+  @override
+  String get addFeed => 'Add feed';
+
+  @override
+  String get addFeedPlaceholder => 'Blog or feed URL…';
+
+  @override
+  String get discover => 'Find feeds';
+
+  @override
+  String get subscribe => 'Subscribe';
+
+  @override
+  String get subscribed => 'Subscribed';
+
+  @override
+  String get noFeedsFound => 'No feeds found at that URL.';
+
+  @override
+  String get unsubscribe => 'Unsubscribe';
+
+  @override
+  String get confirmUnsubscribe => 'Unsubscribe from this feed?';
+
+  @override
+  String get importOpml => 'Import OPML';
+
+  @override
+  String get exportOpml => 'Export OPML';
+
+  @override
+  String opmlImported(int n, int m) {
+    return '$n feeds imported, $m skipped.';
+  }
+
+  @override
+  String get account => 'Account';
+
+  @override
+  String get starterSources => 'Starter suggestions';
+
+  @override
+  String get catalogAdd => 'Add';
+
+  @override
+  String get catalogRemove => 'Remove';
+
+  @override
+  String get catalogAddAll => 'Add all';
+
+  @override
+  String get allLangs => 'All';
+
+  @override
+  String get langEs => 'Spanish';
+
+  @override
+  String get langEn => 'English';
+
+  @override
+  String get plan => 'Plan';
+
+  @override
+  String get roleFree => 'Free';
+
+  @override
+  String get roleGeneral => 'General';
+
+  @override
+  String get roleVip => 'VIP';
+
+  @override
+  String get roleEditor => 'Editor';
+
+  @override
+  String get roleAdmin => 'Admin';
+
+  @override
+  String get admin => 'Administration';
+
+  @override
+  String get curation => 'Curation';
+
+  @override
+  String get privacy => 'Privacy';
+
+  @override
+  String get support => 'Support';
+
+  @override
+  String get currentPassword => 'Current password';
+
+  @override
+  String get newPassword => 'New password';
+
+  @override
+  String get confirmPassword => 'Repeat new password';
+
+  @override
+  String get changePassword => 'Change password';
+
+  @override
+  String get passwordChanged =>
+      'Password changed. Other devices were signed out.';
+
+  @override
+  String get passwordMismatch => 'The passwords don\'t match.';
+
+  @override
+  String get wrongPassword => 'Current password is incorrect.';
+
+  @override
+  String get deleteAccount => 'Delete account';
+
+  @override
+  String get deleteAccountHint =>
+      'Deletes your account and all its data (feeds, folders, saved articles, keys). This cannot be undone. Enter your password to confirm.';
+
+  @override
+  String get digestTitle => 'Daily digest by email';
+
+  @override
+  String get digestHint =>
+      'The most relevant of the last 24 hours in your feeds, once a day.';
+
+  @override
+  String get digestOff => 'Off';
+
+  @override
+  String get digestAt => 'At';
+
+  @override
+  String get digestEveryDay => 'Every day';
+
+  @override
+  String get digestWeekdays => 'Weekdays (Mon–Fri)';
+
+  @override
+  String get digestWeekends => 'Weekends';
+
+  @override
+  String get digestCustom => 'Pick days';
+
+  @override
+  String get digestDayLetters => 'M,T,W,T,F,S,S';
+
+  @override
+  String get mute => 'Mute';
+
+  @override
+  String get unmute => 'Unmute';
+
+  @override
+  String get filters => 'Filters';
+
+  @override
+  String get filtersHint =>
+      'Hide articles whose title or summary contains these words. Saved and favourites are never hidden.';
+
+  @override
+  String get addKeyword => 'Add a word or phrase…';
+
+  @override
+  String get mutedSources => 'Muted sources';
+
+  @override
+  String get mutedSourcesHint =>
+      'Hidden from Unread, All, folders and recommendations; open the source to read it.';
+
+  @override
+  String get noMuted => 'Nothing muted.';
+
+  @override
+  String get planLimitFeeds => 'You\'ve reached your plan\'s feed limit.';
+
+  @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get deleteFolder => 'Delete folder';
+
+  @override
+  String get confirmDeleteFolder =>
+      'Delete this folder? Its feeds move to the top level.';
+
+  @override
+  String get newFolder => 'New folder';
+
+  @override
+  String get noFolder => 'No folder';
+
+  @override
+  String get rename => 'Rename';
+
+  @override
+  String get moveTo => 'Move to folder';
+
+  @override
+  String get name => 'Name';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get done => 'Done';
+
+  @override
+  String get feedsAndFolders => 'Feeds and folders';
+
+  @override
+  String get somethingFailed => 'That didn\'t work. Try again.';
+
+  @override
+  String get web => 'Open on the web';
+
+  @override
+  String get demoAccount => 'The demo account can\'t be changed or deleted.';
+
+  @override
+  String get lastAdmin =>
+      'Make someone else admin before deleting this account.';
+
+  @override
+  String get settingsMenu => 'Settings';
 }

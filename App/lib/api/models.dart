@@ -36,6 +36,8 @@ class User {
     required this.locale,
     required this.role,
     required this.mustChangePassword,
+    this.digestHour,
+    this.digestDays = 127,
   });
 
   final String id;
@@ -45,6 +47,12 @@ class User {
   final Role role;
   final bool mustChangePassword;
 
+  /// Daily digest email: hour (Europe/Madrid) or null when off.
+  final int? digestHour;
+
+  /// Days it's sent: a bit per weekday, Monday = 1 … Sunday = 64.
+  final int digestDays;
+
   /// For the offline copy (opening the app without network).
   Json toJson() => {
     'id': id,
@@ -53,6 +61,8 @@ class User {
     'locale': locale,
     'role': role.name,
     'must_change_password': mustChangePassword,
+    'digest_hour': digestHour,
+    'digest_days': digestDays,
   };
 
   factory User.fromJson(Json j) => User(
@@ -62,6 +72,8 @@ class User {
     locale: j['locale'] as String? ?? 'es',
     role: Role.parse(j['role']),
     mustChangePassword: j['must_change_password'] as bool? ?? false,
+    digestHour: j['digest_hour'] as int?,
+    digestDays: j['digest_days'] as int? ?? 127,
   );
 }
 
@@ -414,5 +426,58 @@ class Translation {
   factory Translation.fromJson(Json j) => Translation(
     title: j['title'] as String?,
     paragraphs: (j['paragraphs'] as List?)?.cast<String>(),
+  );
+}
+
+class DiscoveredFeed {
+  const DiscoveredFeed(this.feedUrl, this.title);
+
+  final String feedUrl;
+  final String? title;
+
+  factory DiscoveredFeed.fromJson(Json j) =>
+      DiscoveredFeed(j['feed_url'] as String, j['title'] as String?);
+}
+
+class MutedKeyword {
+  const MutedKeyword(this.id, this.keyword);
+
+  final String id;
+  final String keyword;
+
+  factory MutedKeyword.fromJson(Json j) =>
+      MutedKeyword(j['id'] as String, j['keyword'] as String);
+}
+
+/// The starter catalogue: topical sections of curated feeds.
+class CatalogFeed {
+  const CatalogFeed(this.title, this.url, this.lang);
+
+  final String title;
+  final String url;
+  final String lang;
+
+  factory CatalogFeed.fromJson(Json j) => CatalogFeed(
+    j['title'] as String,
+    j['url'] as String,
+    j['lang'] as String? ?? 'en',
+  );
+}
+
+class CatalogSection {
+  const CatalogSection(this.id, this.nameEn, this.nameEs, this.feeds);
+
+  final String id;
+  final String nameEn;
+  final String nameEs;
+  final List<CatalogFeed> feeds;
+
+  String name(String locale) => locale == 'es' ? nameEs : nameEn;
+
+  factory CatalogSection.fromJson(Json j) => CatalogSection(
+    j['id'] as String,
+    j['name_en'] as String,
+    j['name_es'] as String,
+    [for (final f in j['feeds'] as List) CatalogFeed.fromJson(f as Json)],
   );
 }
