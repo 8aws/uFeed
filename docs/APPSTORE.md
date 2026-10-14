@@ -196,7 +196,8 @@ search result image 3:2 (`App/store/busqueda_3840x2560_<lang>.png`), by
    `flutter build ipa --release --build-name=1.0.0 --build-number=N`, then
    `xcodebuild -exportArchive -archivePath build/ios/archive/Runner.xcarchive
    -exportOptionsPlist <ExportOptions with destination=upload> -allowProvisioningUpdates`
-   (uses the Apple account signed in to Xcode). Build 1 uploaded 2026-10-13.
+   (uses the Apple account signed in to Xcode). Build 1 uploaded 2026-10-13;
+   build 2 (the one for review) uploaded 2026-10-14.
    After building for the store, run `flutter clean` before using the
    simulator again (the device build of `objective_c.framework` leaks into
    the simulator build otherwise).

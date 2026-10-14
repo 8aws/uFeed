@@ -214,11 +214,12 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
 - [x] Firma automática y archivo para la App Store (`flutter build ipa`, bundle
       `es.uverse.ufeed`); solo iPhone, declaración de cifrado y manifiesto de
       privacidad; pantalla de arranque propia.
+- [x] Subida a App Store Connect: 1.0.0 (1) el 13-10 y 1.0.0 (2), la de revisión, el 14-10.
 - [ ] **TestFlight interno** para probar en tus dispositivos.
 - [ ] Crear la ficha en App Store Connect con `docs/APPSTORE.md` (el nombre
       "uFeed" está cogido: decidir nombre de tienda; SKU `ufeed-ios-1`). Actualizar los
       textos con lo que de verdad tenga la app (notificaciones, iCloud…).
-- [ ] Capturas 6,9" en ES y EN (lista, lector, escucha, Post radio, traducción, ajustes).
+- [x] Capturas 6,3" (y 6,9") en ES y EN, cabecera 21:9 y resultado de búsqueda 3:2 (`App/store/`).
 - [ ] Cuestionario de privacidad: añadir lo que cambie (p. ej. iCloud no cuenta
       como recogida nuestra).
 - [ ] Contraseña de la cuenta demo en "Información para la revisión" (la escribe el usuario).
