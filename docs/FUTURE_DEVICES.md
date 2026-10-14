@@ -1,6 +1,6 @@
 # uFeed en iPhone Duo y HomeView — estudio para versiones futuras
 
-Estado: estudio, nada implementado. Fecha: 2026-10-13 (actualizado tras el evento "Welcome home").
+Estado: estudio, nada implementado. Fecha: 2026-10-13; actualizado el 14-10 con la guía de diseño de Apple para el Duo.
 
 Objetivo: llegar pronto a los dos dispositivos nuevos de Apple como reclamo
 para los primeros usuarios. Quien compra un plegable de 2.000 $ busca apps que
@@ -24,24 +24,54 @@ iOS 27.1. Datos de MacRumors:
 - Split View con dos apps o dos ventanas de la misma app. Dock vertical al
   lado. Las apps se reajustan al plegar, al girar y al darle la vuelta.
 - Apple ya acepta apps adaptadas al Duo en la App Store (desde el 5 de octubre).
-- **Guía de diseño de Apple ("Designing for iPhone Duo", HIG):**
-  - **Mismo estado en las dos pantallas.** La pantalla grande muestra un nivel
-    más de jerarquía. El ejemplo de Apple es Mail: cerrado, lista *o* correo;
-    abierto, lista *y* correo lado a lado. Es nuestra disposición de dos paneles.
-  - **Controles en el lateral.** La pantalla exterior es más ancha y baja, así
-    que el sistema pasa los controles a los lados para no gastar altura. En
-    horizontal también se quedan en un lado.
-  - **Pliegue y asimetría.** Recomienda contenedores adaptables, como vistas
-    partidas que ajustan el ancho de cada panel, y la API `ReservedRegion` para
-    que nada importante quede en la franja central del pliegue.
+- **Guía de diseño de Apple ("Designing for iPhone Duo", HIG)**, lo que nos afecta:
+  - **Tamaños, no aparatos.** Ancho compacto en la pantalla exterior y ancho
+    regular en la interior; con eso se cubren todas las posturas (abierto,
+    medio plegado como un libro, apoyado, de canto). Nada de anchos fijos: usar
+    márgenes y áreas seguras. Se prueba con **Device Hub** de Xcode.
+  - **Mismo estado y mismas funciones en las dos pantallas.** La interior
+    muestra un nivel más de jerarquía. El ejemplo de Apple es Mail: cerrado,
+    lista *o* correo; abierto, lista *y* correo lado a lado.
+  - **Controles en el lateral.**
+    - En la pantalla exterior, y en la interior en horizontal, las barras
+      (superior, inferior y de pestañas) pasan a un lado.
+    - Solo la interior en vertical mantiene las barras horizontales.
+    - En Split View, cada app pone sus controles en su borde exterior.
+    - En el eje vertical, arriba va la navegación (Atrás, Cerrar) y después
+      las acciones principales. Lo que no cabe va al menú de desbordamiento,
+      de abajo arriba.
+    - El símbolo «…» se reserva para ese menú. Cada botón lleva símbolo y
+      título, y mejor pocos botones con texto.
+    - Los controles de un panel se quedan junto a su panel.
+  - **Zonas reservadas (`ReservedRegion`):** la cámara exterior, la cámara
+    interior cuando está activa y la franja del pliegue cuando el aparato está
+    medio cerrado.
+    - Las vistas partidas del sistema ajustan solas el ancho de cada panel;
+      lo que hagamos nosotros debe apartarse de esas zonas.
+    - En cuadrículas, mejor un número **par** de columnas, para que el pliegue
+      las parta limpio.
+  - **Sin cambios bruscos al plegar:** mover solo lo necesario para que todo
+    siga visible y se pueda tocar.
+  - **Vistas de disposición (`ArrangementView`):** dos vistas, partidas
+    (lado a lado o una sobre otra, según la forma) o superpuestas (cada una a
+    un lado del pliegue cuando está medio cerrado). La navegación va fuera de
+    ellas.
+- **Lo que esto supone para uFeed, que está hecha en Flutter:** Flutter dibuja
+  sus propios controles, así que **no recibe nada de esto automáticamente**.
+  - Las barras laterales, el menú de desbordamiento y el ajuste al pliegue hay
+    que hacerlos en Dart.
+  - `ReservedRegion` habrá que pasarlo a Dart con un pequeño canal nativo.
+    Mirar primero si el motor de Flutter ya lo expone en
+    `MediaQuery.displayFeatures`, que es como llega la bisagra en Android.
+  - Pista práctica: con los controles del sistema en un lado, la barra de
+    estado y la Dynamic Island también pasan al lateral, así que
+    `MediaQuery.padding.left/right` crece. Sirve para saber en qué borde poner
+    nuestros controles.
 - **No sabemos todavía:**
   - la escala de puntos (@2x o @3x);
-  - cómo llega `ReservedRegion` a Flutter. Lo más probable es que haga falta
-    un pequeño canal nativo que pase la franja a Dart; mirar primero si Flutter
-    la expone en `MediaQuery.displayFeatures`;
   - cómo se muestran las apps de iPhone no adaptadas.
 
-  Confirmarlo con el SDK de Xcode 27.1 en el simulador del Duo.
+  Confirmarlo con el SDK de Xcode 27.1 en Device Hub.
 
 Cálculo aproximado en puntos, a confirmar:
 
@@ -56,10 +86,6 @@ iOS 27 (etapa 5) es justo lo que hace falta para ventanas de tamaño variable y
 Split View. Ese trabajo ya está hecho.
 
 ### HomeView (pantalla del hogar)
-
-Se presenta hoy, 13 de octubre (evento "Welcome home"). Se espera que llegue a
-las tiendas a mediados de noviembre. Todo lo de abajo es rumor hasta ver lo
-anunciado:
 
 Presentada hoy, 13 de octubre (evento "Welcome home"). Se espera en tiendas a
 mediados de noviembre.
@@ -88,11 +114,12 @@ disposición según el **ancho disponible**: el de la pantalla, el de media
 pantalla en Split View o el del iPad más adelante. Así una sola lógica sirve
 para los tres casos.
 
-| Ancho | Cuándo pasa | Disposición |
-| --- | --- | --- |
-| < 600 pt | iPhone normal, Duo en Split View estrecho | La actual: lista ↔ lector, menú lateral desplegable |
-| 600–900 pt | Duo abierto en vertical, Duo cerrado en horizontal | **Dos paneles:** lista a la izquierda (≈ 40 %) y lector a la derecha; el menú pasa a una barra de iconos |
-| > 900 pt | Duo abierto en horizontal, iPad | **Tres paneles:** menú de fuentes fijo, lista y lector |
+| Situación | Ancho | Controles | Disposición |
+| --- | --- | --- | --- |
+| iPhone normal, Duo en Split View estrecho | compacto | arriba y abajo, como ahora | La actual: lista ↔ lector, menú lateral desplegable |
+| **Duo cerrado** (pantalla exterior) | compacto | **en el lateral** | Un panel, lista ↔ lector, como ahora, pero con la barra superior y la de escucha en una columna lateral |
+| **Duo abierto en vertical** | regular | arriba y abajo | **Dos paneles:** lista y lector lado a lado |
+| **Duo abierto en horizontal**, iPad | regular | **en el lateral** | **Dos o tres paneles:** menú de fuentes fijo, lista y lector |
 
 Bocetos (Duo abierto, vertical, unos 626 pt):
 
@@ -104,27 +131,39 @@ Bocetos (Duo abierto, vertical, unos 626 pt):
 │ ▣ Titular │  Texto del artículo…    │
 │ ▣ Titular◀│                         │
 │ ▣ Titular │                         │
-│          │ ▶ ⏸  −15  +15  1,2×     │
+│          │ ▶ ⏸  −10  +10  1,2×     │
 └──────────┴─────────────────────────┘
 ```
 
 Detalles que marcan la diferencia:
 
-- **Barra de escucha en el lateral, según la guía de Apple:**
-  - cerrado: en vertical, pegada a un lado en lugar de abajo;
-  - abierto: en el panel del lector;
-  - en horizontal: siempre en un lado.
+- **Columna de controles lateral** (Duo cerrado y en horizontal), en el orden
+  de Apple:
+  - arriba, la navegación (☰ o Atrás);
+  - después las acciones del lector: guardar, favorito y compartir;
+  - en el centro, los controles de escucha: ▶/⏸, −10, +10 y siguiente post;
+  - abajo, «…» como menú de desbordamiento, que es lo primero que se recoge
+    si falta sitio.
 
-  Así la lista conserva altura en la pantalla exterior.
-- **Nada en el pliegue:** la división entre paneles se coloca en la franja de
-  `ReservedRegion`, y el lector deja un margen en ella. Si la franja no llega
-  a Flutter, la división va al 40/60 como respaldo.
+  Va en el borde que diga el área segura. Los botones de icono ya llevan
+  título (tooltip), que es lo que pide Apple para el desbordamiento.
+- **Abierto en vertical:** los controles que afectan a la lista (filtro,
+  marcar todo, vista) se quedan encima de la lista, y los del artículo encima
+  del lector. Es el ejemplo de Mail.
+- **Nada en el pliegue:** con el aparato medio cerrado, la división entre
+  paneles se coloca en la franja de `ReservedRegion` (como hace la vista
+  partida de Notas). Si la franja no llega a Flutter, la división va al
+  40/60 como respaldo.
+- **Sin saltos al plegar:** al abrir y cerrar cambian los anchos y aparece o
+  se va un panel, pero los controles mantienen su orden relativo.
 
-- **Mosaico de 3–4 columnas** en el panel de lista cuando se usa el modo
-  mosaico. El perfil denso que acabamos de hacer (imagen de 84 px, título de
+- **Mosaico de 2 o 4 columnas** (siempre un número par, por el pliegue) en el
+  panel de lista cuando se usa el modo mosaico. El perfil denso que acabamos de hacer (imagen de 84 px, título de
   13 px) escala bien: solo cambia el número de columnas.
-- **Post radio en dos paneles:** la cola a la izquierda y el lector siguiendo
-  al post a la derecha. Es el caso de uso que mejor vende el plegable.
+- **Post radio en dos paneles:** la cola a un lado y el lector siguiendo al
+  post al otro. Con el aparato medio plegado, como un libro, cada mitad es un
+  panel, igual que la «vista de disposición» partida de Apple. Es el caso de
+  uso que mejor vende el plegable.
 - **Abrir y cerrar sin perder el sitio:**
   - el artículo abierto y la posición del scroll se mantienen;
   - al cerrar el Duo con un artículo abierto, se queda el lector;
@@ -137,11 +176,14 @@ Detalles que marcan la diferencia:
 - **Arrastrar y soltar** un artículo de uFeed a Notas o Mail en Split View
   (como enlace).
 
-Coste estimado: 4–6 días.
+Coste estimado: 6–8 días (más que antes: en Flutter las barras laterales y el
+desbordamiento hay que hacerlos a mano).
 
 - Disposición adaptable con `LayoutBuilder` y paneles: 2–3 días.
+- Columna de controles lateral con desbordamiento: 1–2 días.
+- Canal nativo para `ReservedRegion` y división en el pliegue: 1 día.
 - Conservar el estado al plegar: 1 día.
-- Pruebas en el simulador del Duo y en Split View: 1–2 días.
+- Pruebas en Device Hub (todas las posturas) y en Split View: 1–2 días.
 
 Reutiliza `HomeScreen`, `ReaderScreen` y `ArticleTile` tal cual. Sirve
 además como base del iPad, lo que cambia la decisión 2 del plan nativo ("solo
@@ -223,5 +265,6 @@ Se solapa con la etapa 6 del plan nativo (Siri y widgets).
 - Tech Times, [Apple 'HomeView' Smart Home Hub Will Ship Out Next Month](https://www.techtimes.com/articles/328898/20261012/apple-homeview-smart-home-hub-will-ship-out-next-month-what-expect.htm)
 - MacRumors, [HomeView Runs Third-Party Apps From Your iPhone or iPad](https://www.macrumors.com/2026/10/13/homeview-third-party-apps/)
 - 9to5Mac, [Will HomeView support third-party apps?](https://9to5mac.com/2026/10/13/will-homeview-support-third-party-apps-heres-what-apple-says/)
-- Apple HIG, "Designing for iPhone Duo" y presentación de HomeView (resumen aportado por el usuario)
+- Apple HIG, [Designing for iPhone Duo](https://developer.apple.com/design/human-interface-guidelines/designing-for-iphone-duo) (texto aportado por el usuario) y [Preparing your app for iPhone Duo](https://developer.apple.com/documentation/technologyoverviews/preparing-your-app-for-iphone-duo)
+- Presentación de HomeView (resumen aportado por el usuario)
 - Mac Observer, [Apple HomeView (HomePad): Everything To Know](https://www.macobserver.com/tips/round-ups/apple-homeview-homepad-everything-to-know-about-the-smart-display-before-launch/)
