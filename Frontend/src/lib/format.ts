@@ -17,14 +17,32 @@ export function relativeTime(iso: string | null, locale: Locale): string {
 }
 
 /** Strip HTML tags to plain text (for card summaries). */
+const NAMED: Record<string, string> = {
+	'&nbsp;': ' ',
+	'&quot;': '"',
+	'&apos;': "'",
+	'&lt;': '<',
+	'&gt;': '>',
+	'&rsquo;': '\u2019',
+	'&lsquo;': '\u2018',
+	'&rdquo;': '\u201D',
+	'&ldquo;': '\u201C',
+	'&hellip;': '\u2026',
+	'&mdash;': '\u2014',
+	'&ndash;': '\u2013'
+};
+
+/** Plain text of a feed excerpt (often HTML, sometimes escaped twice: `&amp;#8217;`). */
 export function stripHtml(html: string | null): string {
 	if (!html) return '';
 	return html
 		.replace(/<[^>]+>/g, ' ')
-		.replace(/&nbsp;/g, ' ')
 		.replace(/&amp;/g, '&')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
+		.replace(/&#([xX][0-9a-fA-F]+|\d+);/g, (m, v: string) => {
+			const code = /^[xX]/.test(v) ? parseInt(v.slice(1), 16) : parseInt(v, 10);
+			return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : m;
+		})
+		.replace(/&[a-z]+;/g, (m) => NAMED[m] ?? m)
 		.replace(/\s+/g, ' ')
 		.trim();
 }

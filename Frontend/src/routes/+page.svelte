@@ -19,6 +19,7 @@
 	import { playJingle } from '$lib/player';
 	import { unlockSpeech } from '$lib/speech';
 	import { relativeTime, readingTime, stripHtml } from '$lib/format';
+	import { offerDeleteEmptyFolder } from '$lib/catalogActions';
 	import Onboarding from '$lib/components/Onboarding.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import ListenBar from '$lib/components/ListenBar.svelte';
@@ -713,8 +714,13 @@
 		}
 	}
 
+	const askDeleteFolder = (name: string) => confirm($t('folder_now_empty').replace('{name}', name));
+
 	async function assignFolder(sub: Subscription, folderId: string) {
 		await api.updateSubscription(sub.id, { folder_id: folderId || null });
+		if ((folderId || null) !== sub.folder_id && (await offerDeleteEmptyFolder(sub.folder_id, askDeleteFolder))) {
+			if (filter.kind === 'folder' && filter.id === sub.folder_id) setFilter({ kind: 'unread' });
+		}
 		await loadSidebar();
 	}
 
@@ -915,6 +921,9 @@
 		if (!confirm($t('confirm_unsubscribe'))) return;
 		await api.unsubscribe(sub.id);
 		if (filter.kind === 'source' && filter.id === sub.source.id) setFilter({ kind: 'unread' });
+		if ((await offerDeleteEmptyFolder(sub.folder_id, askDeleteFolder)) && filter.kind === 'folder' && filter.id === sub.folder_id) {
+			setFilter({ kind: 'unread' });
+		}
 		await loadSidebar();
 	}
 
@@ -3214,6 +3223,33 @@
 		.grid:not(.cardlist) .meta {
 			flex-wrap: wrap;
 			font-size: 0.72rem;
+		}
+		/* Masonry: the app's dense profile (~7 stories per screen) — the card
+		   list's picture height, smaller title and a two-line summary. */
+		.grid.masonry {
+			column-gap: 5px;
+			padding: 6px 0;
+		}
+		.grid.masonry .acard {
+			gap: 0.25rem;
+			padding: 0.35rem;
+			margin-bottom: 5px;
+		}
+		.grid.masonry .thumb {
+			height: 84px;
+			aspect-ratio: auto;
+		}
+		.grid.masonry .atitle {
+			font-size: 0.8125rem;
+			line-height: 1.2;
+		}
+		.grid.masonry .excerpt {
+			font-size: 0.72rem;
+			-webkit-line-clamp: 2;
+			line-clamp: 2;
+		}
+		.grid.masonry .meta {
+			font-size: 0.66rem;
 		}
 		/* Card-list rows: image left, text right — cap the thumb so the text
 		   column is wide (fixes the one-word-per-line wrapping). */

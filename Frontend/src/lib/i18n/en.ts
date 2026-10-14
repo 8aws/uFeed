@@ -384,6 +384,7 @@ export const en = {
 	view_cards: 'Cards',
 	view_masonry: 'Masonry',
 	delete_folder: 'Delete folder',
+	folder_now_empty: 'The folder “{name}” is now empty. Delete it? You can also keep it for feeds you add later.',
 	confirm_delete_folder: 'Delete this folder? Its feeds move to the top level.',
 	for_you: 'For you',
 	foryou: 'For you',

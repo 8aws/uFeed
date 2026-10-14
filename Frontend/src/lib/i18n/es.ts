@@ -386,6 +386,7 @@ export const es: Dict = {
 	view_cards: 'Tarjetas',
 	view_masonry: 'Masonry',
 	delete_folder: 'Eliminar carpeta',
+	folder_now_empty: 'La carpeta «{name}» se ha quedado vacía. ¿Quieres borrarla? También puedes dejarla para fuentes que añadas más adelante.',
 	confirm_delete_folder: '¿Eliminar esta carpeta? Sus fuentes pasan a la raíz.',
 	for_you: 'Para ti',
 	foryou: 'Para ti',

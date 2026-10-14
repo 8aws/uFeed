@@ -49,3 +49,22 @@ export async function addCatalogFeed(
 		return null;
 	}
 }
+
+/** After a feed leaves a folder: if the folder is now empty, ask whether to
+ *  delete it (it may be kept on purpose for feeds added later). True if deleted. */
+export async function offerDeleteEmptyFolder(
+	folderId: string | null | undefined,
+	ask: (folderName: string) => boolean
+): Promise<boolean> {
+	if (!folderId) return false;
+	try {
+		const [folders, subs] = await Promise.all([api.listFolders(), api.listSources()]);
+		if (subs.some((s) => s.folder_id === folderId)) return false;
+		const folder = folders.find((f) => f.id === folderId);
+		if (!folder || !ask(folder.name)) return false;
+		await api.deleteFolder(folderId);
+		return true;
+	} catch {
+		return false;
+	}
+}

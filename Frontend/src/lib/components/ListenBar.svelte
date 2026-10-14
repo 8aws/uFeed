@@ -387,8 +387,8 @@
 		>
 			{sState === 'loading' ? '⏳' : sPlaying ? '⏸' : '▶'}
 		</button>
-		<button onclick={() => serverSeek(-15)} disabled={sState !== 'ready'} aria-label="-15 s">↺15</button>
-		<button onclick={() => serverSeek(15)} disabled={sState !== 'ready'} aria-label="+15 s">15↻</button>
+		<button onclick={() => serverSeek(-10)} disabled={sState !== 'ready'} aria-label="-10 s">↺10</button>
+		<button onclick={() => serverSeek(10)} disabled={sState !== 'ready'} aria-label="+10 s">10↻</button>
 		<span class="prog">
 			{#if sState === 'loading'}
 				<span class="muted small">{$t('listen_preparing')}</span>

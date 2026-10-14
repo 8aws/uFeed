@@ -21,7 +21,7 @@
 	} from '$lib/types';
 	import { safeUrl } from '$lib/safe';
 	import { CATALOG, LANG_FLAG, fetchCatalog, type CatalogFeed, type CatalogSection, type FeedLang } from '$lib/catalog';
-	import { addCatalogFeed, ensureFolder, feedKey } from '$lib/catalogActions';
+	import { addCatalogFeed, ensureFolder, feedKey, offerDeleteEmptyFolder } from '$lib/catalogActions';
 
 	const LABEL_MODES: ToolbarLabels[] = ['auto', 'both', 'icons', 'text'];
 
@@ -145,6 +145,8 @@
 		}
 	}
 
+	const askDeleteFolder = (name: string) => confirm($t('folder_now_empty').replace('{name}', name));
+
 	async function removeFeed(f: CatalogFeed) {
 		const sub = subByKey.get(feedKey(f.url));
 		if (!sub || catBusy.has(f.url)) return;
@@ -152,6 +154,7 @@
 		try {
 			await api.unsubscribe(sub.id);
 			catSubs = catSubs.filter((x) => x.id !== sub.id);
+			await offerDeleteEmptyFolder(sub.folder_id, askDeleteFolder);
 		} catch {
 			/* ignore */
 		} finally {
