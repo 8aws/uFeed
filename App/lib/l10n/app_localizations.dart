@@ -1315,6 +1315,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'El servidor no responde ahora mismo. Inténtalo en un rato.'**
   String get serverUnavailable;
+
+  /// No description provided for @folderNowEmpty.
+  ///
+  /// In es, this message translates to:
+  /// **'La carpeta «{name}» se ha quedado vacía. ¿Quieres borrarla? También puedes dejarla para fuentes que añadas más adelante.'**
+  String folderNowEmpty(String name);
+
+  /// No description provided for @keepFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Mantener'**
+  String get keepFolder;
 }
 
 class _AppLocalizationsDelegate

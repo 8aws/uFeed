@@ -681,4 +681,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get serverUnavailable =>
       'The server isn\'t responding right now. Try again in a while.';
+
+  @override
+  String folderNowEmpty(String name) {
+    return 'The folder “$name” is now empty. Delete it? You can also keep it for feeds you add later.';
+  }
+
+  @override
+  String get keepFolder => 'Keep';
 }

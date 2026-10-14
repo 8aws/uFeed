@@ -11,6 +11,7 @@ import '../../core/dialogs.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../home/home_state.dart';
+import 'feed_actions.dart';
 
 /// The starter list editors curated on this server, or the built-in one.
 final catalogProvider = FutureProvider<List<CatalogSection>>((ref) async {
@@ -152,6 +153,7 @@ class _AddFeedScreenState extends ConsumerState<AddFeedScreen> {
     try {
       await _api.unsubscribe(sub.id);
       await ref.read(sidebarProvider.notifier).reload();
+      if (mounted) await offerDeleteEmptyFolder(context, ref, sub.folderId);
     } on ApiException {
       if (mounted) toast(context, AppLocalizations.of(context).somethingFailed);
     }

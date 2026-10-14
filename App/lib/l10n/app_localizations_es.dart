@@ -685,4 +685,12 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get serverUnavailable =>
       'El servidor no responde ahora mismo. Inténtalo en un rato.';
+
+  @override
+  String folderNowEmpty(String name) {
+    return 'La carpeta «$name» se ha quedado vacía. ¿Quieres borrarla? También puedes dejarla para fuentes que añadas más adelante.';
+  }
+
+  @override
+  String get keepFolder => 'Mantener';
 }

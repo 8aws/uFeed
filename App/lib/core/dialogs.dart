@@ -45,6 +45,7 @@ Future<bool> confirm(
   BuildContext context, {
   required String message,
   required String action,
+  String? cancel,
 }) async {
   final t = AppLocalizations.of(context);
   final ok = await showDialog<bool>(
@@ -54,7 +55,7 @@ Future<bool> confirm(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: Text(t.cancel),
+          child: Text(cancel ?? t.cancel),
         ),
         FilledButton(
           style: FilledButton.styleFrom(

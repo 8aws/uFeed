@@ -151,6 +151,9 @@ Future<void> showFeedActions(
         }
       }
       await run(() => api.updateSubscription(sub.id, {'folder_id': folderId}));
+      if (folderId != sub.folderId && context.mounted) {
+        await offerDeleteEmptyFolder(context, ref, sub.folderId);
+      }
     case 'mute':
       await run(() => api.updateSubscription(sub.id, {'muted': !sub.muted}));
     case 'unsubscribe':
@@ -165,6 +168,51 @@ Future<void> showFeedActions(
       if (current.kind == FilterKind.source && current.id == sub.source.id) {
         ref.read(filterProvider.notifier).set(const Filter(FilterKind.unread));
       }
+      if (context.mounted) {
+        await offerDeleteEmptyFolder(context, ref, sub.folderId);
+      }
+  }
+}
+
+/// After a feed leaves a folder: if the folder is now empty, ask whether to
+/// delete it (it may be kept on purpose for feeds added later).
+Future<void> offerDeleteEmptyFolder(
+  BuildContext context,
+  WidgetRef ref,
+  String? folderId,
+) async {
+  if (folderId == null) return;
+  final side = ref.read(sidebarProvider).value;
+  if (side == null || side.subs.any((s) => s.folderId == folderId)) return;
+  final folder = side.folders.where((f) => f.id == folderId).firstOrNull;
+  if (folder == null) return;
+  final t = AppLocalizations.of(context);
+  final ok = await confirm(
+    context,
+    message: t.folderNowEmpty(folder.name),
+    action: t.deleteFolder,
+    cancel: t.keepFolder,
+  );
+  if (!ok || !context.mounted) return;
+  await _deleteFolder(context, ref, folder);
+}
+
+Future<void> _deleteFolder(
+  BuildContext context,
+  WidgetRef ref,
+  Folder folder,
+) async {
+  try {
+    await ref.read(apiProvider).deleteFolder(folder.id);
+    final current = ref.read(filterProvider);
+    if (current.kind == FilterKind.folder && current.id == folder.id) {
+      ref.read(filterProvider.notifier).set(const Filter(FilterKind.unread));
+    }
+    await ref.read(sidebarProvider.notifier).reload();
+  } on ApiException {
+    if (context.mounted) {
+      toast(context, AppLocalizations.of(context).somethingFailed);
+    }
   }
 }
 
@@ -222,12 +270,9 @@ Future<void> showFolderActions(
         message: t.confirmDeleteFolder,
         action: t.delete,
       );
-      if (!ok) return;
-      await api.deleteFolder(folder.id);
-      final current = ref.read(filterProvider);
-      if (current.kind == FilterKind.folder && current.id == folder.id) {
-        ref.read(filterProvider.notifier).set(const Filter(FilterKind.unread));
-      }
+      if (!ok || !context.mounted) return;
+      await _deleteFolder(context, ref, folder);
+      return;
     }
     await ref.read(sidebarProvider.notifier).reload();
   } on ApiException {
