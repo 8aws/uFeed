@@ -14,19 +14,41 @@ String timeAgo(AppLocalizations t, DateTime? when) {
   return t.daysAgo(d.inDays);
 }
 
-/// Plain text of a feed excerpt (they often carry HTML).
+final _tag = RegExp(r'<[^>]*>');
+final _numEntity = RegExp(r'&#([xX][0-9a-fA-F]+|\d+);');
+const _named = {
+  '&nbsp;': ' ',
+  '&quot;': '"',
+  '&apos;': "'",
+  '&lt;': '<',
+  '&gt;': '>',
+  '&rsquo;': '\u2019',
+  '&lsquo;': '\u2018',
+  '&rdquo;': '\u201D',
+  '&ldquo;': '\u201C',
+  '&hellip;': '\u2026',
+  '&mdash;': '\u2014',
+  '&ndash;': '\u2013',
+};
+
+/// Plain text of a feed excerpt (they often carry HTML, sometimes escaped
+/// twice: `&amp;#8217;`).
 String plainText(String? html) {
   if (html == null) return '';
-  return html
-      .replaceAll(RegExp(r'<[^>]*>'), ' ')
-      .replaceAll('&nbsp;', ' ')
-      .replaceAll('&amp;', '&')
-      .replaceAll('&quot;', '"')
-      .replaceAll('&#39;', "'")
-      .replaceAll('&lt;', '<')
-      .replaceAll('&gt;', '>')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
+  var s = html.replaceAll(_tag, ' ').replaceAll('&amp;', '&');
+  s = s.replaceAllMapped(_numEntity, (m) {
+    final v = m[1]!;
+    final code = v.startsWith(RegExp('[xX]'))
+        ? int.tryParse(v.substring(1), radix: 16)
+        : int.tryParse(v);
+    return code == null || code < 1 || code > 0x10FFFF
+        ? m[0]!
+        : String.fromCharCode(code);
+  });
+  for (final e in _named.entries) {
+    s = s.replaceAll(e.key, e.value);
+  }
+  return s.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
 /// The list layouts, as in the web app.

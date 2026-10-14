@@ -797,13 +797,13 @@ abstract class AppLocalizations {
   /// No description provided for @back15.
   ///
   /// In es, this message translates to:
-  /// **'Atrás 15 s'**
+  /// **'Atrás 10 s'**
   String get back15;
 
   /// No description provided for @forward15.
   ///
   /// In es, this message translates to:
-  /// **'Adelante 15 s'**
+  /// **'Adelante 10 s'**
   String get forward15;
 
   /// No description provided for @play.

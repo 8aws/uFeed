@@ -400,10 +400,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get voiceSettings => 'Voice and reading';
 
   @override
-  String get back15 => 'Back 15 s';
+  String get back15 => 'Back 10 s';
 
   @override
-  String get forward15 => 'Forward 15 s';
+  String get forward15 => 'Forward 10 s';
 
   @override
   String get play => 'Play';

@@ -185,8 +185,8 @@
     }
   },
   "voiceSettings": "Voz y lectura",
-  "back15": "Atrás 15 s",
-  "forward15": "Adelante 15 s",
+  "back15": "Atrás 10 s",
+  "forward15": "Adelante 10 s",
   "play": "Reproducir",
   "pause": "Pausa",
   "stop": "Parar",

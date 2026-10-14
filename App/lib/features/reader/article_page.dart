@@ -281,7 +281,10 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
             height: 1.2,
           ),
         ),
-        if (_summary?.title != null) ...[
+        // The summary's title in your language, unless it's already the title.
+        if (_summary?.title != null &&
+            _summary!.title!.trim().toLowerCase() !=
+                title.trim().toLowerCase()) ...[
           const SizedBox(height: 4),
           Text('🌐 ${_summary!.title!}', style: TextStyle(color: c.muted)),
         ],

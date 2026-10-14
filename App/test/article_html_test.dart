@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ufeed/features/home/article_tile.dart';
 import 'package:ufeed/features/reader/article_html.dart';
 
 void main() {
@@ -30,5 +31,18 @@ void main() {
     ));
     expect(embedOf('https://example.com/watch?v=dQw4w9WgXcQ', null), isNull);
     expect(embedOf(null, 'youtube:bad'), isNull);
+  });
+
+  test('plainText strips tags and decodes entities, even double-escaped', () {
+    expect(
+      plainText('<p>Today&amp;#8217;s <b>edition</b></p>'),
+      'Today\u2019s edition',
+    );
+    expect(
+      plainText('A&nbsp;&amp;&nbsp;B &#x2014; C&hellip;'),
+      'A & B \u2014 C\u2026',
+    );
+    expect(plainText('&#99999999; stays'), '&#99999999; stays');
+    expect(plainText(null), '');
   });
 }

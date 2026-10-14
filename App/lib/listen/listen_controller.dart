@@ -512,7 +512,7 @@ class ListenController extends Notifier<ListenState> implements ListenCommands {
 
   Future<void> toggle() => state.playing ? pause() : resume();
 
-  /// ±15 s on recordings; on the device voice, one sentence per 15 s.
+  /// ±10 s on recordings; on the device voice, one sentence per step.
   @override
   Future<void> seekBy(Duration delta) async {
     switch (state.engine) {

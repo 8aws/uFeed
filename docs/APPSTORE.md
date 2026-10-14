@@ -7,7 +7,7 @@ brackets; texts are within them.
 
 | Field | Value |
 | --- | --- |
-| Name [30] | **To decide:** "uFeed" is taken (see below). Proposal: `uFeed: RSS y noticias` (ES) / `uFeed: RSS & News` (EN) |
+| Name [30] | `uFeed: RSS y noticias` (ES, record created 2026-10-13) / `uFeed: RSS & News` (EN) |
 | Name on the Home Screen | uFeed (`CFBundleDisplayName`, can differ from the store name) |
 | Bundle ID | `es.uverse.ufeed` (iOS and Android; App Store build checked 2026-10-13) |
 | SKU | `ufeed-ios-1` (final; can't be changed after the app record is created) |
@@ -30,7 +30,7 @@ names are unique, so plain "uFeed" will be refused when creating the record.
 ### Español (España)
 
 **Subtítulo** [30]
-Lee y escucha tus noticias RSS
+Lee y escucha tus blogs y webs
 
 **Texto promocional** [170]
 Artículos completos aunque el feed solo dé un extracto, voz natural con la pantalla bloqueada, Post radio y traducción al instante. Sin anuncios ni rastreo.
@@ -44,7 +44,7 @@ Muchas webs solo publican un extracto en su feed. uFeed trae el artículo entero
 ESCUCHA TUS NOTICIAS
 • Voz neuronal natural, femenina o masculina, que sigue sonando con la pantalla bloqueada y se controla desde la pantalla de bloqueo.
 • O la voz de tu iPhone, también sin conexión.
-• Elige ritmo calmado, normal o rápido.
+• Ajusta la velocidad, de 0,75× a 2×.
 
 POST RADIO
 Tus noticias una tras otra, como un podcast, con un breve sonido entre posts. Solo se marca como leído lo que escuchas de verdad.
@@ -59,16 +59,16 @@ SIN CONEXIÓN
 Tus artículos guardados, con sus imágenes y su audio, disponibles sin red. Lo que marques se sincroniza al volver.
 
 ACCESIBLE
-Lectura automática al abrir, frase resaltada mientras escuchas, texto grande y tipografía Atkinson Hyperlegible, pensada para baja visión.
+Lectura automática al abrir, compatible con VoiceOver y con el texto grande del sistema, y tipografía Atkinson Hyperlegible, pensada para baja visión.
 
 Y ADEMÁS
-Carpetas, filtros por palabras, fuentes silenciadas, vistas de lista, tarjetas y mosaico, gestos para marcar y guardar, Tendencias, importación y exportación OPML y sugerencias por temas para empezar.
+Carpetas, filtros por palabras, fuentes silenciadas, vistas de lista, tarjetas y mosaico, gestos para marcar y guardar, Tendencias, Para ti, importación y exportación OPML y sugerencias por temas para empezar.
 
 PRIVADO
 Sin anuncios, sin rastreadores y sin analítica de terceros. Puedes borrar tu cuenta desde Ajustes cuando quieras.
 
 **Palabras clave** [100]
-rss,noticias,lector,feed,podcast,voz,escuchar,traducir,resumen,offline,atom,blogs,prensa,lectura
+lector,feed,atom,blogs,prensa,titulares,podcast,radio,voz,escuchar,traducir,resumen,offline
 
 **Novedades de esta versión**
 Primera versión de uFeed para iPhone.
@@ -76,7 +76,7 @@ Primera versión de uFeed para iPhone.
 ### English (U.S.)
 
 **Subtitle** [30]
-Read and listen to your RSS
+Read and listen to your feeds
 
 **Promotional text** [170]
 Full articles even when the feed only has an excerpt, a natural voice with the screen locked, Post radio and instant translation. No ads, no tracking.
@@ -90,7 +90,7 @@ Many sites only publish an excerpt in their feed. uFeed brings the whole article
 LISTEN TO YOUR NEWS
 • A natural neural voice, female or male, that keeps playing with the screen locked and is controlled from the lock screen.
 • Or your iPhone's own voice, offline too.
-• Pick a calm, normal or fast pace.
+• Set the speed, from 0.75× to 2×.
 
 POST RADIO
 Your news one after another, like a podcast, with a short chime between posts. Only what you actually hear is marked as read.
@@ -105,16 +105,16 @@ OFFLINE
 Your saved articles, with their images and audio, available without a connection. What you mark syncs when you're back.
 
 ACCESSIBLE
-Read aloud on open, sentence highlighting while you listen, large text and the Atkinson Hyperlegible font, designed for low vision.
+Read aloud on open, VoiceOver and system large text support, and the Atkinson Hyperlegible font, designed for low vision.
 
 AND ALSO
-Folders, keyword filters, muted sources, list, card and masonry views, gestures to mark and save, Trending, OPML import and export, and topic suggestions to get started.
+Folders, keyword filters, muted sources, list, card and masonry views, gestures to mark and save, Trending, For you, OPML import and export, and topic suggestions to get started.
 
 PRIVATE
 No ads, no trackers, no third-party analytics. Delete your account from Settings whenever you want.
 
 **Keywords** [100]
-rss,news,reader,feed,podcast,voice,listen,translate,summary,offline,atom,blogs,articles,reading
+reader,feed,atom,blogs,press,headlines,podcast,radio,voice,listen,translate,summary,offline
 
 **What's new**
 First release of uFeed for iPhone.
@@ -132,16 +132,24 @@ The demo account already follows several Spanish and English feeds.
 To try the main features:
 1. Open any article. If the feed only has an excerpt, the full article is
    loaded from the publisher's website automatically.
-2. Tap 🔊 (Listen) and ▶: the article is read aloud by our server voice
-   (the ☁️/📱 button switches to the device voice). Audio keeps playing with
-   the screen locked — this is why the app declares the "audio" background
-   mode.
-3. 📻 starts Post radio: posts are read one after another.
-4. In English articles, 🌐 translates to Spanish (and back).
-5. Settings > Account > "Delete my account" deletes the account and its data
-   (disabled only for this shared demo account).
-Summaries, translation and voice run on our own server; no third-party AI or
-tracking SDKs are included.
+2. At the bottom of the article, tap "Listen" (headphones): the article is
+   read aloud by our server voice. Audio keeps playing with the screen locked
+   and is controlled from the Lock Screen — this is why the app declares the
+   "audio" background mode. The sliders button next to it opens "Voice and
+   reading" (device or server voice, female or male, offline audio for saved
+   articles).
+3. The radio button next to "Listen" starts Post radio: posts are read one
+   after another, with "next" on the Lock Screen.
+4. In an English article, the "..." menu > "Translate" shows it in Spanish
+   (and "Show original" goes back). "AI summary" at the top of an article
+   opens a short summary.
+5. Swipe an article in the list to mark it read or save it. Saved articles
+   (with images and audio) work offline.
+6. Settings (side menu, bottom) > "Delete account" deletes the account and
+   all its data. It is disabled only for this shared demo account, so that it
+   keeps working for review.
+Summaries, translation and voice run on our own server; the app contains no
+third-party AI, analytics, advertising or tracking SDKs.
 
 ## App Privacy (nutrition label)
 
@@ -172,7 +180,30 @@ Uses only standard HTTPS provided by iOS → exempt.
 
 ## Screenshots needed
 
-6.9" (iPhone 17 Pro Max / 16 Pro Max, 1320 × 2868) — required; 6.5" optional.
-Suggested set (both languages): list view · full article · listening bar with
-highlighted sentence · Post radio · translated article · settings (voice /
-accessibility).
+iPhone 6.3" (1206 × 2622), which is what App Store Connect asks for now, in
+`App/store/capturas_iphone_6.3/` (es and en), made by `App/store/generar_capturas.py`
+from raw simulator captures (demo account) in `App/store/crudo/<lang>/`.
+Order: 1 list · 2 full article · 3 listening · 4 Post radio · 5 translation +
+AI summary · 6 dark mode. 1320 × 2868 copies are in `capturas_iphone_6.9/`.
+Also: header image 21:9 (`App/store/cabecera_3840x1646_<lang>.png`) and
+search result image 3:2 (`App/store/busqueda_3840x2560_<lang>.png`), by
+`App/store/generar_imagenes.py`. No alpha channel (Apple requirement).
+
+## Steps to publish
+
+1. **Build and upload** (with an explicit OK each time). Raise the build number
+   on every upload:
+   `flutter build ipa --release --build-name=1.0.0 --build-number=N`, then
+   `xcodebuild -exportArchive -archivePath build/ios/archive/Runner.xcarchive
+   -exportOptionsPlist <ExportOptions with destination=upload> -allowProvisioningUpdates`
+   (uses the Apple account signed in to Xcode). Build 1 uploaded 2026-10-13.
+   After building for the store, run `flutter clean` before using the
+   simulator again (the device build of `objective_c.framework` leaks into
+   the simulator build otherwise).
+2. **TestFlight → Internal testing:** add your Apple ID; install from the
+   TestFlight app on the iPhone. The "Missing Compliance" question is already
+   answered by `ITSAppUsesNonExemptEncryption = NO`.
+3. **Version 1.0 page:** texts above (es + en), screenshots 6.3", header and
+   search images, URLs, categories, age rating, privacy answers, review
+   information (demo password typed by you), then pick the build.
+4. **Submit for review:** only with an explicit OK.

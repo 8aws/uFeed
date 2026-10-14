@@ -97,7 +97,7 @@ class ListenBar extends ConsumerWidget {
   }
 }
 
-/// Play/pause, ±15 s (or ±1 sentence), speed and where we are.
+/// Play/pause, ±10 s (or ±1 sentence), speed and where we are.
 class PlayerControls extends ConsumerWidget {
   const PlayerControls({super.key, required this.state, this.compact = false});
 
@@ -134,7 +134,7 @@ class PlayerControls extends ConsumerWidget {
           IconButton(
             tooltip: t.back15,
             icon: Icon(device ? Icons.skip_previous : Icons.replay_10),
-            onPressed: () => ctrl.seekBy(const Duration(seconds: -15)),
+            onPressed: () => ctrl.seekBy(const Duration(seconds: -10)),
           ),
         IconButton.filled(
           tooltip: s.playing ? t.pause : t.play,
@@ -151,7 +151,7 @@ class PlayerControls extends ConsumerWidget {
           IconButton(
             tooltip: t.forward15,
             icon: Icon(device ? Icons.skip_next : Icons.forward_10),
-            onPressed: () => ctrl.seekBy(const Duration(seconds: 15)),
+            onPressed: () => ctrl.seekBy(const Duration(seconds: 10)),
           ),
         const SizedBox(width: 4),
         Expanded(

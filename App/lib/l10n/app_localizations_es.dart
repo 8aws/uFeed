@@ -402,10 +402,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get voiceSettings => 'Voz y lectura';
 
   @override
-  String get back15 => 'Atrás 15 s';
+  String get back15 => 'Atrás 10 s';
 
   @override
-  String get forward15 => 'Adelante 15 s';
+  String get forward15 => 'Adelante 10 s';
 
   @override
   String get play => 'Reproducir';

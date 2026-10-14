@@ -30,10 +30,10 @@ class UFeedAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> fastForward() async =>
-      commands?.seekBy(const Duration(seconds: 15));
+      commands?.seekBy(const Duration(seconds: 10));
 
   @override
-  Future<void> rewind() async => commands?.seekBy(const Duration(seconds: -15));
+  Future<void> rewind() async => commands?.seekBy(const Duration(seconds: -10));
 
   @override
   Future<void> skipToNext() async => commands?.next();
@@ -50,8 +50,8 @@ Future<void> initAudioHandler() async {
         androidNotificationChannelId: 'es.uverse.ufeed.audio',
         androidNotificationChannelName: 'uFeed',
         androidNotificationOngoing: true,
-        fastForwardInterval: Duration(seconds: 15),
-        rewindInterval: Duration(seconds: 15),
+        fastForwardInterval: Duration(seconds: 10),
+        rewindInterval: Duration(seconds: 10),
       ),
     );
   } on Object catch (e) {
