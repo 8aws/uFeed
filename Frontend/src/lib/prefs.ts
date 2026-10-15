@@ -84,7 +84,8 @@ export interface DisplayPrefs {
 	autoFull: boolean; // load the full article when the feed only has an excerpt
 }
 
-export const TEXT_SCALES = [1, 1.15, 1.3, 1.5] as const;
+// The first two go below the browser's own size (for people who set it large).
+export const TEXT_SCALES = [0.85, 0.9, 1, 1.15, 1.3, 1.5] as const;
 
 function initialDisplayPrefs(): DisplayPrefs {
 	const d: DisplayPrefs = { textScale: 1, font: 'system', autoFull: true };
