@@ -33,8 +33,9 @@ final listStyleProvider = NotifierProvider<ListStyleNotifier, ListStyle>(
   ListStyleNotifier.new,
 );
 
-/// Text size steps, as in the web's accessibility settings.
-const textScales = [1.0, 1.15, 1.3, 1.5];
+/// Text size steps, as in the web's accessibility settings; the first two
+/// go below the system size (Dynamic Type), for people who set it large.
+const textScales = [0.85, 0.9, 1.0, 1.15, 1.3, 1.5];
 
 /// Accessibility display options, per device (same as the web's).
 class DisplayPrefs {
