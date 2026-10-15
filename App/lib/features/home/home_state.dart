@@ -229,7 +229,9 @@ class ArticleListNotifier extends Notifier<ArticleList> {
         cursor: reset ? null : state.cursor,
       );
       if (seq != _seq) return;
-      final items = _pending(page.items);
+      var items = _pending(page.items);
+      // Read here but not yet synced: the server still lists it as unread.
+      if (unreadView) items = items.where((a) => !a.isRead).toList();
       state = ArticleList(
         items: reset ? items : [...state.items, ...items],
         cursor: page.nextCursor,

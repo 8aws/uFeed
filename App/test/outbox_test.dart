@@ -99,6 +99,19 @@ void main() {
     );
   });
 
+  test('a flush with nothing queued does not block later ones', () async {
+    // It used to: the empty run finished before `??=` stored it, so that
+    // finished run was returned forever and nothing queued later was sent.
+    online = true;
+    expect(await box.flush(), 0);
+    online = false;
+    await box.setState('a1', Field.read, true);
+    await box.run(Engage(clock, 'a1', 'open'));
+    online = true;
+    expect(await box.flush(), 2);
+    expect(box.count, 0);
+  });
+
   test('permanent failures are dropped, not retried forever', () async {
     await box.setState('gone', Field.read, true);
     online = true;

@@ -257,37 +257,39 @@ class Outbox {
 
   /// Send everything queued, oldest first. Stops at the first failure worth
   /// retrying (the network is probably still down). Returns how many changes
-  /// reached the server.
-  Future<int> flush() => _flushing ??= () async {
+  /// reached the server. One run at a time; `whenComplete` clears it only
+  /// after `??=` stored it (with an empty queue the run ends synchronously,
+  /// and a reset inside it would leave the finished run there for good:
+  /// nothing queued later was ever sent).
+  Future<int> flush() =>
+      _flushing ??= _flush().whenComplete(() => _flushing = null);
+
+  Future<int> _flush() async {
     var sent = 0;
-    try {
-      final items = <(DateTime, Object)>[
-        for (final s in _states().values) (s.at, s),
-        for (final o in _ops()) (o.at, o),
-      ]..sort((a, b) => a.$1.compareTo(b.$1));
-      for (final (at, item) in items) {
-        final expired = _now().difference(at) > maxAge;
-        try {
-          if (!expired) {
-            await (item is StateChange
-                ? _sendState(item)
-                : _sendOp(item as Op, late: true));
-            sent++;
-          }
-        } catch (e) {
-          if (retriable(e)) break;
+    final items = <(DateTime, Object)>[
+      for (final s in _states().values) (s.at, s),
+      for (final o in _ops()) (o.at, o),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    for (final (at, item) in items) {
+      final expired = _now().difference(at) > maxAge;
+      try {
+        if (!expired) {
+          await (item is StateChange
+              ? _sendState(item)
+              : _sendOp(item as Op, late: true));
+          sent++;
         }
-        if (item is StateChange) {
-          await _dropState(item);
-        } else {
-          await _dropOp(item as Op);
-        }
+      } catch (e) {
+        if (retriable(e)) break;
       }
-    } finally {
-      _flushing = null;
+      if (item is StateChange) {
+        await _dropState(item);
+      } else {
+        await _dropOp(item as Op);
+      }
     }
     return sent;
-  }();
+  }
 
   Future<void> _dropState(StateChange c) async {
     final q = _states();

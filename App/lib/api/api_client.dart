@@ -89,23 +89,22 @@ class ApiClient {
   }
 
   /// One refresh at a time: concurrent 401s wait for the same attempt.
-  Future<bool> _refresh() => _refreshing ??= () async {
-    try {
-      final t = await tokens.read();
-      if (t == null) return false;
-      final resp = await _raw(
-        'POST',
-        '/auth/refresh',
-        body: {'refresh_token': t.refresh},
-        auth: false,
-      );
-      if (resp.statusCode != 200) return false;
-      await tokens.save(Tokens.fromJson(resp.data as Json));
-      return true;
-    } finally {
-      _refreshing = null;
-    }
-  }();
+  Future<bool> _refresh() =>
+      _refreshing ??= _renew().whenComplete(() => _refreshing = null);
+
+  Future<bool> _renew() async {
+    final t = await tokens.read();
+    if (t == null) return false;
+    final resp = await _raw(
+      'POST',
+      '/auth/refresh',
+      body: {'refresh_token': t.refresh},
+      auth: false,
+    );
+    if (resp.statusCode != 200) return false;
+    await tokens.save(Tokens.fromJson(resp.data as Json));
+    return true;
+  }
 
   Future<Object?> _request(
     String method,

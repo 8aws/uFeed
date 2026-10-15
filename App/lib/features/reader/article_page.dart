@@ -60,6 +60,10 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
   final _opened = DateTime.now();
   late final ApiClient _api = ref.read(apiProvider);
 
+  /// Read in initState: `ref` can't be used in dispose, where the read
+  /// event is sent.
+  late final Outbox _outbox = ref.read(outboxProvider);
+
   String? _fullHtml;
   bool _fullBusy = false;
   String? _fullMsg;
@@ -105,7 +109,7 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
           if (mounted) setState(() => _similar = s);
         })
         .catchError((_) {});
-    ref.read(outboxProvider).run(Engage(_opened, a.id, 'open')).ignore();
+    _outbox.run(Engage(_opened, a.id, 'open')).ignore();
   }
 
   @override
@@ -130,10 +134,7 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
                   (p.maxScrollExtent + p.viewportDimension))
               .clamp(0.0, 1.0);
     }
-    ref
-        .read(outboxProvider)
-        .run(ReadEvent(_opened, a.id, dwell, completion))
-        .ignore();
+    _outbox.run(ReadEvent(_opened, a.id, dwell, completion)).ignore();
   }
 
   void _onFullToggle() {
