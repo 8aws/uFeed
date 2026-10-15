@@ -723,7 +723,8 @@ class ListenController extends Notifier<ListenState> implements ListenCommands {
     final playing = state.playing;
     // The lock screen moves its own clock from the last position and speed:
     // only tell it again when something changes or it would drift (a seek).
-    final key = '$playing ${state.status} ${state.engine} ${state.rate} '
+    final key =
+        '$playing ${state.status} ${state.engine} ${state.rate} '
         '${state.radio != null}';
     final ran = playing
         ? DateTime.now().difference(_publishedAt) * state.rate

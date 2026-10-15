@@ -71,6 +71,7 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
   AiSummary? _summary;
   bool _summaryOpen = false;
   bool _summaryBusy = false;
+
   /// Seconds waiting for the summary (only its label redraws each second).
   final _summarySecs = ValueNotifier(0);
   String? _summaryMsg;
