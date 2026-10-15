@@ -693,4 +693,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get keepFolder => 'Mantener';
+
+  @override
+  String get refresh => 'Actualizar';
 }

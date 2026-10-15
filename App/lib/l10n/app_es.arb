@@ -298,5 +298,6 @@
   "serverUnavailable": "El servidor no responde ahora mismo. Inténtalo en un rato.",
   "folderNowEmpty": "La carpeta «{name}» se ha quedado vacía. ¿Quieres borrarla? También puedes dejarla para fuentes que añadas más adelante.",
   "keepFolder": "Mantener",
-  "@folderNowEmpty": {"placeholders": {"name": {"type": "String"}}}
+  "@folderNowEmpty": {"placeholders": {"name": {"type": "String"}}},
+  "refresh": "Actualizar"
 }

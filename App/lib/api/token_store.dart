@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'models.dart';
@@ -12,7 +13,18 @@ abstract class TokenStore {
 /// Keychain on iOS/macOS, Keystore-backed storage on Android.
 class SecureTokenStore implements TokenStore {
   SecureTokenStore([FlutterSecureStorage? storage])
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage =
+          storage ??
+          const FlutterSecureStorage(
+            // Readable after the first unlock, so a launch iOS prepares in
+            // advance (prewarming) while the device is locked still finds it.
+            iOptions: IOSOptions(
+              accessibility: KeychainAccessibility.first_unlock_this_device,
+            ),
+            mOptions: MacOsOptions(
+              accessibility: KeychainAccessibility.first_unlock_this_device,
+            ),
+          );
 
   final FlutterSecureStorage _storage;
   static const _access = 'ufeed_access';
@@ -20,10 +32,14 @@ class SecureTokenStore implements TokenStore {
 
   @override
   Future<Tokens?> read() async {
-    final access = await _storage.read(key: _access);
-    final refresh = await _storage.read(key: _refresh);
-    if (access == null || refresh == null) return null;
-    return Tokens(access: access, refresh: refresh);
+    try {
+      final access = await _storage.read(key: _access);
+      final refresh = await _storage.read(key: _refresh);
+      if (access == null || refresh == null) return null;
+      return Tokens(access: access, refresh: refresh);
+    } on PlatformException {
+      return null; // keychain not available right now: start signed out
+    }
   }
 
   @override

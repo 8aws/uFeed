@@ -137,6 +137,9 @@ class _OfflineSyncState extends ConsumerState<OfflineSync> {
       if (user == null) return;
       final kept = await ref.read(localStoreProvider).loadSaved(user.id);
       if (mounted) ref.read(offlineSavedProvider.notifier).set(kept);
+      // Let the first screen settle before sending, fetching full texts,
+      // pictures and audio for the saved list.
+      await Future<void>.delayed(const Duration(seconds: 5));
       await _online();
     });
     _net = Connectivity().onConnectivityChanged.listen((r) {

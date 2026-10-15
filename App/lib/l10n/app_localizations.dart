@@ -1327,6 +1327,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Mantener'**
   String get keepFolder;
+
+  /// No description provided for @refresh.
+  ///
+  /// In es, this message translates to:
+  /// **'Actualizar'**
+  String get refresh;
 }
 
 class _AppLocalizationsDelegate

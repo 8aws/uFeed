@@ -20,6 +20,12 @@ class ApiException implements Exception {
   /// No answer at all (no network, server down, timeout).
   bool get isNetwork => status == 0;
 
+  /// Our server isn't really there: no network, a server error, or an answer
+  /// that isn't our API (a proxy or firewall page, e.g. a country block).
+  /// The app then works from the copy on the device.
+  bool get isUnreachable =>
+      isNetwork || status >= 500 || code.startsWith('http_');
+
   @override
   String toString() => 'ApiException($status, $code, $message)';
 }

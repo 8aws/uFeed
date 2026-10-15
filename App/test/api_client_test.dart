@@ -193,4 +193,19 @@ void main() {
     expect(now.single.article.title, 'Hola');
     expect(insights.rankings[Ranking.hiddenGems], isEmpty);
   });
+
+  test('a proxy or firewall page counts as the server being unreachable', () {
+    expect(
+      const ApiException(403, 'http_403', 'Forbidden').isUnreachable,
+      true,
+    );
+    expect(const ApiException(0, 'network', '').isUnreachable, true);
+    expect(const ApiException(503, 'http_503', '').isUnreachable, true);
+    // Our own API's answers are real answers, not an outage.
+    expect(
+      const ApiException(403, 'plan_limit_feeds', 'limit').isUnreachable,
+      false,
+    );
+    expect(const ApiException(401, 'unauthorized', '').isUnreachable, false);
+  });
 }

@@ -56,9 +56,10 @@ class Session extends AsyncNotifier<User?> {
       return await _fetchMe();
     } on ApiException catch (e) {
       if (e.status == 401) return null; // the refresh failed too
-      // No network: carry on with the saved account and the offline copy.
+      // Server not reachable (see isUnreachable): carry on with the saved
+      // account and the offline copy instead of a dead end.
       final cached = _cachedUser();
-      if (cached != null && e.isNetwork) return cached;
+      if (cached != null && e.isUnreachable) return cached;
       rethrow; // nothing saved yet: the app shows a retry screen
     }
   }

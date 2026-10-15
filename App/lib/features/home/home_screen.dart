@@ -1,9 +1,11 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/net_image.dart';
 import '../../api/api_client.dart';
 import '../../api/models.dart';
 import '../../auth/session.dart';
@@ -27,6 +29,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  bool _refreshing = false;
   final _scroll = ScrollController();
 
   @override
@@ -103,6 +106,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Text(_title(t, filter, side)),
         ),
         actions: [
+          // Pull-to-refresh only works from the top of the list.
+          IconButton(
+            tooltip: t.refresh,
+            icon: _refreshing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+            onPressed: _refreshing ? null : () => _pullToRefresh(t, ctrl),
+          ),
           if (scoped)
             IconButton(
               tooltip: onlyUnread ? t.all : t.unread,
@@ -167,15 +182,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     AppLocalizations t,
     ArticleListNotifier ctrl,
   ) async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
     String msg;
+    var arrived = 0;
     try {
-      final n = await ctrl.refresh();
-      msg = n > 0 ? '+${t.newItems(n)}' : t.noNew;
+      arrived = await ctrl.refresh();
+      msg = arrived > 0 ? '+${t.newItems(arrived)}' : t.noNew;
     } on ApiException catch (e) {
       final mins = ((e.retryAfter ?? 60) / 60).ceil().clamp(1, 999);
       msg = t.refreshWait(mins);
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
     }
     if (!mounted) return;
+    // New posts go on top: take the reader there.
+    if (arrived > 0 && _scroll.hasClients && _scroll.offset > 0) {
+      unawaited(
+        _scroll.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -214,7 +244,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final e = list.error!;
         message = e.isNetwork
             ? t.offline
-            : e.status >= 500
+            : e.isUnreachable
             ? t.serverUnavailable
             : t.somethingFailed;
       } else {
@@ -336,12 +366,12 @@ class _SideMenu extends ConsumerWidget {
       borderRadius: BorderRadius.circular(3),
       child: s.source.faviconUrl == null
           ? Icon(Icons.rss_feed, size: 18, color: c.muted)
-          : CachedNetworkImage(
-              imageUrl: s.source.faviconUrl!,
+          : NetImage(
+              s.source.faviconUrl!,
               width: 18,
               height: 18,
-              errorWidget: (_, _, _) =>
-                  Icon(Icons.rss_feed, size: 18, color: c.muted),
+              fit: BoxFit.contain,
+              error: Icon(Icons.rss_feed, size: 18, color: c.muted),
             ),
     );
 

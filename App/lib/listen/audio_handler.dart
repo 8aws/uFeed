@@ -39,8 +39,17 @@ class UFeedAudioHandler extends BaseAudioHandler with SeekHandler {
   Future<void> skipToNext() async => commands?.next();
 }
 
-/// Set up once in main(); null in tests and where the platform can't.
+/// Set up once in main(); null in tests, where the platform can't, and for
+/// the first moments after launch.
 UFeedAudioHandler? audioHandler;
+
+/// Who answers the lock-screen buttons; handed to the handler once it exists.
+ListenCommands? _pendingCommands;
+
+void setAudioCommands(ListenCommands commands) {
+  _pendingCommands = commands;
+  audioHandler?.commands = commands;
+}
 
 Future<void> initAudioHandler() async {
   try {
@@ -54,6 +63,7 @@ Future<void> initAudioHandler() async {
         rewindInterval: Duration(seconds: 10),
       ),
     );
+    audioHandler?.commands = _pendingCommands;
   } on Object catch (e) {
     audioHandler = null; // the app still plays, without lock-screen controls
     debugPrint('audio_service unavailable: $e');

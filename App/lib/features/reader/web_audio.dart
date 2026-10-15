@@ -59,20 +59,32 @@ function load(u, title, artist, rate) {
 /// view). Unlike AVPlayer, WebKit plays the server voice's MP3 while it is
 /// still being generated, as Safari does for the web app.
 class WebAudio {
-  WebAudio() {
+  /// The web view (a WebKit process) is only created the first time live
+  /// audio plays, not at app start.
+  WebViewController? _controller;
+  final _created = ValueNotifier(false);
+  final state = ValueNotifier(const WebAudioState());
+
+  Future<WebViewController>? _creating;
+
+  /// Created once, even if two plays ask at the same time.
+  Future<WebViewController> _ensure() => _creating ??= _create();
+
+  Future<WebViewController> _create() async {
     final params = WebViewPlatform.instance is WebKitWebViewPlatform
         ? WebKitWebViewControllerCreationParams(
             allowsInlineMediaPlayback: true,
             mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
           )
         : const PlatformWebViewControllerCreationParams();
-    controller = WebViewController.fromPlatformCreationParams(params)
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..addJavaScriptChannel('ufeed', onMessageReceived: _onMessage);
+    final c = WebViewController.fromPlatformCreationParams(params);
+    await c.setJavaScriptMode(JavaScriptMode.unrestricted);
+    await c.addJavaScriptChannel('ufeed', onMessageReceived: _onMessage);
+    _controller = c;
+    _created.value = true;
+    await WidgetsBinding.instance.endOfFrame; // mounted before it plays
+    return c;
   }
-
-  late final WebViewController controller;
-  final state = ValueNotifier(const WebAudioState());
 
   void _onMessage(JavaScriptMessage m) {
     final j = jsonDecode(m.message) as Map<String, dynamic>;
@@ -104,6 +116,7 @@ class WebAudio {
       artist,
       rate,
     ].map(jsonEncode).join(', ');
+    final controller = await _ensure();
     await controller.setNavigationDelegate(
       NavigationDelegate(
         onPageFinished: (_) => controller.runJavaScript('load($args)'),
@@ -122,7 +135,7 @@ class WebAudio {
   /// native player) are simply ignored.
   Future<void> _js(String code) async {
     try {
-      await controller.runJavaScript(code);
+      await _controller?.runJavaScript(code);
     } on Object {
       // no <audio> on the page any more
     }
@@ -130,19 +143,28 @@ class WebAudio {
 
   /// Silence it and free the page (e.g. when native playback takes over).
   Future<void> stop() async {
-    await controller.loadHtmlString('<html></html>');
+    await _controller?.loadHtmlString('<html></html>');
     state.value = const WebAudioState();
   }
 
   /// The (invisible) web view; must stay mounted while playing.
-  Widget view() => SizedBox(
-    width: 1,
-    height: 1,
-    child: Opacity(opacity: 0.01, child: WebViewWidget(controller: controller)),
+  Widget view() => ValueListenableBuilder(
+    valueListenable: _created,
+    builder: (context, created, _) => created
+        ? SizedBox(
+            width: 1,
+            height: 1,
+            child: Opacity(
+              opacity: 0.01,
+              child: WebViewWidget(controller: _controller!),
+            ),
+          )
+        : const SizedBox.shrink(),
   );
 
   void dispose() {
-    unawaited(controller.loadHtmlString('<html></html>'));
+    unawaited(_controller?.loadHtmlString('<html></html>'));
+    _created.dispose();
     state.dispose();
   }
 }

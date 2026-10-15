@@ -171,7 +171,7 @@ class ListenController extends Notifier<ListenState> implements ListenCommands {
   @override
   ListenState build() {
     ref.onDispose(_dispose);
-    audioHandler?.commands = this;
+    setAudioCommands(this);
     return ListenState(rate: ref.read(speechPrefsProvider).rate);
   }
 

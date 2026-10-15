@@ -689,4 +689,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get keepFolder => 'Keep';
+
+  @override
+  String get refresh => 'Refresh';
 }

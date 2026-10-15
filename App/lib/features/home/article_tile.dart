@@ -1,7 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
+import '../../core/net_image.dart';
 import '../../api/models.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
@@ -251,13 +251,7 @@ class ArticleTile extends StatelessWidget {
   }
 
   Widget _image(String url, {double? width, double? height}) =>
-      CachedNetworkImage(
-        imageUrl: url,
-        width: width,
-        height: height,
-        fit: BoxFit.cover,
-        errorWidget: (_, _, _) => const SizedBox.shrink(),
-      );
+      NetImage(url, width: width, height: height);
 
   Widget _compact(BuildContext context, AppLocalizations t, UColors c) =>
       Padding(

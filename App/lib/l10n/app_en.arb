@@ -297,5 +297,6 @@
   "offlineAudioStarted": "Downloading the audio of your saved articles… (you can keep using the app)",
   "serverUnavailable": "The server isn't responding right now. Try again in a while.",
   "folderNowEmpty": "The folder “{name}” is now empty. Delete it? You can also keep it for feeds you add later.",
-  "keepFolder": "Keep"
+  "keepFolder": "Keep",
+  "refresh": "Refresh"
 }

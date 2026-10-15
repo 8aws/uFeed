@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/net_image.dart';
 import '../../api/api_client.dart';
 import '../../api/models.dart';
 import '../../auth/session.dart';
@@ -331,13 +331,7 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
                     if (s.imageUrl != null) ...[
                       ClipRRect(
                         borderRadius: BorderRadius.circular(6),
-                        child: CachedNetworkImage(
-                          imageUrl: s.imageUrl!,
-                          width: 56,
-                          height: 56,
-                          fit: BoxFit.cover,
-                          errorWidget: (_, _, _) => const SizedBox.shrink(),
-                        ),
+                        child: NetImage(s.imageUrl!, width: 56, height: 56),
                       ),
                       const SizedBox(width: 12),
                     ],

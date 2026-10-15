@@ -243,8 +243,8 @@ class ArticleListNotifier extends Notifier<ArticleList> {
       state = state.copyWith(
         loading: false,
         error: e,
-        done: keep && e.isNetwork ? true : null,
-        offline: e.isNetwork && keep,
+        done: keep && e.isUnreachable ? true : null,
+        offline: e.isUnreachable && keep,
       );
     }
   }

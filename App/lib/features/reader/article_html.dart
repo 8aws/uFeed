@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:just_audio/just_audio.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/net_image.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -118,11 +118,7 @@ class ArticleHtml extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: CachedNetworkImage(
-              imageUrl: src.toString(),
-              fit: BoxFit.contain,
-              errorWidget: (_, _, _) => const SizedBox.shrink(),
-            ),
+            child: NetImage(src.toString(), fit: BoxFit.contain),
           ),
         );
       case 'a':
@@ -209,12 +205,7 @@ class _MediaCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (thumbnail != null)
-                  CachedNetworkImage(
-                    imageUrl: thumbnail!,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, _, _) => const SizedBox.shrink(),
-                  ),
+                if (thumbnail != null) NetImage(thumbnail!),
                 Center(
                   child: Icon(
                     icon,
