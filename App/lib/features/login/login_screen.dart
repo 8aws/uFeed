@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/api_client.dart';
 import '../../auth/session.dart';
+import '../../core/auto_retry.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 
@@ -25,6 +26,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _error;
   String? _notice;
 
+  /// Whether sign-up is open; asked again until the server answers.
+  late final _site = AutoRetry(() async {
+    final s = await ref.read(apiProvider).site();
+    if (mounted) setState(() => _registrationOpen = s.registrationOpen);
+    return true;
+  });
+
   @override
   void initState() {
     super.initState();
@@ -35,17 +43,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _email.text = const String.fromEnvironment('UFEED_DEV_EMAIL');
       _password.text = const String.fromEnvironment('UFEED_DEV_PASSWORD');
     }
-    ref
-        .read(apiProvider)
-        .site()
-        .then((s) {
-          if (mounted) setState(() => _registrationOpen = s.registrationOpen);
-        })
-        .catchError((_) {});
+    _site
+      ..start()
+      ..now().ignore();
   }
 
   @override
   void dispose() {
+    _site.stop();
     _email.dispose();
     _password.dispose();
     super.dispose();

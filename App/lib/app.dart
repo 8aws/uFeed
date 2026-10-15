@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'auth/session.dart';
+import 'core/auto_retry.dart';
 import 'core/prefs.dart';
 import 'core/theme.dart';
 import 'features/home/home_screen.dart';
@@ -99,14 +100,32 @@ class UFeedApp extends ConsumerWidget {
   }
 }
 
-/// While the saved session is checked; or a retry if the server is unreachable.
-class _StartScreen extends ConsumerWidget {
+/// While the saved session is checked; or a retry if the server is
+/// unreachable (also tried again on its own).
+class _StartScreen extends ConsumerStatefulWidget {
   const _StartScreen();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_StartScreen> createState() => _StartScreenState();
+}
+
+class _StartScreenState extends ConsumerState<_StartScreen> {
+  late final _retry = AutoRetry(() async {
+    await ref.read(sessionProvider.notifier).retry();
+    return !ref.read(sessionProvider).hasError;
+  });
+
+  @override
+  void dispose() {
+    _retry.stop();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final session = ref.watch(sessionProvider);
+    if (session.hasError) _retry.start();
     return Scaffold(
       body: Center(
         child: session.hasError
@@ -115,10 +134,7 @@ class _StartScreen extends ConsumerWidget {
                 children: [
                   Text(t.offline),
                   const SizedBox(height: 8),
-                  FilledButton(
-                    onPressed: ref.read(sessionProvider.notifier).retry,
-                    child: Text(t.retry),
-                  ),
+                  FilledButton(onPressed: _retry.now, child: Text(t.retry)),
                 ],
               )
             : const CircularProgressIndicator(),

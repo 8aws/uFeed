@@ -203,7 +203,16 @@ class ListenController extends Notifier<ListenState> implements ListenCommands {
         if (e.begin && state.engine != Engine.server) pause();
       }),
     );
-    _subs.add(_player.positionStream.listen(_onServerPosition));
+    // Twice a second is enough for the progress bar (the default stream
+    // ticks up to 60 times a second on short clips).
+    _subs.add(
+      _player
+          .createPositionStream(
+            minPeriod: const Duration(milliseconds: 500),
+            maxPeriod: const Duration(milliseconds: 500),
+          )
+          .listen(_onServerPosition),
+    );
     _subs.add(_player.playerStateStream.listen(_onServerState));
     _web.state.addListener(_onLiveState);
     if (Platform.isIOS) {
@@ -700,6 +709,9 @@ class ListenController extends Notifier<ListenState> implements ListenCommands {
   }
 
   Duration? _publishedDuration;
+  String? _publishedKey;
+  Duration _publishedPos = Duration.zero;
+  DateTime _publishedAt = DateTime.now();
 
   void _publishState() {
     final h = audioHandler;
@@ -709,6 +721,18 @@ class ListenController extends Notifier<ListenState> implements ListenCommands {
       _publishItem();
     }
     final playing = state.playing;
+    // The lock screen moves its own clock from the last position and speed:
+    // only tell it again when something changes or it would drift (a seek).
+    final key = '$playing ${state.status} ${state.engine} ${state.rate} '
+        '${state.radio != null}';
+    final ran = playing
+        ? DateTime.now().difference(_publishedAt) * state.rate
+        : Duration.zero;
+    final drift = (state.position - (_publishedPos + ran)).abs();
+    if (key == _publishedKey && drift < const Duration(seconds: 2)) return;
+    _publishedKey = key;
+    _publishedPos = state.position;
+    _publishedAt = DateTime.now();
     h.playbackState.add(
       PlaybackState(
         controls: [

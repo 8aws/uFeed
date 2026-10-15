@@ -71,7 +71,8 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
   AiSummary? _summary;
   bool _summaryOpen = false;
   bool _summaryBusy = false;
-  int _summarySecs = 0;
+  /// Seconds waiting for the summary (only its label redraws each second).
+  final _summarySecs = ValueNotifier(0);
   String? _summaryMsg;
 
   List<Article> _similar = const [];
@@ -112,6 +113,7 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
     widget.view.translated.removeListener(_onTranslateToggle);
     _sendReadEvent();
     _scroll.dispose();
+    _summarySecs.dispose();
     super.dispose();
   }
 
@@ -210,18 +212,26 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
     setState(() {
       _summaryOpen = true;
       _summaryBusy = true;
-      _summarySecs = 0;
       _summaryMsg = null;
     });
-    final clock = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _summarySecs++);
-    });
+    _summarySecs.value = 0;
+    final clock = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _summarySecs.value++,
+    );
     try {
       var s = await _api.aiSummary(a.id, _lang, generate: true);
       final until = DateTime.now().add(const Duration(minutes: 10));
       while (s.pending && DateTime.now().isBefore(until)) {
         if (!mounted) return;
-        setState(() => _summary = s);
+        final was = _summary;
+        // Redraw only when the queue place or estimate changed.
+        if (was == null ||
+            was.status != s.status ||
+            was.position != s.position ||
+            was.etaS != s.etaS) {
+          setState(() => _summary = s);
+        }
         await Future<void>.delayed(const Duration(seconds: 2));
         s = await _api.aiSummary(a.id, _lang);
       }
@@ -369,13 +379,19 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
   /// Folded until asked, as on the web: "✨ AI summary ▸".
   Widget _summaryCard(AppLocalizations t, UColors c) {
     final s = _summary;
-    String state = '';
+    Widget? state;
     if (_summaryBusy) {
       final where = s?.status == 'queued' && s?.position != null
           ? t.aiQueued(s!.position!)
           : t.aiGenerating;
       final eta = s?.etaS != null ? ' / ~${s!.etaS} s' : '';
-      state = '$where · $_summarySecs s$eta';
+      state = ValueListenableBuilder(
+        valueListenable: _summarySecs,
+        builder: (_, secs, _) => Text(
+          '$where · $secs s$eta',
+          style: TextStyle(color: c.muted, fontSize: 12),
+        ),
+      );
     }
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -409,8 +425,7 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
                       ),
                     ),
                   const Spacer(),
-                  if (state.isNotEmpty)
-                    Text(state, style: TextStyle(color: c.muted, fontSize: 12)),
+                  ?state,
                   Icon(
                     _summaryOpen ? Icons.expand_more : Icons.chevron_right,
                     color: c.muted,

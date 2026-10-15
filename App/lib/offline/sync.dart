@@ -9,6 +9,7 @@ import '../api/api_client.dart';
 import '../api/models.dart';
 import '../auth/plan.dart';
 import '../auth/session.dart';
+import '../core/auto_retry.dart';
 import '../core/prefs.dart';
 import '../features/home/home_state.dart';
 import '../features/reader/article_html.dart';
@@ -128,6 +129,18 @@ class _OfflineSyncState extends ConsumerState<OfflineSync> {
   AppLifecycleListener? _life;
   bool _wasOffline = false;
   Timer? _savedTimer;
+  Future<void>? _onlineRun;
+
+  /// The server didn't answer (blocked, down): try again on its own.
+  late final _retry = AutoRetry(() async {
+    await _online();
+    return !_serverDown;
+  });
+
+  bool get _serverDown {
+    final list = ref.read(articleListProvider);
+    return list.offline || (list.error?.isUnreachable ?? false);
+  }
 
   @override
   void initState() {
@@ -150,7 +163,11 @@ class _OfflineSyncState extends ConsumerState<OfflineSync> {
     _life = AppLifecycleListener(onResume: () => _online().ignore());
   }
 
-  Future<void> _online() async {
+  /// One run at a time (network back, app reopened and retries can overlap).
+  Future<void> _online() =>
+      _onlineRun ??= _sync().whenComplete(() => _onlineRun = null);
+
+  Future<void> _sync() async {
     if (!mounted) return;
     final sent = await ref.read(outboxProvider).flush();
     if (!mounted) return;
@@ -159,6 +176,7 @@ class _OfflineSyncState extends ConsumerState<OfflineSync> {
       await ref.read(articleListProvider.notifier).startUp(force: true);
     }
     if (mounted) await syncSaved(ref);
+    if (mounted && _serverDown) _retry.start();
   }
 
   @override
@@ -166,6 +184,7 @@ class _OfflineSyncState extends ConsumerState<OfflineSync> {
     _net?.cancel();
     _life?.dispose();
     _savedTimer?.cancel();
+    _retry.stop();
     super.dispose();
   }
 
