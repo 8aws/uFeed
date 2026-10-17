@@ -15,6 +15,7 @@
 			<h2>Qué datos guardamos</h2>
 			<ul>
 				<li><strong>Cuenta:</strong> email, contraseña (solo su huella cifrada, nunca el texto), nombre visible opcional e idioma.</li>
+				<li><strong>Sin cuenta (invitado):</strong> la app puede usarse sin registrarse; se crea un perfil anónimo sin email ni contraseña, con un identificador interno, el idioma y tus fuentes y guardados. No se guarda ningún dato personal.</li>
 				<li><strong>Tu lectura:</strong> las fuentes y carpetas que sigues, qué artículos has leído, guardado o marcado como favoritos, tus filtros y tus claves API.</li>
 				<li><strong>Actividad de lectura:</strong> tiempo y porcentaje leído de cada artículo y si lo abres, compartes o saltas. Se usa, agregada y sin identificarte, para las Tendencias y para recomendarte artículos.</li>
 				<li><strong>Última actividad</strong>, para desactivar cuentas abandonadas.</li>
@@ -34,6 +35,7 @@
 			<ul>
 				<li>Los artículos se conservan 90 días (los guardados y favoritos, siempre).</li>
 				<li>Las cuentas sin uso durante 180 días se desactivan y, si nadie las recupera, se borran 180 días después.</li>
+				<li>Los perfiles de invitado sin uso durante 30 días se borran. También puedes borrarlo en Ajustes → «Salir y borrar mis datos».</li>
 				<li>Las copias de seguridad están cifradas y rotan en 30 días.</li>
 			</ul>
 			<h2>En tu dispositivo</h2>
@@ -59,6 +61,7 @@
 			<h2>What we store</h2>
 			<ul>
 				<li><strong>Account:</strong> email, password (only its hash, never the text), optional display name and language.</li>
+				<li><strong>Without an account (guest):</strong> the app can be used without registering; an anonymous profile is created with no email or password, holding an internal identifier, the language and your feeds and saved articles. No personal data is stored.</li>
 				<li><strong>Your reading:</strong> the feeds and folders you follow, which articles you read, saved or favourited, your filters and API keys.</li>
 				<li><strong>Reading activity:</strong> time and share read of each article and whether you open, share or skip it. Used in aggregate, without identifying you, for Trending and to recommend articles.</li>
 				<li><strong>Last activity</strong>, to deactivate abandoned accounts.</li>
@@ -78,6 +81,7 @@
 			<ul>
 				<li>Articles are kept for 90 days (saved and favourites, always).</li>
 				<li>Accounts unused for 180 days are deactivated and, if nobody reclaims them, deleted 180 days later.</li>
+				<li>Guest profiles unused for 30 days are deleted. You can also delete it in Settings → “Leave and delete my data”.</li>
 				<li>Backups are encrypted and rotate within 30 days.</li>
 			</ul>
 			<h2>On your device</h2>
