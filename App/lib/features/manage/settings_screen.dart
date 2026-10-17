@@ -165,6 +165,12 @@ class SettingsScreen extends ConsumerWidget {
                   t.admin,
                   '/admin',
                 ),
+              _link(
+                context,
+                Icons.workspace_premium_outlined,
+                t.plansAndLimits,
+                '/plans',
+              ),
               _link(context, Icons.privacy_tip_outlined, t.privacy, '/privacy'),
               _link(context, Icons.help_outline, t.support, '/support'),
             ]),

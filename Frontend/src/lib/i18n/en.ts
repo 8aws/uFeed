@@ -98,6 +98,7 @@ export const en = {
 	refresh_every: 'manual refresh every',
 	immediate: 'immediate',
 	role_guest: 'Guest',
+	plans_link: 'Plans and limits',
 	role_free: 'Free',
 	role_general: 'General',
 	role_vip: 'VIP',

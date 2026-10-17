@@ -1411,6 +1411,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Elige un artículo de la lista'**
   String get selectArticle;
+
+  /// No description provided for @plansAndLimits.
+  ///
+  /// In es, this message translates to:
+  /// **'Planes y límites'**
+  String get plansAndLimits;
 }
 
 class _AppLocalizationsDelegate

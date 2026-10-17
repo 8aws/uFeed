@@ -740,4 +740,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get selectArticle => 'Elige un artículo de la lista';
+
+  @override
+  String get plansAndLimits => 'Planes y límites';
 }

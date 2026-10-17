@@ -81,7 +81,7 @@
 	</section>
 
 	<footer>
-		<a href="/privacy">{es ? 'Privacidad' : 'Privacy'}</a> · <a href="/support">{es ? 'Soporte' : 'Support'}</a>
+		<a href="/plans">{es ? 'Planes' : 'Plans'}</a> · <a href="/privacy">{es ? 'Privacidad' : 'Privacy'}</a> · <a href="/support">{es ? 'Soporte' : 'Support'}</a>
 		· <a href={$authed ? '/' : '/login'}>{es ? 'Entrar' : 'Sign in'}</a>
 	</footer>
 </div>

@@ -997,6 +997,7 @@
 				<p class="muted small">
 					{$t('plan')}: <strong>{$t(`role_${$user.role}` as 'role_free')}</strong>
 					{#if myPlan}· {planSummary(myPlan)}{/if}
+					· <a href="/plans">{$t('plans_link')}</a>
 				</p>
 			{/if}
 			<div class="row">
@@ -1020,7 +1021,7 @@
 					</div>
 				</form>
 			{/if}
-			<p class="small legal"><a href="/privacy">{$t('privacy')}</a> · <a href="/support">{$t('support')}</a></p>
+			<p class="small legal"><a href="/plans">{$t('plans_link')}</a> · <a href="/privacy">{$t('privacy')}</a> · <a href="/support">{$t('support')}</a></p>
 		{/if}
 	</section>
 </div>

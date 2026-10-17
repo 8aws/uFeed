@@ -24,7 +24,7 @@
 	<h1>{title}</h1>
 	{@render children(contact)}
 	<p class="links">
-		<a href="/privacy">{$t('privacy')}</a> · <a href="/support">{$t('support')}</a>
+		<a href="/plans">{$t('plans_link')}</a> · <a href="/privacy">{$t('privacy')}</a> · <a href="/support">{$t('support')}</a>
 	</p>
 </div>
 

@@ -311,5 +311,6 @@
   "planLimitFeedsGuest": "You've reached the feed limit without an account. Create an account to add more.",
   "accountCreated": "Account created",
   "emailTaken": "That email already has an account. Sign in with it from the sign-in screen.",
-  "selectArticle": "Pick an article from the list"
+  "selectArticle": "Pick an article from the list",
+  "plansAndLimits": "Plans and limits"
 }

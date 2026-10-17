@@ -736,4 +736,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get selectArticle => 'Pick an article from the list';
+
+  @override
+  String get plansAndLimits => 'Plans and limits';
 }
