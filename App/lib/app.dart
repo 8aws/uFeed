@@ -98,12 +98,6 @@ class UFeedApp extends ConsumerWidget {
                     bottom: 0,
                     child: ref.watch(liveAudioProvider).view(),
                   ),
-                  if (_showMetrics)
-                    Positioned(
-                      left: 4,
-                      bottom: 90,
-                      child: IgnorePointer(child: _Metrics(mq)),
-                    ),
                 ],
               ),
             ),
@@ -160,37 +154,6 @@ class _StartScreenState extends ConsumerState<_StartScreen> {
                 ],
               )
             : const CircularProgressIndicator(),
-      ),
-    );
-  }
-}
-
-/// For trying new screens (`--dart-define=UFEED_METRICS=true`): size and the
-/// insets the system reports, as the app receives them.
-const _showMetrics = bool.fromEnvironment('UFEED_METRICS');
-
-class _Metrics extends StatelessWidget {
-  const _Metrics(this.m);
-
-  final MediaQueryData m;
-
-  @override
-  Widget build(BuildContext context) {
-    String f(EdgeInsets e) =>
-        '${e.left.round()},${e.top.round()},${e.right.round()},${e.bottom.round()}';
-    return Container(
-      color: const Color(0xCC000000),
-      padding: const EdgeInsets.all(4),
-      child: Text(
-        'size ${m.size.width.round()}x${m.size.height.round()} '
-        'dpr ${m.devicePixelRatio}\n'
-        'pad ${f(m.padding)} view ${f(m.viewPadding)}\n'
-        'feat ${m.displayFeatures.map((d) => '${d.type.name}:${d.bounds}').join(' ')}',
-        style: const TextStyle(
-          color: Color(0xFFFFFF00),
-          fontSize: 11,
-          decoration: TextDecoration.none,
-        ),
       ),
     );
   }

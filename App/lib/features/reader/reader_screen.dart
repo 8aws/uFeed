@@ -120,15 +120,24 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     _update(a.copyWith(isFavorite: !a.isFavorite));
   }
 
-  void _share() {
+  /// `button`: the share button, so the iPad's share popover points at it.
+  void _share(BuildContext button) {
     final a = _current;
+    final box = button.findRenderObject() as RenderBox?;
+    final origin = box != null && box.hasSize
+        ? box.localToGlobal(Offset.zero) & box.size
+        : null;
     final url = safeUri(a.url);
     if (url == null) return;
     ref
         .read(outboxProvider)
         .run(Engage(DateTime.now(), a.id, 'share'))
         .ignore();
-    SharePlus.instance.share(ShareParams(uri: url, subject: a.title)).ignore();
+    SharePlus.instance
+        .share(
+          ShareParams(uri: url, subject: a.title, sharePositionOrigin: origin),
+        )
+        .ignore();
   }
 
   /// A similar article: opened on its own, on top of this one.
@@ -279,10 +288,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             onPressed: _toggleFavorite,
           ),
           if (hasUrl)
-            IconButton(
-              tooltip: t.share,
-              icon: const Icon(Icons.ios_share),
-              onPressed: _share,
+            Builder(
+              builder: (button) => IconButton(
+                tooltip: t.share,
+                icon: const Icon(Icons.ios_share),
+                onPressed: () => _share(button),
+              ),
             ),
           PopupMenuButton<_More>(
             tooltip: t.more,

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,13 +10,6 @@ import 'listen/audio_handler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Trying layouts in a simulator that can't be rotated by hand
-  // (`--dart-define=UFEED_LANDSCAPE=true`); not part of store builds.
-  if (const bool.fromEnvironment('UFEED_LANDSCAPE')) {
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-    ]);
-  }
   final prefs = await SharedPreferences.getInstance();
   // Thumbnails are decoded at their display size (see NetImage); this caps
   // what stays decoded in memory on top of that.

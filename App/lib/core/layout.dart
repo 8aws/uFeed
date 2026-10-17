@@ -1,16 +1,11 @@
 import 'package:flutter/widgets.dart';
 
-/// For trying the layout in a simulator that can't be rotated
-/// (`--dart-define=UFEED_TWOPANE=true`).
-const _forceTwoPane = bool.fromEnvironment('UFEED_TWOPANE');
-
 /// Landscape on a screen big enough (iPad, Mac window, iPhone Duo open): the
 /// list and the open article go side by side, like a desktop reader. In
 /// portrait, and on phones (even in landscape: they are too short), the list
 /// and the article take turns.
 bool useTwoPane(BuildContext context) {
   final s = MediaQuery.sizeOf(context);
-  if (_forceTwoPane) return s.width >= 700;
   return s.width > s.height && s.width >= 700 && s.height >= 560;
 }
 
