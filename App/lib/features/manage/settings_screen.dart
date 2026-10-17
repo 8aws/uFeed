@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -173,6 +174,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
               _link(context, Icons.privacy_tip_outlined, t.privacy, '/privacy'),
               _link(context, Icons.help_outline, t.support, '/support'),
+              const _VersionTile(),
             ]),
             if (!user.isGuest)
               section(t.deleteAccount, [
@@ -768,4 +770,25 @@ class _FiltersState extends ConsumerState<_Filters> {
       ),
     );
   }
+}
+
+/// "uFeed 1.1.0 (5)": which build is installed, for support.
+class _VersionTile extends StatelessWidget {
+  const _VersionTile();
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<PackageInfo>(
+    future: PackageInfo.fromPlatform(),
+    builder: (context, snap) {
+      final i = snap.data;
+      return ListTile(
+        dense: true,
+        leading: const Icon(Icons.info_outline),
+        title: Text(
+          i == null ? 'uFeed' : 'uFeed ${i.version} (${i.buildNumber})',
+          style: TextStyle(color: context.colors.muted),
+        ),
+      );
+    },
+  );
 }

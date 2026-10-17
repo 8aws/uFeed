@@ -233,7 +233,14 @@ class ArticleListNotifier extends Notifier<ArticleList> {
       // Read here but not yet synced: the server still lists it as unread.
       if (unreadView) items = items.where((a) => !a.isRead).toList();
       state = ArticleList(
-        items: reset ? items : [...state.items, ...items],
+        // An article that already is in the list is never added twice (their
+        // keys must be unique, and a repeated one leaves a blank tile).
+        items: reset
+            ? items
+            : [
+                ...state.items,
+                ...items.where((n) => !state.items.any((o) => o.id == n.id)),
+              ],
         cursor: page.nextCursor,
         done: page.nextCursor == null,
         listedAt: reset ? DateTime.now() : state.listedAt,

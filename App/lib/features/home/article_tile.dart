@@ -422,10 +422,16 @@ class _DropOnError extends StatefulWidget {
 class _DropOnErrorState extends State<_DropOnError> {
   bool _failed = false;
 
+  /// The picture can report its failure while the list is being built:
+  /// the change waits for the frame to end.
+  void _fail() {
+    if (_failed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_failed) setState(() => _failed = true);
+    });
+  }
+
   @override
-  Widget build(BuildContext context) => _failed
-      ? const SizedBox.shrink()
-      : widget.builder(() {
-          if (mounted && !_failed) setState(() => _failed = true);
-        });
+  Widget build(BuildContext context) =>
+      _failed ? const SizedBox.shrink() : widget.builder(_fail);
 }
