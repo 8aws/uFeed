@@ -11,12 +11,14 @@ import '../../api/models.dart';
 import '../../auth/session.dart';
 import '../../core/prefs.dart';
 import '../../core/dialogs.dart';
+import '../../core/layout.dart';
 import '../../core/theme.dart';
 import '../../listen/listen_bar.dart';
 import '../manage/feed_actions.dart';
 import '../../listen/listen_controller.dart';
 import '../../offline/providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../reader/open_article.dart';
 import '../reader/reader_screen.dart';
 import 'article_tile.dart';
 import 'home_state.dart';
@@ -81,6 +83,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       FilterKind.forYou,
     }.contains(filter.kind);
     final style = ref.watch(listStyleProvider);
+    final twoPane = useTwoPane(context);
+    final open = twoPane ? ref.watch(openArticleProvider) : null;
 
     ref.listen(filterProvider, (_, _) {
       if (_scroll.hasClients) _scroll.jumpTo(0);
@@ -93,7 +97,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     });
 
-    return Scaffold(
+    final listPane = Scaffold(
       appBar: AppBar(
         title: GestureDetector(
           onTap: () => _scroll.hasClients
@@ -160,8 +164,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       drawer: const _SideMenu(),
       bottomNavigationBar: MiniPlayer(
-        onOpen: (a) =>
-            context.push('/article/${a.id}', extra: ReaderArgs.single(a)),
+        // Beside the list, the article being read has its own controls.
+        hideFor: open?.currentId,
+        onOpen: (a) => _openArticle(ReaderArgs.single(a), twoPane),
       ),
       body: Column(
         children: [
@@ -175,6 +180,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
+    if (!twoPane) return listPane;
+
+    // Landscape on a big screen: the list on the left, the article on the
+    // right (the way a desktop reader looks).
+    return Material(
+      color: c.bg,
+      child: LayoutBuilder(
+        builder: (context, box) => Row(
+          children: [
+            SizedBox(width: listPaneWidth(box.maxWidth), child: listPane),
+            VerticalDivider(width: 1, thickness: 1, color: c.border),
+            Expanded(
+              child: open == null
+                  ? Scaffold(
+                      appBar: AppBar(),
+                      body: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.chrome_reader_mode_outlined,
+                                size: 56,
+                                color: c.muted,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                t.selectArticle,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: c.muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : ReaderScreen(
+                      key: ValueKey(open.args),
+                      args: open.args,
+                      embedded: true,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Opens an article: in the right-hand pane beside the list, or on its own
+  /// screen.
+  void _openArticle(ReaderArgs args, bool twoPane) {
+    if (twoPane) {
+      ref.read(openArticleProvider.notifier).open(args);
+    } else {
+      context.push('/article/${args.articles[args.index].id}', extra: args);
+    }
   }
 
   /// "+3 artículos nuevos", "Sin novedades" or the plan's wait.
@@ -275,6 +337,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       );
     }
+    final twoPane = useTwoPane(context);
     final count = list.items.length + (list.done ? 0 : 1);
     Widget item(BuildContext context, int i) {
       if (i == list.items.length) {
@@ -293,31 +356,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         article: a,
         style: style,
         sourceTitle: side?.subFor(a.sourceId)?.title ?? '',
-        onOpen: () =>
-            context.push('/article/${a.id}', extra: ReaderArgs(list.items, i)),
+        selected: twoPane && ref.watch(openArticleProvider)?.currentId == a.id,
+        onOpen: () => _openArticle(ReaderArgs(list.items, i), twoPane),
         onToggleRead: () => ctrl.setRead(a, !a.isRead),
         onToggleSaved: () => ctrl.setSaved(a, !a.isSaved),
       );
     }
 
-    if (style == ListStyle.masonry) {
-      return MasonryGridView.count(
-        controller: _scroll,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(6),
-        // One column when the text is very large, so titles stay readable.
-        crossAxisCount: MediaQuery.textScalerOf(context).scale(1) > 1.6 ? 1 : 2,
-        mainAxisSpacing: 5,
-        crossAxisSpacing: 5,
-        itemCount: count,
-        itemBuilder: item,
-      );
-    }
-    return ListView.builder(
-      controller: _scroll,
-      physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: count,
-      itemBuilder: item,
+    return LayoutBuilder(
+      builder: (context, box) {
+        if (style == ListStyle.masonry) {
+          return MasonryGridView.count(
+            controller: _scroll,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(6),
+            // One column when the text is very large, so titles stay readable;
+            // more where the pane is wide.
+            crossAxisCount: MediaQuery.textScalerOf(context).scale(1) > 1.6
+                ? 1
+                : masonryColumns(box.maxWidth),
+            mainAxisSpacing: 5,
+            crossAxisSpacing: 5,
+            itemCount: count,
+            itemBuilder: item,
+          );
+        }
+        // Wide screens keep the rows to a readable width, centred.
+        final margin = ((box.maxWidth - readingWidth - 40) / 2).clamp(
+          0.0,
+          4000.0,
+        );
+        return ListView.builder(
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: margin),
+          itemCount: count,
+          itemBuilder: item,
+        );
+      },
     );
   }
 }

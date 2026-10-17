@@ -220,15 +220,21 @@ class PlayerControls extends ConsumerWidget {
 /// Below the article list while something plays (the audio keeps going
 /// while browsing); tapping it opens that article.
 class MiniPlayer extends ConsumerWidget {
-  const MiniPlayer({super.key, required this.onOpen});
+  const MiniPlayer({super.key, required this.onOpen, this.hideFor});
 
   final void Function(Article) onOpen;
+
+  /// Article id whose controls are already on screen (the open one beside
+  /// the list): nothing is shown while that one plays.
+  final String? hideFor;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final s = ref.watch(listenProvider);
-    if (!s.active || s.article == null) return const SizedBox.shrink();
+    if (!s.active || s.article == null || s.article!.id == hideFor) {
+      return const SizedBox.shrink();
+    }
     return Material(
       color: c.surface,
       child: InkWell(

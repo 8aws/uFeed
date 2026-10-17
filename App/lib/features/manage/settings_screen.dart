@@ -13,6 +13,7 @@ import '../../auth/session.dart';
 import '../../core/config.dart';
 import '../../core/dialogs.dart';
 import '../../core/prefs.dart';
+import '../../core/layout.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../../listen/listen_bar.dart';
@@ -81,101 +82,106 @@ class SettingsScreen extends ConsumerWidget {
     final staff = user.role == Role.editor || user.role == Role.admin;
     return Scaffold(
       appBar: AppBar(title: Text(t.settings)),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 40),
-        children: [
-          section(t.account, [
-            if (user.isGuest) ...[
-              ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text(t.guestTitle),
-                subtitle: Text(t.guestBody),
-                isThreeLine: true,
-              ),
-              ListTile(
-                leading: Icon(Icons.person_add_alt, color: c.accent),
-                title: Text(
-                  t.guestUpgrade,
-                  style: TextStyle(
-                    color: c.accent,
-                    fontWeight: FontWeight.w600,
-                  ),
+      body: CenteredColumn(
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 40),
+          children: [
+            section(t.account, [
+              if (user.isGuest) ...[
+                ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: Text(t.guestTitle),
+                  subtitle: Text(t.guestBody),
+                  isThreeLine: true,
                 ),
-                onTap: () => _upgrade(context, ref),
+                ListTile(
+                  leading: Icon(Icons.person_add_alt, color: c.accent),
+                  title: Text(
+                    t.guestUpgrade,
+                    style: TextStyle(
+                      color: c.accent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  onTap: () => _upgrade(context, ref),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.logout),
+                  title: Text(t.guestLeave),
+                  onTap: () => _leaveGuest(context, ref),
+                ),
+              ] else ...[
+                ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: Text(user.email),
+                  subtitle: Text('${t.plan}: ${roleName(t, user.role)}'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.key_outlined),
+                  title: Text(t.changePassword),
+                  onTap: () => _changePassword(context, ref),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.logout),
+                  title: Text(t.logout),
+                  onTap: () {
+                    context.pop();
+                    ref.read(sessionProvider.notifier).logout();
+                  },
+                ),
+              ],
+            ]),
+            if (!user.isGuest)
+              section(t.digestTitle, [_DigestSettings(user: user)]),
+            section(t.voiceSettings, [
+              ListTile(
+                leading: const Icon(Icons.record_voice_over_outlined),
+                title: Text(t.voiceSettings),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => showVoiceSheet(context),
+              ),
+              const _DisplaySettings(),
+            ]),
+            section(t.filters, const [_Filters()]),
+            section(t.feeds, [
+              ListTile(
+                leading: const Icon(Icons.upload_file),
+                title: Text(t.importOpml),
+                onTap: () => _importOpml(context, ref),
               ),
               ListTile(
-                leading: const Icon(Icons.logout),
-                title: Text(t.guestLeave),
-                onTap: () => _leaveGuest(context, ref),
-              ),
-            ] else ...[
-              ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text(user.email),
-                subtitle: Text('${t.plan}: ${roleName(t, user.role)}'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.key_outlined),
-                title: Text(t.changePassword),
-                onTap: () => _changePassword(context, ref),
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: Text(t.logout),
-                onTap: () {
-                  context.pop();
-                  ref.read(sessionProvider.notifier).logout();
-                },
-              ),
-            ],
-          ]),
-          if (!user.isGuest)
-            section(t.digestTitle, [_DigestSettings(user: user)]),
-          section(t.voiceSettings, [
-            ListTile(
-              leading: const Icon(Icons.record_voice_over_outlined),
-              title: Text(t.voiceSettings),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => showVoiceSheet(context),
-            ),
-            const _DisplaySettings(),
-          ]),
-          section(t.filters, const [_Filters()]),
-          section(t.feeds, [
-            ListTile(
-              leading: const Icon(Icons.upload_file),
-              title: Text(t.importOpml),
-              onTap: () => _importOpml(context, ref),
-            ),
-            ListTile(
-              leading: const Icon(Icons.ios_share),
-              title: Text(t.exportOpml),
-              onTap: () => _exportOpml(context, ref),
-            ),
-          ]),
-          section('uFeed', [
-            _link(context, Icons.public, t.web, '/'),
-            if (staff) _link(context, Icons.tune, t.curation, '/curation'),
-            if (user.role == Role.admin)
-              _link(
-                context,
-                Icons.admin_panel_settings_outlined,
-                t.admin,
-                '/admin',
-              ),
-            _link(context, Icons.privacy_tip_outlined, t.privacy, '/privacy'),
-            _link(context, Icons.help_outline, t.support, '/support'),
-          ]),
-          if (!user.isGuest)
-            section(t.deleteAccount, [
-              ListTile(
-                leading: Icon(Icons.delete_forever, color: c.danger),
-                title: Text(t.deleteAccount, style: TextStyle(color: c.danger)),
-                subtitle: Text(t.deleteAccountHint),
-                onTap: () => _deleteAccount(context, ref),
+                leading: const Icon(Icons.ios_share),
+                title: Text(t.exportOpml),
+                onTap: () => _exportOpml(context, ref),
               ),
             ]),
-        ],
+            section('uFeed', [
+              _link(context, Icons.public, t.web, '/'),
+              if (staff) _link(context, Icons.tune, t.curation, '/curation'),
+              if (user.role == Role.admin)
+                _link(
+                  context,
+                  Icons.admin_panel_settings_outlined,
+                  t.admin,
+                  '/admin',
+                ),
+              _link(context, Icons.privacy_tip_outlined, t.privacy, '/privacy'),
+              _link(context, Icons.help_outline, t.support, '/support'),
+            ]),
+            if (!user.isGuest)
+              section(t.deleteAccount, [
+                ListTile(
+                  leading: Icon(Icons.delete_forever, color: c.danger),
+                  title: Text(
+                    t.deleteAccount,
+                    style: TextStyle(color: c.danger),
+                  ),
+                  subtitle: Text(t.deleteAccountHint),
+                  onTap: () => _deleteAccount(context, ref),
+                ),
+              ]),
+          ],
+        ),
       ),
     );
   }

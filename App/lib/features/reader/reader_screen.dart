@@ -13,6 +13,7 @@ import '../../offline/outbox.dart';
 import '../../offline/providers.dart';
 import 'article_html.dart';
 import 'article_page.dart';
+import 'open_article.dart';
 
 /// What the reader opens: a list and where in it (swipe for the others).
 class ReaderArgs {
@@ -29,9 +30,13 @@ enum _More { read, full, translate, original, text }
 /// The reader: one page per article of the list it was opened from (swipe
 /// sideways for the next/previous), the toolbar and the listen bar.
 class ReaderScreen extends ConsumerStatefulWidget {
-  const ReaderScreen({super.key, required this.args});
+  const ReaderScreen({super.key, required this.args, this.embedded = false});
 
   final ReaderArgs args;
+
+  /// In the right-hand pane beside the list (no back button; the list
+  /// highlights the article showing).
+  final bool embedded;
 
   @override
   ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
@@ -54,7 +59,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       if (!mounted) return;
       setState(() => _markRead(_index));
       _autoRead();
+      _follow();
     });
+  }
+
+  void _follow() {
+    if (widget.embedded) {
+      ref.read(openArticleProvider.notifier).follow(_current.id);
+    }
   }
 
   String _sourceOf(Article a) =>
@@ -121,6 +133,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   /// A similar article: opened on its own, on top of this one.
   void _openOther(Article a) {
+    if (widget.embedded) {
+      ref.read(openArticleProvider.notifier).open(ReaderArgs.single(a));
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ReaderScreen(args: ReaderArgs.single(a)),
@@ -242,8 +258,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final side = ref.watch(sidebarProvider).value;
     final hasUrl = safeUri(a.url) != null;
 
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: !widget.embedded,
         actions: [
           IconButton(
             tooltip: a.isSaved ? t.unsave : t.save,
@@ -302,6 +319,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           _markRead(i);
           setState(() => _index = i);
           _autoRead();
+          _follow();
         },
         itemBuilder: (context, i) => ArticlePage(
           key: ValueKey(_articles[i].id),
@@ -330,6 +348,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         ),
       ),
     );
+    // Beside the list it has its own toasts, apart from the list's.
+    return widget.embedded ? ScaffoldMessenger(child: scaffold) : scaffold;
   }
 
   PopupMenuItem<_More> _item(_More value, IconData icon, String label) =>

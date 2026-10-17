@@ -8,6 +8,7 @@ import '../../api/api_client.dart';
 import '../../api/models.dart';
 import '../../auth/session.dart';
 import '../../core/dialogs.dart';
+import '../../core/layout.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../home/home_state.dart';
@@ -182,132 +183,136 @@ class _AddFeedScreenState extends ConsumerState<AddFeedScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(t.addFeed)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        children: [
-          TextField(
-            controller: _url,
-            keyboardType: TextInputType.url,
-            autocorrect: false,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => _discover(),
-            decoration: InputDecoration(
-              hintText: t.addFeedPlaceholder,
-              border: const OutlineInputBorder(),
-              suffixIcon: _searching
-                  ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : IconButton(
-                      tooltip: t.discover,
-                      icon: const Icon(Icons.search),
-                      onPressed: _discover,
-                    ),
-            ),
-          ),
-          if (side != null && side.folders.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String?>(
-              initialValue: _folderId,
+      body: CenteredColumn(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          children: [
+            TextField(
+              controller: _url,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _discover(),
               decoration: InputDecoration(
-                labelText: t.folders,
+                hintText: t.addFeedPlaceholder,
                 border: const OutlineInputBorder(),
-                isDense: true,
+                suffixIcon: _searching
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : IconButton(
+                        tooltip: t.discover,
+                        icon: const Icon(Icons.search),
+                        onPressed: _discover,
+                      ),
               ),
-              items: [
-                DropdownMenuItem(value: null, child: Text(t.noFolder)),
-                for (final f in side.folders)
-                  DropdownMenuItem(value: f.id, child: Text(f.name)),
+            ),
+            if (side != null && side.folders.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String?>(
+                initialValue: _folderId,
+                decoration: InputDecoration(
+                  labelText: t.folders,
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(t.noFolder)),
+                  for (final f in side.folders)
+                    DropdownMenuItem(value: f.id, child: Text(f.name)),
+                ],
+                onChanged: (v) => setState(() => _folderId = v),
+              ),
+            ],
+            if (_msg != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(_msg!, style: TextStyle(color: c.muted)),
+              ),
+            for (final f in _found ?? const <DiscoveredFeed>[])
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.rss_feed),
+                title: Text(f.title ?? f.feedUrl),
+                subtitle: Text(
+                  f.feedUrl,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: subsByUrl.containsKey(feedKey(f.feedUrl))
+                    ? Text(t.subscribed, style: TextStyle(color: c.muted))
+                    : FilledButton(
+                        onPressed: _busy.contains(feedKey(f.feedUrl))
+                            ? null
+                            : () => _subscribe(
+                                f.feedUrl,
+                                folderId: _folderId,
+                              ).catchError((_) => null),
+                        child: Text(t.subscribe),
+                      ),
+              ),
+            const SizedBox(height: 24),
+            Text(
+              t.starterSources,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(value: 'all', label: Text(t.allLangs)),
+                ButtonSegment(value: 'es', label: Text('🇪🇸 ${t.langEs}')),
+                ButtonSegment(value: 'en', label: Text('🇬🇧 ${t.langEn}')),
               ],
-              onChanged: (v) => setState(() => _folderId = v),
+              selected: {_lang},
+              onSelectionChanged: (v) => setState(() => _lang = v.first),
+            ),
+            ...catalog.when(
+              loading: () => [
+                const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ],
+              error: (_, _) => const [],
+              data: (sections) => [
+                for (final s in sections) ...[
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          s.name(lang),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => _addAll(
+                          s,
+                          subsByUrl.keys.toSet(),
+                        ).catchError((_) {}),
+                        child: Text('+ ${t.catalogAddAll}'),
+                      ),
+                    ],
+                  ),
+                  for (final f in _visible(s))
+                    _CatalogRow(
+                      feed: f,
+                      sub: subsByUrl[feedKey(f.url)],
+                      busy: _busy.contains(feedKey(f.url)),
+                      onAdd: () => _addFromCatalog(s, f).catchError((_) {}),
+                      onRemove: _remove,
+                    ),
+                ],
+              ],
             ),
           ],
-          if (_msg != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(_msg!, style: TextStyle(color: c.muted)),
-            ),
-          for (final f in _found ?? const <DiscoveredFeed>[])
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.rss_feed),
-              title: Text(f.title ?? f.feedUrl),
-              subtitle: Text(
-                f.feedUrl,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: subsByUrl.containsKey(feedKey(f.feedUrl))
-                  ? Text(t.subscribed, style: TextStyle(color: c.muted))
-                  : FilledButton(
-                      onPressed: _busy.contains(feedKey(f.feedUrl))
-                          ? null
-                          : () => _subscribe(
-                              f.feedUrl,
-                              folderId: _folderId,
-                            ).catchError((_) => null),
-                      child: Text(t.subscribe),
-                    ),
-            ),
-          const SizedBox(height: 24),
-          Text(
-            t.starterSources,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          SegmentedButton<String>(
-            showSelectedIcon: false,
-            segments: [
-              ButtonSegment(value: 'all', label: Text(t.allLangs)),
-              ButtonSegment(value: 'es', label: Text('🇪🇸 ${t.langEs}')),
-              ButtonSegment(value: 'en', label: Text('🇬🇧 ${t.langEn}')),
-            ],
-            selected: {_lang},
-            onSelectionChanged: (v) => setState(() => _lang = v.first),
-          ),
-          ...catalog.when(
-            loading: () => [
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            ],
-            error: (_, _) => const [],
-            data: (sections) => [
-              for (final s in sections) ...[
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        s.name(lang),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () =>
-                          _addAll(s, subsByUrl.keys.toSet()).catchError((_) {}),
-                      child: Text('+ ${t.catalogAddAll}'),
-                    ),
-                  ],
-                ),
-                for (final f in _visible(s))
-                  _CatalogRow(
-                    feed: f,
-                    sub: subsByUrl[feedKey(f.url)],
-                    busy: _busy.contains(feedKey(f.url)),
-                    onAdd: () => _addFromCatalog(s, f).catchError((_) {}),
-                    onRemove: _remove,
-                  ),
-              ],
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }

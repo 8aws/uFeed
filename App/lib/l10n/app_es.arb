@@ -311,5 +311,6 @@
   "guestNeedsAccount": "Crea una cuenta para usar esta función.",
   "planLimitFeedsGuest": "Has llegado al límite de fuentes sin cuenta. Crea una cuenta para añadir más.",
   "accountCreated": "Cuenta creada",
-  "emailTaken": "Ese correo ya tiene una cuenta. Inicia sesión con él desde la pantalla de acceso."
+  "emailTaken": "Ese correo ya tiene una cuenta. Inicia sesión con él desde la pantalla de acceso.",
+  "selectArticle": "Elige un artículo de la lista"
 }

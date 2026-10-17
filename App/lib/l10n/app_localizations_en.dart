@@ -733,4 +733,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get emailTaken =>
       'That email already has an account. Sign in with it from the sign-in screen.';
+
+  @override
+  String get selectArticle => 'Pick an article from the list';
 }

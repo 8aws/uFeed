@@ -80,6 +80,7 @@ class ArticleTile extends StatelessWidget {
     required this.onToggleSaved,
     this.style = ListStyle.cardList,
     this.note,
+    this.selected = false,
   });
 
   final Article article;
@@ -88,6 +89,9 @@ class ArticleTile extends StatelessWidget {
   final VoidCallback onToggleRead;
   final VoidCallback onToggleSaved;
   final ListStyle style;
+
+  /// The article open beside the list (two-pane layout).
+  final bool selected;
 
   /// Extra text for the meta line (e.g. "12 lectores" in Trending).
   final String? note;
@@ -158,7 +162,7 @@ class ArticleTile extends StatelessWidget {
           _gold,
         ),
         child: Material(
-          color: c.surface,
+          color: selected ? c.accentSoft : c.surface,
           borderRadius: grid ? BorderRadius.circular(10) : null,
           clipBehavior: grid ? Clip.antiAlias : Clip.none,
           child: InkWell(

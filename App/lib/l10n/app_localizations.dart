@@ -1405,6 +1405,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Ese correo ya tiene una cuenta. Inicia sesión con él desde la pantalla de acceso.'**
   String get emailTaken;
+
+  /// No description provided for @selectArticle.
+  ///
+  /// In es, this message translates to:
+  /// **'Elige un artículo de la lista'**
+  String get selectArticle;
 }
 
 class _AppLocalizationsDelegate

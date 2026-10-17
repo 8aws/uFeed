@@ -737,4 +737,7 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get emailTaken =>
       'Ese correo ya tiene una cuenta. Inicia sesión con él desde la pantalla de acceso.';
+
+  @override
+  String get selectArticle => 'Elige un artículo de la lista';
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/layout.dart';
 import '../../core/net_image.dart';
 import '../../api/api_client.dart';
 import '../../api/models.dart';
@@ -285,94 +286,102 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
         t.readingMinutes((a.wordCount! / 220).ceil()),
     ].where((s) => s.isNotEmpty).join(' · ');
 
-    return ListView(
-      controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-          ),
-        ),
-        // The summary's title in your language, unless it's already the title.
-        if (_summary?.title != null &&
-            _summary!.title!.trim().toLowerCase() !=
-                title.trim().toLowerCase()) ...[
-          const SizedBox(height: 4),
-          Text('🌐 ${_summary!.title!}', style: TextStyle(color: c.muted)),
-        ],
-        const SizedBox(height: 8),
-        Text(meta, style: TextStyle(color: c.muted, fontSize: 13)),
-        const SizedBox(height: 14),
-        _summaryCard(t, c),
-        if (_trMsg != null) _note(_trMsg!, c),
-        if (_trBusy) _note('⏳ ${t.translating}', c),
-        if (showTr) ...[
-          _note('🌐 ${t.machineTranslation}', c),
-          for (final p in _translation!.paragraphs!)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Text(p, style: body),
-            ),
-        ] else ...[
-          if (_fullBusy) _note('⏳ ${t.fullLoading}', c),
-          if (_fullMsg != null) _note(_fullMsg!, c),
-          if (showFull) _note('📰 ${t.fullNote}', c),
-          ArticleHtml(
-            key: ValueKey(showFull),
-            html: (showFull ? _fullHtml : a.contentHtml ?? a.summary) ?? '',
-            baseUrl: safeUri(a.url),
-            textStyle: body,
-          ),
-        ],
-        if (_similar.isNotEmpty) ...[
-          const SizedBox(height: 28),
-          Text(
-            '✨ ${t.similar}',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          for (final s in _similar)
-            InkWell(
-              onTap: () => widget.onOpenArticle(s),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    if (s.imageUrl != null) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: NetImage(s.imageUrl!, width: 56, height: 56),
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            s.title ?? '',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            side?.subFor(s.sourceId)?.title ?? '',
-                            style: TextStyle(color: c.muted, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+    // Wide panes keep the text to a comfortable line length, centred.
+    return LayoutBuilder(
+      builder: (context, box) {
+        final inset = ((box.maxWidth - readingWidth) / 2).clamp(20.0, 4000.0);
+        return ListView(
+          controller: _scroll,
+          padding: EdgeInsets.fromLTRB(inset, 12, inset, 40),
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                height: 1.2,
               ),
             ),
-        ],
-      ],
+            // The summary's title in your language, unless it's already the title.
+            if (_summary?.title != null &&
+                _summary!.title!.trim().toLowerCase() !=
+                    title.trim().toLowerCase()) ...[
+              const SizedBox(height: 4),
+              Text('🌐 ${_summary!.title!}', style: TextStyle(color: c.muted)),
+            ],
+            const SizedBox(height: 8),
+            Text(meta, style: TextStyle(color: c.muted, fontSize: 13)),
+            const SizedBox(height: 14),
+            _summaryCard(t, c),
+            if (_trMsg != null) _note(_trMsg!, c),
+            if (_trBusy) _note('⏳ ${t.translating}', c),
+            if (showTr) ...[
+              _note('🌐 ${t.machineTranslation}', c),
+              for (final p in _translation!.paragraphs!)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Text(p, style: body),
+                ),
+            ] else ...[
+              if (_fullBusy) _note('⏳ ${t.fullLoading}', c),
+              if (_fullMsg != null) _note(_fullMsg!, c),
+              if (showFull) _note('📰 ${t.fullNote}', c),
+              ArticleHtml(
+                key: ValueKey(showFull),
+                html: (showFull ? _fullHtml : a.contentHtml ?? a.summary) ?? '',
+                baseUrl: safeUri(a.url),
+                textStyle: body,
+              ),
+            ],
+            if (_similar.isNotEmpty) ...[
+              const SizedBox(height: 28),
+              Text(
+                '✨ ${t.similar}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              for (final s in _similar)
+                InkWell(
+                  onTap: () => widget.onOpenArticle(s),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        if (s.imageUrl != null) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: NetImage(s.imageUrl!, width: 56, height: 56),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                s.title ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                side?.subFor(s.sourceId)?.title ?? '',
+                                style: TextStyle(color: c.muted, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ],
+        );
+      },
     );
   }
 
