@@ -6,6 +6,8 @@ typedef Json = Map<String, dynamic>;
 DateTime? _date(Object? v) => v is String ? DateTime.tryParse(v) : null;
 
 enum Role {
+  /// "Continue without an account".
+  guest,
   free,
   general,
   vip,
@@ -36,6 +38,7 @@ class User {
     required this.locale,
     required this.role,
     required this.mustChangePassword,
+    this.isGuest = false,
     this.digestHour,
     this.digestDays = 127,
   });
@@ -46,6 +49,9 @@ class User {
   final String locale;
   final Role role;
   final bool mustChangePassword;
+
+  /// Using the app without an account (no real email or password yet).
+  final bool isGuest;
 
   /// Daily digest email: hour (Europe/Madrid) or null when off.
   final int? digestHour;
@@ -61,6 +67,7 @@ class User {
     'locale': locale,
     'role': role.name,
     'must_change_password': mustChangePassword,
+    'is_guest': isGuest,
     'digest_hour': digestHour,
     'digest_days': digestDays,
   };
@@ -72,6 +79,7 @@ class User {
     locale: j['locale'] as String? ?? 'es',
     role: Role.parse(j['role']),
     mustChangePassword: j['must_change_password'] as bool? ?? false,
+    isGuest: j['is_guest'] as bool? ?? false,
     digestHour: j['digest_hour'] as int?,
     digestDays: j['digest_days'] as int? ?? 127,
   );
@@ -327,15 +335,20 @@ class SiteConfig {
   const SiteConfig({
     required this.registrationOpen,
     required this.contactEmail,
+    this.guestAccess = true,
     this.planLimits = const {},
   });
 
   final bool registrationOpen;
+
+  /// "Continue without an account" is offered.
+  final bool guestAccess;
   final String? contactEmail;
   final Map<Role, PlanLimits> planLimits;
 
   factory SiteConfig.fromJson(Json j) => SiteConfig(
     registrationOpen: j['registration_open'] as bool? ?? false,
+    guestAccess: j['guest_access'] as bool? ?? true,
     contactEmail: j['contact_email'] as String?,
     planLimits: {
       for (final e in ((j['plan_limits'] as Map?) ?? const {}).entries)

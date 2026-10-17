@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 
@@ -9,6 +10,7 @@ import '../api/token_store.dart';
 import '../core/config.dart';
 import '../core/prefs.dart';
 import '../offline/providers.dart';
+import 'starter_feeds.dart';
 
 /// The app language sent to the server: the device's if we have it, else English.
 String deviceLocale() {
@@ -71,6 +73,20 @@ class Session extends AsyncNotifier<User?> {
 
   Future<void> register(String email, String password) async {
     await _tokens.save(await _api.register(email, password));
+    state = AsyncData(await _fetchMe());
+  }
+
+  /// "Continue without an account": a guest account with a few feeds to start.
+  Future<void> continueAsGuest() async {
+    await _tokens.save(await _api.guest());
+    final me = await _fetchMe();
+    state = AsyncData(me);
+    unawaited(subscribeStarterFeeds(ref, me.locale));
+  }
+
+  /// A guest registers; feeds and saved articles stay.
+  Future<void> upgrade(String email, String password) async {
+    await _tokens.save(await _api.upgrade(email, password));
     state = AsyncData(await _fetchMe());
   }
 

@@ -27,11 +27,15 @@ String accountError(AppLocalizations t, ApiException e) => switch (e.code) {
   'wrong_password' => t.wrongPassword,
   'demo_account' => t.demoAccount,
   'last_admin' => t.lastAdmin,
+  'guest_account' => t.guestNeedsAccount,
+  'email_taken' => t.emailTaken,
+  'registration_closed' => t.registrationClosed,
   'rate_limited' => t.tryLater,
   _ => t.somethingFailed,
 };
 
 String roleName(AppLocalizations t, Role r) => switch (r) {
+  Role.guest => t.roleGuest,
   Role.free => t.roleFree,
   Role.general => t.roleGeneral,
   Role.vip => t.roleVip,
@@ -81,26 +85,52 @@ class SettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 40),
         children: [
           section(t.account, [
-            ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: Text(user.email),
-              subtitle: Text('${t.plan}: ${roleName(t, user.role)}'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.key_outlined),
-              title: Text(t.changePassword),
-              onTap: () => _changePassword(context, ref),
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: Text(t.logout),
-              onTap: () {
-                context.pop();
-                ref.read(sessionProvider.notifier).logout();
-              },
-            ),
+            if (user.isGuest) ...[
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text(t.guestTitle),
+                subtitle: Text(t.guestBody),
+                isThreeLine: true,
+              ),
+              ListTile(
+                leading: Icon(Icons.person_add_alt, color: c.accent),
+                title: Text(
+                  t.guestUpgrade,
+                  style: TextStyle(
+                    color: c.accent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onTap: () => _upgrade(context, ref),
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: Text(t.guestLeave),
+                onTap: () => _leaveGuest(context, ref),
+              ),
+            ] else ...[
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text(user.email),
+                subtitle: Text('${t.plan}: ${roleName(t, user.role)}'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.key_outlined),
+                title: Text(t.changePassword),
+                onTap: () => _changePassword(context, ref),
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: Text(t.logout),
+                onTap: () {
+                  context.pop();
+                  ref.read(sessionProvider.notifier).logout();
+                },
+              ),
+            ],
           ]),
-          section(t.digestTitle, [_DigestSettings(user: user)]),
+          if (!user.isGuest)
+            section(t.digestTitle, [_DigestSettings(user: user)]),
           section(t.voiceSettings, [
             ListTile(
               leading: const Icon(Icons.record_voice_over_outlined),
@@ -136,14 +166,15 @@ class SettingsScreen extends ConsumerWidget {
             _link(context, Icons.privacy_tip_outlined, t.privacy, '/privacy'),
             _link(context, Icons.help_outline, t.support, '/support'),
           ]),
-          section(t.deleteAccount, [
-            ListTile(
-              leading: Icon(Icons.delete_forever, color: c.danger),
-              title: Text(t.deleteAccount, style: TextStyle(color: c.danger)),
-              subtitle: Text(t.deleteAccountHint),
-              onTap: () => _deleteAccount(context, ref),
-            ),
-          ]),
+          if (!user.isGuest)
+            section(t.deleteAccount, [
+              ListTile(
+                leading: Icon(Icons.delete_forever, color: c.danger),
+                title: Text(t.deleteAccount, style: TextStyle(color: c.danger)),
+                subtitle: Text(t.deleteAccountHint),
+                onTap: () => _deleteAccount(context, ref),
+              ),
+            ]),
         ],
       ),
     );
@@ -244,6 +275,112 @@ class SettingsScreen extends ConsumerWidget {
     again.dispose();
   }
 
+  /// A guest registers: email and password, and the feeds stay.
+  Future<void> _upgrade(BuildContext context, WidgetRef ref) async {
+    final t = AppLocalizations.of(context);
+    final email = TextEditingController();
+    final password = TextEditingController();
+    String? error;
+    var busy = false;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          Future<void> save() async {
+            final mail = email.text.trim();
+            if (!mail.contains('@')) return setState(() => error = t.email);
+            if (password.text.length < 8) {
+              return setState(() => error = t.passwordTooShort);
+            }
+            setState(() {
+              busy = true;
+              error = null;
+            });
+            try {
+              await ref
+                  .read(sessionProvider.notifier)
+                  .upgrade(mail, password.text);
+              if (context.mounted) {
+                Navigator.of(context).pop();
+                toast(context, t.accountCreated);
+              }
+            } on ApiException catch (e) {
+              setState(() {
+                busy = false;
+                error = e.isUnreachable
+                    ? t.serverUnavailable
+                    : accountError(t, e);
+              });
+            }
+          }
+
+          return AlertDialog(
+            title: Text(t.guestUpgrade),
+            content: AutofillGroup(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: email,
+                    keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    autofillHints: const [AutofillHints.email],
+                    decoration: InputDecoration(labelText: t.email),
+                  ),
+                  TextField(
+                    controller: password,
+                    obscureText: true,
+                    autofillHints: const [AutofillHints.newPassword],
+                    decoration: InputDecoration(labelText: t.password),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(t.cancel),
+              ),
+              FilledButton(
+                onPressed: busy ? null : save,
+                child: Text(t.register),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    email.dispose();
+    password.dispose();
+  }
+
+  /// A guest has no way back in, so leaving deletes the guest profile.
+  Future<void> _leaveGuest(BuildContext context, WidgetRef ref) async {
+    final t = AppLocalizations.of(context);
+    final ok = await confirm(
+      context,
+      message: t.guestLeaveHint,
+      action: t.guestLeave,
+    );
+    if (!ok) return;
+    try {
+      await ref.read(apiProvider).deleteAccount();
+      if (context.mounted) context.pop();
+      await ref.read(sessionProvider.notifier).logout();
+    } on ApiException catch (e) {
+      if (context.mounted) toast(context, accountError(t, e));
+    }
+  }
+
   /// Required by the App Store: delete the account from inside the app.
   Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
     final t = AppLocalizations.of(context);
@@ -289,7 +426,9 @@ class SettingsScreen extends ConsumerWidget {
         toast(
           context,
           e.code.startsWith('plan_limit')
-              ? t.planLimitFeeds
+              ? (ref.read(sessionProvider).value?.isGuest ?? false
+                    ? t.planLimitFeedsGuest
+                    : t.planLimitFeeds)
               : t.somethingFailed,
         );
       }

@@ -189,6 +189,27 @@ class ApiClient {
     return Tokens.fromJson(data['tokens'] as Json);
   }
 
+  /// Use the app without registering: an account with no personal data.
+  Future<Tokens> guest() async {
+    final data = await _json(
+      'POST',
+      '/auth/guest',
+      body: {'locale': locale()},
+      auth: false,
+    );
+    return Tokens.fromJson(data['tokens'] as Json);
+  }
+
+  /// A guest registers: same feeds and saved articles, now with credentials.
+  Future<Tokens> upgrade(String email, String password) async {
+    final data = await _json(
+      'POST',
+      '/auth/upgrade',
+      body: {'email': email, 'password': password},
+    );
+    return Tokens.fromJson(data['tokens'] as Json);
+  }
+
   Future<void> forgotPassword(String email) =>
       _request('POST', '/auth/forgot', body: {'email': email}, auth: false);
 
@@ -310,8 +331,8 @@ class ApiClient {
         ),
       );
 
-  /// Deletes the account and all its data.
-  Future<void> deleteAccount(String password) =>
+  /// Deletes the account and all its data (a guest has no password).
+  Future<void> deleteAccount([String password = '']) =>
       _request('POST', '/me/delete', body: {'password': password});
 
   // articles

@@ -696,4 +696,45 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get refresh => 'Actualizar';
+
+  @override
+  String get roleGuest => 'Invitado';
+
+  @override
+  String get continueWithoutAccount => 'Continuar sin cuenta';
+
+  @override
+  String get guestIntro =>
+      'Lee y organiza tus fuentes sin registrarte. Cuando quieras la IA, la voz del servidor o usar tus datos en otros dispositivos, crea una cuenta.';
+
+  @override
+  String get guestTitle => 'Estás usando uFeed sin cuenta';
+
+  @override
+  String get guestBody =>
+      'Tus fuentes y guardados están solo en este perfil de invitado. Crea una cuenta para conservarlos, usarlos en otros dispositivos y activar la IA y la voz del servidor.';
+
+  @override
+  String get guestUpgrade => 'Crear cuenta con mis datos';
+
+  @override
+  String get guestLeave => 'Salir y borrar mis datos';
+
+  @override
+  String get guestLeaveHint =>
+      'Se borrarán las fuentes y guardados de este perfil de invitado. No se puede deshacer.';
+
+  @override
+  String get guestNeedsAccount => 'Crea una cuenta para usar esta función.';
+
+  @override
+  String get planLimitFeedsGuest =>
+      'Has llegado al límite de fuentes sin cuenta. Crea una cuenta para añadir más.';
+
+  @override
+  String get accountCreated => 'Cuenta creada';
+
+  @override
+  String get emailTaken =>
+      'Ese correo ya tiene una cuenta. Inicia sesión con él desde la pantalla de acceso.';
 }

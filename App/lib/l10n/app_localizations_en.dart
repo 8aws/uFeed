@@ -692,4 +692,45 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get refresh => 'Refresh';
+
+  @override
+  String get roleGuest => 'Guest';
+
+  @override
+  String get continueWithoutAccount => 'Continue without an account';
+
+  @override
+  String get guestIntro =>
+      'Read and organise your feeds without signing up. Create an account whenever you want AI, the server voice or your data on other devices.';
+
+  @override
+  String get guestTitle => 'You\'re using uFeed without an account';
+
+  @override
+  String get guestBody =>
+      'Your feeds and saved articles live only in this guest profile. Create an account to keep them, use them on other devices and turn on AI and the server voice.';
+
+  @override
+  String get guestUpgrade => 'Create an account with my data';
+
+  @override
+  String get guestLeave => 'Leave and delete my data';
+
+  @override
+  String get guestLeaveHint =>
+      'The feeds and saved articles of this guest profile will be deleted. This cannot be undone.';
+
+  @override
+  String get guestNeedsAccount => 'Create an account to use this feature.';
+
+  @override
+  String get planLimitFeedsGuest =>
+      'You\'ve reached the feed limit without an account. Create an account to add more.';
+
+  @override
+  String get accountCreated => 'Account created';
+
+  @override
+  String get emailTaken =>
+      'That email already has an account. Sign in with it from the sign-in screen.';
 }

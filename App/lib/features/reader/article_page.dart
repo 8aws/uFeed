@@ -247,7 +247,10 @@ class _ArticlePageState extends ConsumerState<ArticlePage> {
       setState(
         () => _summaryMsg = switch (e.code) {
           'rate_limited' => t.aiRate,
-          'plan_limit_ai' => t.planLimitAi,
+          'plan_limit_ai' =>
+            ref.read(sessionProvider).value?.isGuest ?? false
+                ? t.guestNeedsAccount
+                : t.planLimitAi,
           'plan_limit_ai_daily' => t.aiDailyLimit,
           _ => t.aiUnavailable,
         },

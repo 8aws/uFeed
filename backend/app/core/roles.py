@@ -35,7 +35,7 @@ DEFAULT_PLAN_LIMITS: dict[str, dict[str, Any]] = {
         "radio_max_posts": 5,
         "radio_max_minutes": 10,
         "ai_summaries_per_day": 0,
-        "ai_priority": 3,
+        "ai_priority": 2,
     },
     "free": {
         "refresh_cooldown_s": 600,

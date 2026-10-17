@@ -500,7 +500,10 @@ class _SideMenu extends ConsumerWidget {
               title: Text(t.settings),
               subtitle: user == null
                   ? null
-                  : Text(user.email, overflow: TextOverflow.ellipsis),
+                  : Text(
+                      user.isGuest ? t.roleGuest : user.email,
+                      overflow: TextOverflow.ellipsis,
+                    ),
               onTap: () {
                 Navigator.of(context).pop();
                 context.push('/settings');

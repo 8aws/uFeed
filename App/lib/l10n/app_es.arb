@@ -299,5 +299,17 @@
   "folderNowEmpty": "La carpeta «{name}» se ha quedado vacía. ¿Quieres borrarla? También puedes dejarla para fuentes que añadas más adelante.",
   "keepFolder": "Mantener",
   "@folderNowEmpty": {"placeholders": {"name": {"type": "String"}}},
-  "refresh": "Actualizar"
+  "refresh": "Actualizar",
+  "roleGuest": "Invitado",
+  "continueWithoutAccount": "Continuar sin cuenta",
+  "guestIntro": "Lee y organiza tus fuentes sin registrarte. Cuando quieras la IA, la voz del servidor o usar tus datos en otros dispositivos, crea una cuenta.",
+  "guestTitle": "Estás usando uFeed sin cuenta",
+  "guestBody": "Tus fuentes y guardados están solo en este perfil de invitado. Crea una cuenta para conservarlos, usarlos en otros dispositivos y activar la IA y la voz del servidor.",
+  "guestUpgrade": "Crear cuenta con mis datos",
+  "guestLeave": "Salir y borrar mis datos",
+  "guestLeaveHint": "Se borrarán las fuentes y guardados de este perfil de invitado. No se puede deshacer.",
+  "guestNeedsAccount": "Crea una cuenta para usar esta función.",
+  "planLimitFeedsGuest": "Has llegado al límite de fuentes sin cuenta. Crea una cuenta para añadir más.",
+  "accountCreated": "Cuenta creada",
+  "emailTaken": "Ese correo ya tiene una cuenta. Inicia sesión con él desde la pantalla de acceso."
 }

@@ -23,13 +23,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   _Mode _mode = _Mode.login;
   bool _busy = false;
   bool _registrationOpen = false;
+  bool _guestAccess = true;
   String? _error;
   String? _notice;
 
   /// Whether sign-up is open; asked again until the server answers.
   late final _site = AutoRetry(() async {
     final s = await ref.read(apiProvider).site();
-    if (mounted) setState(() => _registrationOpen = s.registrationOpen);
+    if (mounted) {
+      setState(() {
+        _registrationOpen = s.registrationOpen;
+        _guestAccess = s.guestAccess;
+      });
+    }
     return true;
   });
 
@@ -90,6 +96,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _ when e.code == 'registration_closed' => t.registrationClosed,
           _ when _mode == _Mode.register => t.registerFailed,
           _ => t.loginFailed,
+        };
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// No registration: a guest profile with a few feeds to start.
+  Future<void> _guest() async {
+    final t = AppLocalizations.of(context);
+    setState(() {
+      _busy = true;
+      _error = null;
+      _notice = null;
+    });
+    try {
+      await ref.read(sessionProvider.notifier).continueAsGuest();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = switch (e) {
+          _ when e.isUnreachable => t.serverUnavailable,
+          _ when e.status == 429 || e.status == 503 => t.tryLater,
+          _ => t.somethingFailed,
         };
       });
     } finally {
@@ -219,6 +249,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           onPressed: () => _switch(_Mode.register),
                           child: Text('${t.needAccount} ${t.register}'),
                         ),
+                      if (_guestAccess) ...[
+                        const Divider(height: 28),
+                        OutlinedButton(
+                          onPressed: _busy ? null : _guest,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(t.continueWithoutAccount),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          t.guestIntro,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: c.muted, fontSize: 12.5),
+                        ),
+                      ],
                     ] else
                       TextButton(
                         onPressed: () => _switch(_Mode.login),

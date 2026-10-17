@@ -1333,6 +1333,78 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Actualizar'**
   String get refresh;
+
+  /// No description provided for @roleGuest.
+  ///
+  /// In es, this message translates to:
+  /// **'Invitado'**
+  String get roleGuest;
+
+  /// No description provided for @continueWithoutAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Continuar sin cuenta'**
+  String get continueWithoutAccount;
+
+  /// No description provided for @guestIntro.
+  ///
+  /// In es, this message translates to:
+  /// **'Lee y organiza tus fuentes sin registrarte. Cuando quieras la IA, la voz del servidor o usar tus datos en otros dispositivos, crea una cuenta.'**
+  String get guestIntro;
+
+  /// No description provided for @guestTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Estás usando uFeed sin cuenta'**
+  String get guestTitle;
+
+  /// No description provided for @guestBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Tus fuentes y guardados están solo en este perfil de invitado. Crea una cuenta para conservarlos, usarlos en otros dispositivos y activar la IA y la voz del servidor.'**
+  String get guestBody;
+
+  /// No description provided for @guestUpgrade.
+  ///
+  /// In es, this message translates to:
+  /// **'Crear cuenta con mis datos'**
+  String get guestUpgrade;
+
+  /// No description provided for @guestLeave.
+  ///
+  /// In es, this message translates to:
+  /// **'Salir y borrar mis datos'**
+  String get guestLeave;
+
+  /// No description provided for @guestLeaveHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Se borrarán las fuentes y guardados de este perfil de invitado. No se puede deshacer.'**
+  String get guestLeaveHint;
+
+  /// No description provided for @guestNeedsAccount.
+  ///
+  /// In es, this message translates to:
+  /// **'Crea una cuenta para usar esta función.'**
+  String get guestNeedsAccount;
+
+  /// No description provided for @planLimitFeedsGuest.
+  ///
+  /// In es, this message translates to:
+  /// **'Has llegado al límite de fuentes sin cuenta. Crea una cuenta para añadir más.'**
+  String get planLimitFeedsGuest;
+
+  /// No description provided for @accountCreated.
+  ///
+  /// In es, this message translates to:
+  /// **'Cuenta creada'**
+  String get accountCreated;
+
+  /// No description provided for @emailTaken.
+  ///
+  /// In es, this message translates to:
+  /// **'Ese correo ya tiene una cuenta. Inicia sesión con él desde la pantalla de acceso.'**
+  String get emailTaken;
 }
 
 class _AppLocalizationsDelegate

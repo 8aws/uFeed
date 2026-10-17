@@ -61,7 +61,11 @@ class _AddFeedScreenState extends ConsumerState<AddFeedScreen> {
   }
 
   String _error(AppLocalizations t, ApiException e) =>
-      e.code.startsWith('plan_limit') ? t.planLimitFeeds : t.somethingFailed;
+      e.code.startsWith('plan_limit')
+      ? (ref.read(sessionProvider).value?.isGuest ?? false
+            ? t.planLimitFeedsGuest
+            : t.planLimitFeeds)
+      : t.somethingFailed;
 
   Future<void> _discover() async {
     final t = AppLocalizations.of(context);

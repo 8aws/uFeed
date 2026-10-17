@@ -298,5 +298,17 @@
   "serverUnavailable": "The server isn't responding right now. Try again in a while.",
   "folderNowEmpty": "The folder “{name}” is now empty. Delete it? You can also keep it for feeds you add later.",
   "keepFolder": "Keep",
-  "refresh": "Refresh"
+  "refresh": "Refresh",
+  "roleGuest": "Guest",
+  "continueWithoutAccount": "Continue without an account",
+  "guestIntro": "Read and organise your feeds without signing up. Create an account whenever you want AI, the server voice or your data on other devices.",
+  "guestTitle": "You're using uFeed without an account",
+  "guestBody": "Your feeds and saved articles live only in this guest profile. Create an account to keep them, use them on other devices and turn on AI and the server voice.",
+  "guestUpgrade": "Create an account with my data",
+  "guestLeave": "Leave and delete my data",
+  "guestLeaveHint": "The feeds and saved articles of this guest profile will be deleted. This cannot be undone.",
+  "guestNeedsAccount": "Create an account to use this feature.",
+  "planLimitFeedsGuest": "You've reached the feed limit without an account. Create an account to add more.",
+  "accountCreated": "Account created",
+  "emailTaken": "That email already has an account. Sign in with it from the sign-in screen."
 }
