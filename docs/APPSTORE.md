@@ -121,14 +121,31 @@ First release of uFeed for iPhone.
 
 ## App Review information
 
-**Sign-in required:** yes
-**Demo account:** `demo@demo.com` / `demo`
+**Sign-in required:** no (since 1.1, guideline 5.1.1(v)): the sign-in screen
+has "Continue without an account", which opens the app with a few starter
+feeds. An account is only needed for what costs server resources.
+**Demo account (for the features that need an account):** `demo@demo.com` / `demo`
 (Protected on the server: its password can't be changed and it can't be
 deleted, so it keeps working for review.)
 
 **Notes for the reviewer (English):**
 uFeed is an RSS/Atom news reader backed by our own server (ufeed.uverse.es).
-The demo account already follows several Spanish and English feeds.
+No account is needed to use it: on the first screen tap "Continue without an
+account". That creates an anonymous guest profile (no email, no password, no
+personal data) with a few starter feeds; guests can read, add up to 20 feeds,
+organise folders, save articles, listen with the device voice and use the
+text-size options. Creating an account (Settings > "Create an account with my
+data") keeps their feeds and saved articles and unlocks AI summaries,
+translation, the server voice, Post radio and syncing across devices.
+"Leave and delete my data" removes the guest profile; accounts have "Delete
+account" in Settings.
+The demo account (VIP plan) already follows several Spanish and English feeds
+and shows every feature. Features by plan, none hidden: AI summary,
+translation and server voice and Post radio are shown only when the plan
+includes them.
+Technical notes: playing the live server voice uses a small hidden web view
+inside the app (it only plays the audio stream, shows nothing and loads only
+our own server's audio URL); the app contains no obfuscated or dormant code.
 To try the main features:
 1. Open any article. If the feed only has an excerpt, the full article is
    loaded from the publisher's website automatically.
@@ -158,13 +175,39 @@ ATT prompt needed).
 
 | Data type | Collected | Linked to user | Purpose |
 | --- | --- | --- | --- |
-| Contact Info → Email address | Yes | Yes | App Functionality (account) |
+| Contact Info → Email address | Yes (only if the person creates an account; not for guests) | Yes | App Functionality (account) |
 | Identifiers → User ID | Yes | Yes | App Functionality |
 | User Content → Other user content (feeds followed, folders, filters, saved/read state) | Yes | Yes | App Functionality |
 | Usage Data → Product interaction (time and share read, open/share/skip) | Yes | Yes | App Functionality, Product Personalization (Trending, recommendations; aggregated) |
 
 Not collected: location, contacts, health, financial info, browsing history
 outside the app, diagnostics, advertising data.
+
+## Reply to App Review (5.1.1(v), 2026-10-17)
+
+> Hello, thank you for the review. We have changed the app so that nobody has
+> to register to use it. The first screen now offers "Continue without an
+> account", which opens the app straight away with a few starter feeds and
+> without asking for any personal information. Guests can read, add feeds,
+> organise folders, save articles and listen with the device voice. Registering
+> is optional and only needed for the account-based features (syncing across
+> devices, AI summaries, translation, the server voice and Post radio); a
+> guest who registers keeps their feeds and saved articles. Account deletion
+> remains available in Settings. The changes are in version 1.1.
+
+## What's new in 1.1
+
+Español: Ahora puedes usar uFeed sin crear una cuenta ("Continuar sin cuenta").
+Diseño nuevo para iPad, Mac e iPhone plegable: en horizontal, la lista a la
+izquierda y el artículo a la derecha. Botón de recargar en la barra superior,
+reintentos automáticos si el servidor no responde, tamaños de letra más
+pequeños y varias mejoras de memoria y estabilidad.
+
+English: You can now use uFeed without creating an account ("Continue without
+an account"). New layout for iPad, Mac and foldable iPhone: in landscape, the
+list on the left and the article on the right. Refresh button in the top bar,
+automatic retries when the server doesn't answer, smaller text sizes, and
+memory and stability improvements.
 
 ## Age rating
 
@@ -179,6 +222,9 @@ Uses only standard HTTPS provided by iOS → exempt.
 `ITSAppUsesNonExemptEncryption = NO` is already set in Info.plist.
 
 ## Screenshots needed
+
+**1.1 adds iPad:** App Store Connect will ask for iPad 13" screenshots
+(2064 × 2752); the list + article two-pane in landscape is the one to show.
 
 iPhone 6.3" (1206 × 2622), which is what App Store Connect asks for now, in
 `App/store/capturas_iphone_6.3/` (es and en), made by `App/store/generar_capturas.py`
