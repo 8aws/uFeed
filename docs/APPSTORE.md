@@ -223,8 +223,11 @@ Uses only standard HTTPS provided by iOS → exempt.
 
 ## Screenshots needed
 
-**1.1 adds iPad:** App Store Connect will ask for iPad 13" screenshots
-(2064 × 2752); the list + article two-pane in landscape is the one to show.
+**1.1 adds iPad:** iPad 13" screenshots (2752 × 2064, es/en, 4 each) are in
+`App/store/capturas_ipad_13/` (made by `generar_capturas_ipad.py` from the raw
+captures in `crudo_ipad/`). iPhone Duo (accepted sizes 1398x2034 cover,
+2007x2853 and 2853x2007 inner) are in `App/store/capturas_duo/<posicion>/<lang>/`
+(made by `generar_capturas_duo.py` from `crudo_duo/`).
 
 iPhone 6.3" (1206 × 2622), which is what App Store Connect asks for now, in
 `App/store/capturas_iphone_6.3/` (es and en), made by `App/store/generar_capturas.py`
