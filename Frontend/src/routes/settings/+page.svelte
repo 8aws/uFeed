@@ -680,6 +680,19 @@
 		</button>
 		{#if open.a11y}
 			<div class="field">
+				{$t('appearance')}
+				<div class="row">
+					{#each ['system', 'light', 'dark'] as const as th (th)}
+						<button
+							class:active={$displayPrefs.theme === th}
+							onclick={() => displayPrefs.update((p) => ({ ...p, theme: th }))}
+						>
+							{$t(`theme_${th}` as 'theme_system')}
+						</button>
+					{/each}
+				</div>
+			</div>
+			<div class="field">
 				{$t('text_size')}
 				<div class="row">
 					{#each TEXT_SCALES as sc (sc)}

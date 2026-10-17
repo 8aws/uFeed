@@ -43,6 +43,7 @@ class DisplayPrefs {
     this.textScale = 1,
     this.atkinson = false,
     this.autoFull = true,
+    this.theme = 'system',
   });
 
   /// On top of the system text size (Dynamic Type).
@@ -54,18 +55,27 @@ class DisplayPrefs {
   /// Load the full article when the feed only has an excerpt.
   final bool autoFull;
 
-  DisplayPrefs copyWith({double? textScale, bool? atkinson, bool? autoFull}) =>
-      DisplayPrefs(
-        textScale: textScale ?? this.textScale,
-        atkinson: atkinson ?? this.atkinson,
-        autoFull: autoFull ?? this.autoFull,
-      );
+  /// Appearance: `system` (follows the device), `light` or `dark`.
+  final String theme;
+
+  DisplayPrefs copyWith({
+    double? textScale,
+    bool? atkinson,
+    bool? autoFull,
+    String? theme,
+  }) => DisplayPrefs(
+    textScale: textScale ?? this.textScale,
+    atkinson: atkinson ?? this.atkinson,
+    autoFull: autoFull ?? this.autoFull,
+    theme: theme ?? this.theme,
+  );
 }
 
 class DisplayPrefsNotifier extends Notifier<DisplayPrefs> {
   static const _scale = 'ufeed_text_scale';
   static const _font = 'ufeed_atkinson';
   static const _full = 'ufeed_auto_full';
+  static const _theme = 'ufeed_theme';
 
   @override
   DisplayPrefs build() {
@@ -74,6 +84,9 @@ class DisplayPrefsNotifier extends Notifier<DisplayPrefs> {
       textScale: p.getDouble(_scale) ?? 1,
       atkinson: p.getBool(_font) ?? false,
       autoFull: p.getBool(_full) ?? true,
+      theme: const {'light', 'dark'}.contains(p.getString(_theme))
+          ? p.getString(_theme)!
+          : 'system',
     );
   }
 
@@ -83,6 +96,7 @@ class DisplayPrefsNotifier extends Notifier<DisplayPrefs> {
     p.setDouble(_scale, next.textScale);
     p.setBool(_font, next.atkinson);
     p.setBool(_full, next.autoFull);
+    p.setString(_theme, next.theme);
   }
 }
 

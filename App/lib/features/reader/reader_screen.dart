@@ -188,6 +188,23 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(t.appearance),
+                  const SizedBox(height: 8),
+                  SegmentedButton<String>(
+                    showSelectedIcon: false,
+                    segments: [
+                      ButtonSegment(
+                        value: 'system',
+                        label: Text(t.themeSystem),
+                      ),
+                      ButtonSegment(value: 'light', label: Text(t.themeLight)),
+                      ButtonSegment(value: 'dark', label: Text(t.themeDark)),
+                    ],
+                    selected: {prefs.theme},
+                    onSelectionChanged: (v) =>
+                        set(prefs.copyWith(theme: v.first)),
+                  ),
+                  const SizedBox(height: 16),
                   Text(t.textSize),
                   const SizedBox(height: 8),
                   SegmentedButton<double>(

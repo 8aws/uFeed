@@ -313,5 +313,9 @@
   "accountCreated": "Cuenta creada",
   "emailTaken": "Ese correo ya tiene una cuenta. Inicia sesión con él desde la pantalla de acceso.",
   "selectArticle": "Elige un artículo de la lista",
-  "plansAndLimits": "Planes y límites"
+  "plansAndLimits": "Planes y límites",
+  "appearance": "Apariencia",
+  "themeSystem": "Sistema",
+  "themeLight": "Claro",
+  "themeDark": "Oscuro"
 }

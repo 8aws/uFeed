@@ -1417,6 +1417,24 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Planes y límites'**
   String get plansAndLimits;
+
+  /// No description provided for @themeSystem.
+  ///
+  /// In es, this message translates to:
+  /// **'Sistema'**
+  String get themeSystem;
+
+  /// No description provided for @themeLight.
+  ///
+  /// In es, this message translates to:
+  /// **'Claro'**
+  String get themeLight;
+
+  /// No description provided for @themeDark.
+  ///
+  /// In es, this message translates to:
+  /// **'Oscuro'**
+  String get themeDark;
 }
 
 class _AppLocalizationsDelegate

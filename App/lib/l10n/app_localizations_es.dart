@@ -743,4 +743,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get plansAndLimits => 'Planes y límites';
+
+  @override
+  String get themeSystem => 'Sistema';
+
+  @override
+  String get themeLight => 'Claro';
+
+  @override
+  String get themeDark => 'Oscuro';
 }

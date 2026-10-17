@@ -595,6 +595,19 @@ class _DisplaySettings extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(t.appearance),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(value: 'system', label: Text(t.themeSystem)),
+              ButtonSegment(value: 'light', label: Text(t.themeLight)),
+              ButtonSegment(value: 'dark', label: Text(t.themeDark)),
+            ],
+            selected: {p.theme},
+            onSelectionChanged: (v) => set(p.copyWith(theme: v.first)),
+          ),
+          const SizedBox(height: 12),
           Text(t.textSize),
           const SizedBox(height: 8),
           SegmentedButton<double>(

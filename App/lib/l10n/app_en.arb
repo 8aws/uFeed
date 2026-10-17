@@ -312,5 +312,9 @@
   "accountCreated": "Account created",
   "emailTaken": "That email already has an account. Sign in with it from the sign-in screen.",
   "selectArticle": "Pick an article from the list",
-  "plansAndLimits": "Plans and limits"
+  "plansAndLimits": "Plans and limits",
+  "appearance": "Appearance",
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark"
 }

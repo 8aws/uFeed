@@ -82,13 +82,14 @@ export interface DisplayPrefs {
 	textScale: number; // 1 = default; scales the whole interface (rem-based)
 	font: 'system' | 'atkinson'; // Atkinson Hyperlegible: designed for low vision
 	autoFull: boolean; // load the full article when the feed only has an excerpt
+	theme: 'system' | 'light' | 'dark'; // appearance: the device's, or forced
 }
 
 // The first two go below the browser's own size (for people who set it large).
 export const TEXT_SCALES = [0.85, 0.9, 1, 1.15, 1.3, 1.5] as const;
 
 function initialDisplayPrefs(): DisplayPrefs {
-	const d: DisplayPrefs = { textScale: 1, font: 'system', autoFull: true };
+	const d: DisplayPrefs = { textScale: 1, font: 'system', autoFull: true, theme: 'system' };
 	try {
 		const raw = localStorage.getItem('display_prefs');
 		if (raw) return { ...d, ...(JSON.parse(raw) as Partial<DisplayPrefs>) };
@@ -101,7 +102,7 @@ function initialDisplayPrefs(): DisplayPrefs {
 export const displayPrefs = writable<DisplayPrefs>(
 	typeof localStorage !== 'undefined'
 		? initialDisplayPrefs()
-		: { textScale: 1, font: 'system', autoFull: true }
+		: { textScale: 1, font: 'system', autoFull: true, theme: 'system' }
 );
 
 displayPrefs.subscribe((value) => {
@@ -109,6 +110,11 @@ displayPrefs.subscribe((value) => {
 	// Applied on <html> so every page (and the rem-based layout) follows.
 	document.documentElement.style.setProperty('--text-scale', String(value.textScale));
 	document.documentElement.dataset.font = value.font;
+	if (value.theme === 'light' || value.theme === 'dark') {
+		document.documentElement.dataset.theme = value.theme;
+	} else {
+		delete document.documentElement.dataset.theme;
+	}
 	try {
 		localStorage.setItem('display_prefs', JSON.stringify(value));
 	} catch {

@@ -11,8 +11,10 @@
 	color-scheme: light dark;
 }
 
+/* Dark follows the device, unless Accessibility > Appearance says otherwise
+   (data-theme on <html>: set by the display preferences). */
 @media (prefers-color-scheme: dark) {
-	:root {
+	:root:not([data-theme='light']) {
 		--bg: #0f172a;
 		--surface: #111827;
 		--border: #1f2937;
@@ -22,6 +24,22 @@
 		--accent-soft: #1e293b;
 		--danger: #f87171;
 	}
+}
+
+:root[data-theme='dark'] {
+	--bg: #0f172a;
+	--surface: #111827;
+	--border: #1f2937;
+	--text: #e5e7eb;
+	--muted: #9ca3af;
+	--accent: #60a5fa;
+	--accent-soft: #1e293b;
+	--danger: #f87171;
+	color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+	color-scheme: light;
 }
 
 * {

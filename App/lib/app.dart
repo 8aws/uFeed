@@ -64,6 +64,11 @@ class UFeedApp extends ConsumerWidget {
       onGenerateTitle: (context) => AppLocalizations.of(context).appName,
       theme: buildTheme(Brightness.light, fontFamily: font),
       darkTheme: buildTheme(Brightness.dark, fontFamily: font),
+      themeMode: switch (display.theme) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      },
       // The app's text size goes on top of the system's (Dynamic Type).
       builder: (context, child) {
         final mq = MediaQuery.of(context);
