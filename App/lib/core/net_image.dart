@@ -12,6 +12,7 @@ class NetImage extends StatelessWidget {
     this.height,
     this.fit = BoxFit.cover,
     this.error,
+    this.onError,
   });
 
   final String url;
@@ -21,6 +22,9 @@ class NetImage extends StatelessWidget {
 
   /// Shown when the picture can't be loaded (nothing by default).
   final Widget? error;
+
+  /// Called (once the load has failed) so the parent can drop the empty space.
+  final VoidCallback? onError;
 
   /// Never decode wider than this, whatever the screen (a full-width
   /// picture on an iPad is about this many pixels).
@@ -46,6 +50,7 @@ class NetImage extends StatelessWidget {
         height: height,
         fit: fit,
         memCacheWidth: px,
+        errorListener: onError == null ? null : (_) => onError!(),
         errorWidget: (_, _, _) => error ?? const SizedBox.shrink(),
       );
     },

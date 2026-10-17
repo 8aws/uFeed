@@ -254,8 +254,12 @@ class ArticleTile extends StatelessWidget {
     );
   }
 
-  Widget _image(String url, {double? width, double? height}) =>
-      NetImage(url, width: width, height: height);
+  Widget _image(
+    String url, {
+    double? width,
+    double? height,
+    VoidCallback? onError,
+  }) => NetImage(url, width: width, height: height, onError: onError);
 
   Widget _compact(BuildContext context, AppLocalizations t, UColors c) =>
       Padding(
@@ -297,13 +301,17 @@ class ArticleTile extends StatelessWidget {
                   children: [_meta(t, c), const SizedBox(height: 4), _title(c)],
                 ),
               ),
-              if (img != null) ...[
-                const SizedBox(width: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: _image(img, width: 84, height: 84),
+              // A picture that fails to load leaves no empty square behind.
+              if (img != null)
+                _DropOnError(
+                  builder: (fail) => Padding(
+                    padding: const EdgeInsets.only(left: 12),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: _image(img, width: 84, height: 84, onError: fail),
+                    ),
+                  ),
                 ),
-              ],
             ],
           ),
           // Full width under the picture, like the web's card list.
@@ -328,7 +336,13 @@ class ArticleTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (img != null) AspectRatio(aspectRatio: 16 / 9, child: _image(img)),
+        if (img != null)
+          _DropOnError(
+            builder: (fail) => AspectRatio(
+              aspectRatio: 16 / 9,
+              child: _image(img, onError: fail),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
           child: Column(
@@ -361,7 +375,11 @@ class ArticleTile extends StatelessWidget {
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (img != null) SizedBox(height: 84, child: _image(img)),
+          if (img != null)
+            _DropOnError(
+              builder: (fail) =>
+                  SizedBox(height: 84, child: _image(img, onError: fail)),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(7, 5, 7, 7),
             child: Column(
@@ -388,4 +406,26 @@ class ArticleTile extends StatelessWidget {
           ),
         ],
       );
+}
+
+/// Shows what `builder` makes until the picture inside reports `fail`; then
+/// nothing, so a broken image doesn't leave a blank band in the list.
+class _DropOnError extends StatefulWidget {
+  const _DropOnError({required this.builder});
+
+  final Widget Function(VoidCallback fail) builder;
+
+  @override
+  State<_DropOnError> createState() => _DropOnErrorState();
+}
+
+class _DropOnErrorState extends State<_DropOnError> {
+  bool _failed = false;
+
+  @override
+  Widget build(BuildContext context) => _failed
+      ? const SizedBox.shrink()
+      : widget.builder(() {
+          if (mounted && !_failed) setState(() => _failed = true);
+        });
 }
