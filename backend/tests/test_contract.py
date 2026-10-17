@@ -7,6 +7,8 @@ EXPECTED_PATHS = {
     "/api/auth/register",
     "/api/auth/login",
     "/api/auth/refresh",
+    "/api/auth/guest",
+    "/api/auth/upgrade",
     "/api/me",
     "/api/keys",
     "/api/folders",

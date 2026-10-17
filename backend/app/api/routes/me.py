@@ -25,6 +25,8 @@ async def get_me(user: CurrentUser) -> UserOut:
 
 @router.patch("/me", response_model=UserOut)
 async def update_me(body: UserUpdate, user: CurrentUser, db: DbSession) -> UserOut:
+    if user.is_guest and {"digest_hour", "digest_days"} & body.model_fields_set:
+        raise AppError(403, "guest_account", "The daily digest needs an account.")
     user = await auth_service.update_profile(
         db,
         user,
@@ -40,6 +42,8 @@ async def update_me(body: UserUpdate, user: CurrentUser, db: DbSession) -> UserO
 @router.post("/me/password", response_model=Tokens)
 async def change_password(body: PasswordChange, user: CurrentUser, db: DbSession) -> Tokens:
     """Change your password. Other sessions are signed out; this one gets new tokens."""
+    if user.is_guest:
+        raise AppError(403, "guest_account", "Create an account first.")
     if settings.is_protected(user.email):
         raise AppError(403, "demo_account", "The demo account can't change its password.")
     if not await check_rate(f"pwd:{user.id}", 10):
@@ -59,7 +63,8 @@ async def delete_account(body: AccountDelete, user: CurrentUser, db: DbSession) 
         raise AppError(403, "demo_account", "The demo account can't be deleted.")
     if not await check_rate(f"delacct:{user.id}", 5):
         raise AppError(429, "rate_limited", "Too many attempts; try again shortly.")
-    if not verify_password(body.password, user.password_hash):
+    # A guest has no password: the device's session is the proof.
+    if not user.is_guest and not verify_password(body.password, user.password_hash):
         raise AppError(400, "wrong_password", "Password is incorrect.")
     if user.role == "admin":
         admins = await db.scalar(select(func.count()).select_from(User).where(User.role == "admin"))

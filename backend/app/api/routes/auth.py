@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import jwt
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 
-from app.api.deps import DbSession, rate_limit_auth
+from app.api.deps import CurrentUser, DbSession, rate_limit_auth
 from app.api.errors import AppError
 from app.core.config import settings
 from app.core.ratelimit import check_rate
@@ -18,11 +18,13 @@ from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
     ForgotRequest,
+    GuestRequest,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
     ResetRequest,
     Tokens,
+    UpgradeRequest,
 )
 from app.schemas.common import OkResponse
 from app.services import auth as auth_service
@@ -51,6 +53,42 @@ async def register(body: RegisterRequest, db: DbSession) -> AuthResponse:
     locale = body.locale or settings.default_locale
     role = "admin" if first else cfg["default_role"]
     user = await auth_service.create_user(db, body.email, body.password, locale, role)
+    return AuthResponse(user=user, tokens=_tokens_for(user))
+
+
+@router.post("/guest", response_model=AuthResponse, status_code=201)
+async def guest(body: GuestRequest, request: Request, db: DbSession) -> AuthResponse:
+    """Use the app without registering: an account with no personal data (App
+    Store 5.1.1(v)). It reads and manages a few feeds; AI, the server voice
+    and the rest need a real account (see `upgrade`). Limited per IP and per
+    day, and deleted after a long absence."""
+    if not settings.guest_access:
+        raise AppError(403, "guest_disabled", "Using the app without an account is turned off.")
+    ip = request.client.host if request.client else "unknown"
+    if not await check_rate(f"guest:{ip}", settings.guest_max_per_ip_hour, window_s=3600):
+        raise AppError(429, "rate_limited", "Too many attempts; try again later.")
+    if not await check_rate("guest:all", settings.guest_max_per_day, window_s=86400):
+        raise AppError(503, "guest_capacity", "Too many new visitors today; try again tomorrow.")
+    user = await auth_service.create_guest(db, body.locale or settings.default_locale)
+    return AuthResponse(user=user, tokens=_tokens_for(user))
+
+
+@router.post("/upgrade", response_model=AuthResponse)
+async def upgrade(body: UpgradeRequest, user: CurrentUser, db: DbSession) -> AuthResponse:
+    """A guest registers: same feeds, folders and saved articles, now with an
+    email and password (and the regular plan)."""
+    if not user.is_guest:
+        raise AppError(400, "not_guest", "This account is already registered.")
+    if await auth_service.get_user_by_email(db, body.email):
+        raise AppError(409, "email_taken", "That email is already registered.")
+    if await moderation.active_ban(db, body.email):
+        raise AppError(403, "registration_banned", "This email can't register an account.")
+    cfg = await site_service.get_settings(db)
+    if not cfg["registration_open"]:
+        raise AppError(403, "registration_closed", "Registration is currently closed.")
+    user = await auth_service.upgrade_guest(
+        db, user, body.email, body.password, cfg["default_role"]
+    )
     return AuthResponse(user=user, tokens=_tokens_for(user))
 
 
@@ -125,6 +163,7 @@ async def forgot_password(
         user is not None
         and allowed
         and user.is_active
+        and not user.is_guest
         and not moderation.is_suspended(user)
         and not settings.is_protected(user.email)
     ):

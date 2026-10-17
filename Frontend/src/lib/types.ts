@@ -1,6 +1,6 @@
 export type Locale = 'en' | 'es';
 
-export type Role = 'free' | 'general' | 'vip' | 'editor' | 'admin';
+export type Role = 'guest' | 'free' | 'general' | 'vip' | 'editor' | 'admin';
 
 export interface User {
 	id: string;
@@ -10,6 +10,7 @@ export interface User {
 	role: Role;
 	is_active: boolean;
 	must_change_password: boolean;
+	is_guest?: boolean; // "continue without an account" (the app)
 	created_at: string;
 	digest_hour?: number | null; // daily digest email hour; null = off
 	digest_days?: number; // bit per weekday, Monday = 1 … Sunday = 64

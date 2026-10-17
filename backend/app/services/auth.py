@@ -37,6 +37,40 @@ async def create_user(
     return user
 
 
+# Guests have no real address: this one never receives anything (example.org is
+# reserved, and nothing is sent to guests anyway).
+GUEST_DOMAIN = "guest.example.org"
+
+
+async def create_guest(db: AsyncSession, locale: str) -> User:
+    """An account for "continue without an account": no personal data, an
+    address and password nobody knows, and only the device's tokens to open it."""
+    user = User(
+        email=f"guest-{secrets.token_hex(10)}@{GUEST_DOMAIN}",
+        password_hash=hash_password(secrets.token_urlsafe(32)),
+        locale=locale,
+        role="guest",
+        is_guest=True,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def upgrade_guest(db: AsyncSession, user: User, email: str, password: str, role: str) -> User:
+    """Give a guest real credentials and a regular plan; its feeds and saved
+    articles stay. Other sessions (there are none but this device) end."""
+    user.email = email.lower()
+    user.password_hash = hash_password(password)
+    user.role = role
+    user.is_guest = False
+    user.token_version += 1
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 async def update_profile(
     db: AsyncSession,
     user: User,

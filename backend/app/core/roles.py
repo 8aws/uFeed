@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-Role = Literal["free", "general", "vip", "editor", "admin"]
-ROLES: tuple[Role, ...] = ("free", "general", "vip", "editor", "admin")
+Role = Literal["guest", "free", "general", "vip", "editor", "admin"]
+ROLES: tuple[Role, ...] = ("guest", "free", "general", "vip", "editor", "admin")
 
 # refresh_cooldown_s: seconds between manual refreshes (0 = immediate)
 # max_feeds / max_api_keys: None = unlimited
@@ -23,6 +23,20 @@ ROLES: tuple[Role, ...] = ("free", "general", "vip", "editor", "admin")
 #   unlimited); summaries someone already generated are always free to read
 # ai_priority: place in the AI queue (0 = first; background work uses 3)
 DEFAULT_PLAN_LIMITS: dict[str, dict[str, Any]] = {
+    # "Continue without an account": reading and managing a few feeds; what
+    # costs server resources (AI, server voice, radio) needs a real account.
+    "guest": {
+        "refresh_cooldown_s": 900,
+        "max_feeds": 20,
+        "max_api_keys": 0,
+        "ai_features": False,
+        "tts_server": False,
+        "post_radio": False,
+        "radio_max_posts": 5,
+        "radio_max_minutes": 10,
+        "ai_summaries_per_day": 0,
+        "ai_priority": 3,
+    },
     "free": {
         "refresh_cooldown_s": 600,
         "max_feeds": 100,

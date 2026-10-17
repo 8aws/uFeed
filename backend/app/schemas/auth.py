@@ -11,6 +11,17 @@ class RegisterRequest(BaseModel):
     locale: Locale | None = None
 
 
+class GuestRequest(BaseModel):
+    locale: Locale | None = None
+
+
+class UpgradeRequest(BaseModel):
+    """Turn a guest into a registered account (same data, real credentials)."""
+
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=256)
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str

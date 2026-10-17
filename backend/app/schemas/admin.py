@@ -26,6 +26,7 @@ class SiteConfig(BaseModel):
     """Public, unauthenticated instance info (sign-up state, plan limits)."""
 
     registration_open: bool
+    guest_access: bool = True  # "continue without an account" is offered
     refresh_cooldown_s: dict[str, int]
     plan_limits: dict[str, PlanLimits]
     contact_email: str = ""  # for the public privacy/support pages

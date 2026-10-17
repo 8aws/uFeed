@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     rate_limit_public_per_min: int = Field(default=120)
     rate_limit_auth_per_min: int = Field(default=20)
 
+    # "Continue without an account" (App Store 5.1.1(v)): guests created per
+    # IP per hour and in total per day (0 = no limit); False turns it off.
+    guest_access: bool = Field(default=True)
+    guest_max_per_ip_hour: int = Field(default=6)
+    guest_max_per_day: int = Field(default=500)
+    guest_idle_days: int = Field(default=30)  # idle guests are deleted (0 = never)
+
     # AI service (embeddings / summaries). Fails open when unreachable.
     ai_url: str = Field(default="http://ai:8001")
     ai_enabled: bool = Field(default=True)

@@ -99,6 +99,7 @@ export const es: Dict = {
 	plan: 'Plan',
 	refresh_every: 'actualización manual cada',
 	immediate: 'inmediata',
+	role_guest: 'Invitado',
 	role_free: 'Gratis',
 	role_general: 'General',
 	role_vip: 'VIP',

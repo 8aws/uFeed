@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.api_key import ApiKey
 from app.models.ban import Ban
@@ -168,11 +169,32 @@ async def delete_dormant(db: AsyncSession, days: int) -> list[str]:
     return [u.email for u in gone]
 
 
+async def delete_idle_guests(db: AsyncSession, days: int) -> int:
+    """Guests have no way back in after a long absence: delete them (0 = never)."""
+    if days <= 0:
+        return 0
+    cutoff = now() - timedelta(days=days)
+    gone = (
+        (
+            await db.execute(
+                select(User).where(User.is_guest.is_(True), last_activity_expr() < cutoff)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for user in gone:
+        await db.delete(user)
+    await db.commit()
+    return len(gone)
+
+
 async def run_inactivity_cleanup(db: AsyncSession | None = None) -> dict[str, Any]:
     if db is None:
         async with SessionLocal() as session:
             return await run_inactivity_cleanup(session)
     cfg = await site_service.get_settings(db)
+    guests = await delete_idle_guests(db, settings.guest_idle_days)
     deleted = await delete_dormant(db, int(cfg["dormant_delete_days"]))
     deactivated = await deactivate_inactive(db, int(cfg["inactivity_days"]))
     result = {
@@ -180,6 +202,7 @@ async def run_inactivity_cleanup(db: AsyncSession | None = None) -> dict[str, An
         "delete_days": int(cfg["dormant_delete_days"]),
         "deactivated_users": len(deactivated),
         "deleted_users": len(deleted),
+        "deleted_guests": guests,
         "at": now().isoformat(),
     }
     await site_service.set_internal(db, "last_inactive_cleanup", result)

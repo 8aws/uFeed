@@ -19,6 +19,7 @@ class UserOut(BaseModel):
     role: str
     is_active: bool
     must_change_password: bool = False
+    is_guest: bool = False  # "continue without an account"
     created_at: datetime
     digest_hour: int | None = None  # daily digest email hour; None = off
     digest_days: int = 127  # bit per weekday, Monday = 1 ... Sunday = 64
@@ -32,7 +33,7 @@ class UserUpdate(BaseModel):
 
 
 class AccountDelete(BaseModel):
-    password: str
+    password: str = ""  # guests have none
 
 
 class PasswordChange(BaseModel):
