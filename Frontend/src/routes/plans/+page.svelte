@@ -164,8 +164,8 @@
 	</ul>
 	<p class="small muted">
 		{es
-			? 'Los límites son los de este servidor y pueden cambiar. Las cuentas de Editor y Administrador (gestión del servidor) no tienen límites.'
-			: 'The limits are this server’s and can change. Editor and Administrator accounts (server management) have no limits.'}
+			? 'Los límites son los de este servidor y pueden cambiar.'
+			: 'The limits are this server’s and can change.'}
 	</p>
 
 	<p class="links">
