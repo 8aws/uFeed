@@ -7,7 +7,7 @@ brackets; texts are within them.
 
 | Field | Value |
 | --- | --- |
-| Name [30] | `uFeed: RSS y noticias` (ES, record created 2026-10-13) / `uFeed: RSS & News` (EN) |
+| Name [30] | `uFeed: RSS y noticias` (record created 2026-10-13; it stayed this one for every language, the English name `uFeed: RSS & News` was not used) |
 | Name on the Home Screen | uFeed (`CFBundleDisplayName`, can differ from the store name) |
 | Bundle ID | `es.uverse.ufeed` (iOS and Android; App Store build checked 2026-10-13) |
 | SKU | `ufeed-ios-1` (final; can't be changed after the app record is created) |
