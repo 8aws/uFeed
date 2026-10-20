@@ -115,6 +115,39 @@ def _base_query(user_id: uuid.UUID):
     )
 
 
+def _is_group_rep(user_id: uuid.UUID, mine):
+    """The article that stands for its duplicate group in this user's lists.
+
+    Groups are made across every source of the instance (and every user), so
+    the group's seed (the first article seen) may belong to a feed this user
+    doesn't follow: then the seed can't stand for the group, or none of its
+    copies would ever show. The representative is the seed when the user can
+    see it, else the earliest copy the user can see."""
+    seed = aliased(Article)
+    earlier = aliased(Article)
+    seed_visible = (
+        select(seed.id).where(seed.id == Article.dup_group_id, seed.source_id.in_(mine)).exists()
+    )
+    earlier_visible = (
+        select(earlier.id)
+        .where(
+            earlier.dup_group_id == Article.dup_group_id,
+            earlier.id != Article.id,
+            earlier.source_id.in_(mine),
+            or_(
+                earlier.fetched_at < Article.fetched_at,
+                and_(earlier.fetched_at == Article.fetched_at, earlier.id < Article.id),
+            ),
+        )
+        .exists()
+    )
+    return or_(
+        Article.dup_group_id.is_(None),
+        Article.dup_group_id == Article.id,
+        and_(~seed_visible, ~earlier_visible),
+    )
+
+
 async def list_articles(
     db: AsyncSession,
     user_id: uuid.UUID,
@@ -130,24 +163,30 @@ async def list_articles(
     limit: int = 50,
     collapse: bool = True,
 ) -> ArticlePage:
-    # Count of articles sharing this one's dedup group (1 when ungrouped).
+    mine = select(Subscription.source_id).where(Subscription.user_id == user_id)
+    # How many of the user's own articles share this one's dedup group (1 when
+    # ungrouped): copies in sources nobody they follow publishes don't count.
     dup_alias = aliased(Article)
     dup_count_expr = case(
         (
             Article.dup_group_id.isnot(None),
             select(func.count())
             .select_from(dup_alias)
-            .where(dup_alias.dup_group_id == Article.dup_group_id)
+            .where(
+                dup_alias.dup_group_id == Article.dup_group_id,
+                dup_alias.source_id.in_(mine),
+            )
             .scalar_subquery(),
         ),
         else_=1,
     )
     stmt = _base_query(user_id).add_columns(dup_count_expr)
 
-    # Collapse near-duplicates: show only the group seed (id == group) or
-    # articles not yet grouped.
-    if collapse:
-        stmt = stmt.where(or_(Article.dup_group_id.is_(None), Article.dup_group_id == Article.id))
+    # Collapse near-duplicates in the mixed views (all, folders, search…): one
+    # article per group, as seen by this user. Opening a feed on its own shows
+    # everything it published, so its unread badge and its list agree.
+    if collapse and source is None:
+        stmt = stmt.where(_is_group_rep(user_id, mine))
 
     if source is not None:
         stmt = stmt.where(Article.source_id == source)

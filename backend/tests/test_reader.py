@@ -188,6 +188,72 @@ async def test_collapse_duplicates(api: AsyncClient, db_session: AsyncSession) -
     assert {a["id"] for a in everything} == {str(seed.id), str(dupe.id)}
 
 
+async def _grouped(db: AsyncSession, seed_in: Source, copy_in: Source) -> tuple[Article, Article]:
+    """A duplicate group made across two feeds: the seed in one, a copy in the other."""
+    seed = Article(
+        source_id=seed_in.id,
+        guid=f"seed-{uuid.uuid4().hex}",
+        title="Same story",
+        published_at=datetime(2025, 1, 1, tzinfo=UTC),
+    )
+    copy = Article(
+        source_id=copy_in.id,
+        guid=f"copy-{uuid.uuid4().hex}",
+        title="Same story (copy)",
+        published_at=datetime(2025, 1, 2, tzinfo=UTC),
+    )
+    db.add_all([seed, copy])
+    await db.flush()
+    seed.dup_group_id = seed.id
+    copy.dup_group_id = seed.id
+    await db.commit()
+    return seed, copy
+
+
+async def test_copy_of_a_story_seeded_by_a_feed_you_do_not_follow_still_shows(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Groups are instance-wide: another user's feed may hold the seed. The
+    copy you can see must not vanish from your lists (it counted in the
+    unread badge but never showed)."""
+    other = await _seed_source(db_session, [])
+    mine = await _seed_source(db_session, [])
+    seed, copy = await _grouped(db_session, seed_in=other, copy_in=mine)
+    headers = await _register(api)
+    sub = await _subscribe(api, headers, mine.feed_url)
+    assert sub["unread_count"] == 1
+
+    mixed = (await api.get("/api/articles?unread=true", headers=headers)).json()["items"]
+    assert [a["id"] for a in mixed] == [str(copy.id)]
+    assert mixed[0]["dup_count"] == 1  # the seed isn't yours to count
+    assert seed.id != copy.id
+
+
+async def test_feed_list_matches_its_unread_badge(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Following both feeds, the mixed views show the story once, but opening a
+    feed lists everything it published, so its badge and its list agree."""
+    a = await _seed_source(db_session, [("A only", "x")])
+    b = await _seed_source(db_session, [])
+    seed, copy = await _grouped(db_session, seed_in=b, copy_in=a)
+    headers = await _register(api)
+    sub_a = await _subscribe(api, headers, a.feed_url)
+    await _subscribe(api, headers, b.feed_url)
+
+    mixed = (await api.get("/api/articles?unread=true", headers=headers)).json()["items"]
+    ids = {x["id"] for x in mixed}
+    assert str(seed.id) in ids and str(copy.id) not in ids  # one per story
+
+    feed_a = (await api.get(f"/api/articles?unread=true&source={a.id}", headers=headers)).json()[
+        "items"
+    ]
+    assert len(feed_a) == 2  # "A only" and the copy
+    listed = (await api.get("/api/sources", headers=headers)).json()
+    badge = next(s["unread_count"] for s in listed if s["id"] == sub_a["id"])
+    assert badge == len(feed_a)
+
+
 async def test_cannot_access_unsubscribed_article(
     api: AsyncClient, db_session: AsyncSession
 ) -> None:
