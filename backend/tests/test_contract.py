@@ -38,6 +38,8 @@ EXPECTED_PATHS = {
     "/api/curation/sources",
     "/api/curation/catalog",
     "/api/catalog",
+    "/api/articles/unread-counts",
+    "/api/articles/{article_id}/twins",
 }
 
 

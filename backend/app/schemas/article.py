@@ -42,7 +42,30 @@ class ArticleOut(BaseModel):
     is_read: bool = False
     is_saved: bool = False
     is_favorite: bool = False
-    dup_count: int = 1
+    dup_count: int = 1  # copies in the user's own feeds (1 = just this one)
+    other_copies: int = 0  # copies in feeds the user doesn't follow (a hint only)
+
+
+class TwinOut(BaseModel):
+    """Another copy of the same story. `article_id` is set only when it is in a
+    feed the user follows; otherwise just enough to read it on its site or to
+    follow that feed."""
+
+    article_id: uuid.UUID | None = None
+    title: str | None = None
+    url: str | None = None
+    published_at: datetime | None = None
+    source_title: str | None = None
+    site_url: str | None = None
+    followed: bool = False
+    is_read: bool = False
+
+
+class UnreadCountsOut(BaseModel):
+    """What the badges show: the user's own unread, one per duplicate story."""
+
+    total: int = 0
+    folders: dict[uuid.UUID, int] = {}
 
 
 class TranslationOut(BaseModel):

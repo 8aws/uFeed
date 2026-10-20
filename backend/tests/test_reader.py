@@ -4,6 +4,7 @@ import uuid
 from datetime import UTC, datetime
 
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.article import Article
@@ -252,6 +253,89 @@ async def test_feed_list_matches_its_unread_badge(
     listed = (await api.get("/api/sources", headers=headers)).json()
     badge = next(s["unread_count"] for s in listed if s["id"] == sub_a["id"])
     assert badge == len(feed_a)
+
+
+async def _follow_as_other_user(api: AsyncClient, feed_url: str) -> None:
+    """A second person following a feed (so it counts as shared, not private)."""
+    other = await _register(api)
+    await _subscribe(api, other, feed_url)
+
+
+async def test_unread_counts_only_follow_your_own_feeds(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The total and the folder numbers equal what their lists hold: one per
+    story, only from feeds you follow. Copies in feeds you don't follow never
+    count, even when they were the first of their group."""
+    other = await _seed_source(db_session, [("Elsewhere", "e")])
+    mine = await _seed_source(db_session, [("Mine only", "m")])
+    other_art = (
+        await db_session.execute(select(Article).where(Article.source_id == other.id))
+    ).scalar_one()
+    seed, copy = await _grouped(db_session, seed_in=other, copy_in=mine)
+    headers = await _register(api)
+    sub = await _subscribe(api, headers, mine.feed_url)
+    folder = (await api.post("/api/folders", headers=headers, json={"name": "F"})).json()
+    await api.patch(f"/api/sources/{sub['id']}", headers=headers, json={"folder_id": folder["id"]})
+
+    counts = (await api.get("/api/articles/unread-counts", headers=headers)).json()
+    listed = (await api.get("/api/articles?unread=true", headers=headers)).json()["items"]
+    assert counts["total"] == len(listed) == 2  # "Mine only" + the copy of the shared story
+    assert counts["folders"][folder["id"]] == 2
+    in_folder = (
+        await api.get(f"/api/articles?unread=true&folder={folder['id']}", headers=headers)
+    ).json()["items"]
+    assert len(in_folder) == counts["folders"][folder["id"]]
+    assert str(other_art.id) not in {a["id"] for a in listed}
+    assert str(seed.id) not in {a["id"] for a in listed}
+
+    # Reading one lowers the numbers right away.
+    first = listed[0]["id"]
+    await api.post(f"/api/articles/{first}/read", headers=headers)
+    after = (await api.get("/api/articles/unread-counts", headers=headers)).json()
+    assert after["total"] == 1
+
+
+async def test_copies_elsewhere_are_a_hint_and_can_be_listed(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    other = await _seed_source(db_session, [])
+    mine = await _seed_source(db_session, [])
+    seed, copy = await _grouped(db_session, seed_in=other, copy_in=mine)
+    await _follow_as_other_user(api, other.feed_url)  # a shared feed, not a private one
+    headers = await _register(api)
+    await _subscribe(api, headers, mine.feed_url)
+
+    items = (await api.get("/api/articles", headers=headers)).json()["items"]
+    assert [a["id"] for a in items] == [str(copy.id)]
+    assert items[0]["dup_count"] == 1  # none of the copies is in your feeds
+    assert items[0]["other_copies"] == 1  # but the story is in a feed you don't follow
+
+    twins = (await api.get(f"/api/articles/{copy.id}/twins", headers=headers)).json()
+    assert len(twins) == 1
+    t = twins[0]
+    assert t["followed"] is False and t["article_id"] is None
+    assert t["title"] == seed.title and "feed_url" not in t
+    # Their article stays closed: only the title and the link are shared.
+    assert (await api.get(f"/api/articles/{seed.id}", headers=headers)).status_code == 404
+
+
+async def test_a_feed_only_one_person_follows_is_never_hinted_to_others(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A single follower may be using a private feed URL: its articles stay out
+    of everyone else's "also published in" hints."""
+    private = await _seed_source(db_session, [])
+    mine = await _seed_source(db_session, [])
+    seed, copy = await _grouped(db_session, seed_in=private, copy_in=mine)
+    owner = await _register(api)
+    await _subscribe(api, owner, private.feed_url)  # the only follower
+    headers = await _register(api)
+    await _subscribe(api, headers, mine.feed_url)
+
+    items = (await api.get("/api/articles", headers=headers)).json()["items"]
+    assert items[0]["other_copies"] == 0
+    assert (await api.get(f"/api/articles/{copy.id}/twins", headers=headers)).json() == []
 
 
 async def test_cannot_access_unsubscribed_article(

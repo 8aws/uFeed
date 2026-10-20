@@ -21,6 +21,8 @@ from app.schemas.article import (
     MarkAllReadRequest,
     ReadEventRequest,
     TranslationOut,
+    TwinOut,
+    UnreadCountsOut,
 )
 from app.schemas.common import OkResponse, Page
 from app.schemas.user import Locale
@@ -41,6 +43,7 @@ def _to_out(row: ArticleRow) -> ArticleOut:
     out.is_saved = row.is_saved
     out.is_favorite = row.is_favorite
     out.dup_count = row.dup_count
+    out.other_copies = row.other_copies
     return out
 
 
@@ -76,6 +79,35 @@ async def list_articles(
         collapse=collapse,
     )
     return Page(items=[_to_out(r) for r in page.rows], next_cursor=page.next_cursor)
+
+
+@router.get("/unread-counts", response_model=UnreadCountsOut)
+async def unread_counts(user: CurrentUser, db: DbSession) -> UnreadCountsOut:
+    """The badge numbers: unread in your own feeds, as the lists show them."""
+    c = await article_service.unread_counts(db, user.id)
+    return UnreadCountsOut(total=c.total, folders=c.folders)
+
+
+@router.get("/{article_id}/twins", response_model=list[TwinOut])
+async def article_twins(article_id: uuid.UUID, user: CurrentUser, db: DbSession) -> list[TwinOut]:
+    """Other copies of this story (same duplicate group): in your feeds, and in
+    feeds you don't follow, to read them or to follow that feed."""
+    if await article_service.get_article(db, user.id, article_id) is None:
+        raise AppError(404, "not_found", "Article not found.")
+    twins = await article_service.twins_of(db, user.id, article_id)
+    return [
+        TwinOut(
+            article_id=t.article_id,
+            title=t.title,
+            url=t.url,
+            published_at=t.published_at,
+            source_title=t.source_title,
+            site_url=t.site_url,
+            followed=t.followed,
+            is_read=t.is_read,
+        )
+        for t in twins
+    ]
 
 
 @router.get("/{article_id}", response_model=ArticleOut)

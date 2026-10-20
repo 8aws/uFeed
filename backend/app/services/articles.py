@@ -32,6 +32,9 @@ class ArticleRow:
     is_saved: bool
     is_favorite: bool = False
     dup_count: int = 1
+    # Copies of the same story in feeds the user does NOT follow (and that
+    # others do): shown as a hint, never counted as theirs.
+    other_copies: int = 0
 
 
 @dataclass(slots=True)
@@ -148,6 +151,108 @@ def _is_group_rep(user_id: uuid.UUID, mine):
     )
 
 
+def _shared_sources():
+    """Feeds followed by at least two people. A feed only one person follows
+    may be private (a URL with a secret in it): its articles are never shown
+    to anyone else, not even as a "also published in" hint."""
+    return (
+        select(Subscription.source_id)
+        .group_by(Subscription.source_id)
+        .having(func.count() >= 2)
+        .scalar_subquery()
+    )
+
+
+@dataclass(slots=True)
+class UnreadCounts:
+    total: int
+    folders: dict[uuid.UUID, int]
+
+
+async def unread_counts(db: AsyncSession, user_id: uuid.UUID) -> UnreadCounts:
+    """Unread articles in the user's own subscriptions, counted exactly as the
+    "Unread" list and the folder lists show them (one per duplicate story,
+    muted feeds and muted words left out), so a badge never promises more than
+    the list holds."""
+    mine = select(Subscription.source_id).where(Subscription.user_id == user_id)
+    stmt = (
+        select(Subscription.folder_id, func.count(Article.id))
+        .select_from(Article)
+        .join(Subscription, Subscription.source_id == Article.source_id)
+        .outerjoin(
+            ArticleState,
+            and_(ArticleState.article_id == Article.id, ArticleState.user_id == user_id),
+        )
+        .where(
+            Subscription.user_id == user_id,
+            Subscription.muted.is_(False),
+            or_(ArticleState.is_read.is_(None), ArticleState.is_read.is_(False)),
+            _is_group_rep(user_id, mine),
+        )
+        .group_by(Subscription.folder_id)
+    )
+    mutes = await filters_service.load(db, user_id)
+    kw = filters_service.keyword_clause(mutes.keywords)
+    if kw is not None:
+        stmt = stmt.where(kw)
+    rows = (await db.execute(stmt)).all()
+    folders = {fid: int(n) for fid, n in rows if fid is not None}
+    return UnreadCounts(total=sum(int(n) for _, n in rows), folders=folders)
+
+
+@dataclass(slots=True)
+class Twin:
+    article_id: uuid.UUID | None  # only for copies in feeds the user follows
+    title: str | None
+    url: str | None
+    published_at: datetime | None
+    source_title: str | None
+    site_url: str | None
+    followed: bool
+    is_read: bool
+
+
+async def twins_of(db: AsyncSession, user_id: uuid.UUID, article_id: uuid.UUID) -> list[Twin]:
+    """The other copies of this story: in the user's own feeds (they can open
+    them) and in feeds others follow (title and link only, to decide whether to
+    read or follow that feed)."""
+    group = await db.scalar(select(Article.dup_group_id).where(Article.id == article_id))
+    if group is None:
+        return []
+    mine = select(Subscription.source_id).where(Subscription.user_id == user_id)
+    followed_col = Article.source_id.in_(mine)
+    stmt = (
+        select(Article, Source, followed_col, ArticleState.is_read)
+        .join(Source, Source.id == Article.source_id)
+        .outerjoin(
+            ArticleState,
+            and_(ArticleState.article_id == Article.id, ArticleState.user_id == user_id),
+        )
+        .where(
+            Article.dup_group_id == group,
+            Article.id != article_id,
+            or_(followed_col, Article.source_id.in_(_shared_sources())),
+        )
+        .order_by(followed_col.desc(), _SORT_TS.desc())
+        .limit(30)
+    )
+    out: list[Twin] = []
+    for art, src, followed, is_read in (await db.execute(stmt)).all():
+        out.append(
+            Twin(
+                article_id=art.id if followed else None,
+                title=art.title,
+                url=art.url,
+                published_at=art.published_at or art.fetched_at,
+                source_title=src.title,
+                site_url=src.site_url,
+                followed=bool(followed),
+                is_read=bool(is_read) if followed else False,
+            )
+        )
+    return out
+
+
 async def list_articles(
     db: AsyncSession,
     user_id: uuid.UUID,
@@ -180,7 +285,21 @@ async def list_articles(
         ),
         else_=1,
     )
-    stmt = _base_query(user_id).add_columns(dup_count_expr)
+    other_expr = case(
+        (
+            Article.dup_group_id.isnot(None),
+            select(func.count())
+            .select_from(dup_alias)
+            .where(
+                dup_alias.dup_group_id == Article.dup_group_id,
+                dup_alias.source_id.not_in(mine),
+                dup_alias.source_id.in_(_shared_sources()),
+            )
+            .scalar_subquery(),
+        ),
+        else_=0,
+    )
+    stmt = _base_query(user_id).add_columns(dup_count_expr, other_expr)
 
     # Collapse near-duplicates in the mixed views (all, folders, search…): one
     # article per group, as seen by this user. Opening a feed on its own shows
@@ -226,7 +345,8 @@ async def list_articles(
             )
             result = (await db.execute(stmt)).all()
             rows = [
-                ArticleRow(a, bool(r), bool(s), bool(f), int(dc or 1)) for a, r, s, f, dc in result
+                ArticleRow(a, bool(r), bool(s), bool(f), int(dc or 1), int(oc or 0))
+                for a, r, s, f, dc, oc in result
             ]
             return ArticlePage(rows=rows, next_cursor=None)
 
@@ -255,7 +375,8 @@ async def list_articles(
 
     result = (await db.execute(stmt)).all()
     rows = [
-        ArticleRow(a, bool(r), bool(s), bool(f), int(dc or 1)) for a, r, s, f, dc in result[:limit]
+        ArticleRow(a, bool(r), bool(s), bool(f), int(dc or 1), int(oc or 0))
+        for a, r, s, f, dc, oc in result[:limit]
     ]
 
     next_cursor = None
