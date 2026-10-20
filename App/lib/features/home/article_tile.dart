@@ -81,6 +81,7 @@ class ArticleTile extends StatelessWidget {
     this.style = ListStyle.cardList,
     this.note,
     this.selected = false,
+    this.onTwins,
   });
 
   final Article article;
@@ -92,6 +93,9 @@ class ArticleTile extends StatelessWidget {
 
   /// The article open beside the list (two-pane layout).
   final bool selected;
+
+  /// Opens the other copies of this story (the chip on the meta line).
+  final VoidCallback? onTwins;
 
   /// Extra text for the meta line (e.g. "12 lectores" in Trending).
   final String? note;
@@ -232,12 +236,30 @@ class ArticleTile extends StatelessWidget {
             style: TextStyle(color: c.muted, fontSize: size),
           ),
         ),
-        if (a.dupCount > 1)
+        if (a.twins > 0)
           Padding(
             padding: const EdgeInsets.only(left: 6),
-            child: Text(
-              '+${a.dupCount - 1}',
-              style: TextStyle(color: c.muted, fontSize: 12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: onTwins,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  border: Border.all(color: c.border),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.layers_outlined, size: 12, color: c.muted),
+                    const SizedBox(width: 3),
+                    Text(
+                      '${a.twins}',
+                      style: TextStyle(color: c.muted, fontSize: 11.5),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         if (a.isSaved)

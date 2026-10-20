@@ -758,4 +758,29 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get unfoldFolder => 'Desplegar carpeta';
+
+  @override
+  String get twinsTitle => 'Más sobre esta noticia';
+
+  @override
+  String get twinsInYours => 'En tus fuentes';
+
+  @override
+  String get twinsElsewhere => 'En fuentes que no sigues';
+
+  @override
+  String get twinsNote =>
+      'No cuentan en tus no leídos mientras no sigas la fuente.';
+
+  @override
+  String get twinsNone => 'No hay más copias.';
+
+  @override
+  String get openOnSite => 'Abrir en su web';
+
+  @override
+  String get followThisFeed => 'Seguir esta fuente';
+
+  @override
+  String get feedAdded => 'Fuente añadida';
 }

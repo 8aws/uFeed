@@ -23,7 +23,15 @@
 	import Onboarding from '$lib/components/Onboarding.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import ListenBar from '$lib/components/ListenBar.svelte';
-	import type { Article, DiscoveredFeed, Folder, Insights, Subscription } from '$lib/types';
+	import type {
+		Article,
+		DiscoveredFeed,
+		Folder,
+		Insights,
+		Subscription,
+		Twin,
+		UnreadCounts
+	} from '$lib/types';
 
 	type View = 'list' | 'cardlist' | 'cards' | 'masonry';
 
@@ -223,7 +231,12 @@
 	let discovering = $state(false);
 	let discoverMsg = $state('');
 
-	const totalUnread = $derived(subs.reduce((n, s) => n + (s.muted ? 0 : s.unread_count), 0));
+	// The badges: unread in my own feeds, one per duplicate story, exactly what
+	// the lists hold (the server counts them); added up by feed only offline.
+	let counts = $state<UnreadCounts | null>(null);
+	const totalUnread = $derived(
+		counts ? counts.total : subs.reduce((n, s) => n + (s.muted ? 0 : s.unread_count), 0)
+	);
 
 	function buildParams(reset: boolean): Record<string, string> {
 		const p: Record<string, string> = { limit: '30' };
@@ -240,8 +253,69 @@
 		return p;
 	}
 
+	// Other copies of a story: in my feeds (open them) or in feeds I don't follow
+	// (read them on their site, or follow that feed). They never count as mine.
+	let twinsFor = $state<Article | null>(null);
+	let twinsList = $state<Twin[] | null>(null);
+	let twinsBusy = $state('');
+	let twinsMsg = $state('');
+	const twinCount = (a: Article) => Math.max(0, a.dup_count - 1) + (a.other_copies ?? 0);
+
+	async function showTwins(a: Article, e: Event) {
+		e.stopPropagation();
+		twinsFor = a;
+		twinsList = null;
+		twinsMsg = '';
+		try {
+			twinsList = await api.twins(a.id);
+		} catch {
+			twinsList = [];
+			twinsMsg = $t('twins_failed');
+		}
+	}
+
+	async function followTwin(tw: Twin) {
+		const page = tw.site_url ?? tw.url;
+		if (!page) return;
+		twinsBusy = page;
+		twinsMsg = '';
+		try {
+			const feeds = await api.discover(page);
+			if (!feeds.length) {
+				twinsMsg = $t('twins_failed');
+				return;
+			}
+			await api.subscribe(feeds[0].feed_url);
+			await Promise.all([loadSidebar(), loadArticles(true)]);
+			twinsMsg = $t('feed_added');
+			if (twinsFor) twinsList = await api.twins(twinsFor.id).catch(() => twinsList);
+		} catch (e) {
+			twinsMsg =
+				e instanceof ApiError && String(e.code).startsWith('plan_limit')
+					? $t('plan_limit_feeds')
+					: $t('twins_failed');
+		} finally {
+			twinsBusy = '';
+		}
+	}
+
+	async function openTwin(tw: Twin) {
+		if (!tw.article_id) return;
+		try {
+			const a = articles.find((x) => x.id === tw.article_id) ?? (await api.article(tw.article_id));
+			twinsFor = null;
+			openArticleObj(a);
+		} catch {
+			twinsMsg = $t('twins_failed');
+		}
+	}
+
 	async function loadSidebar() {
-		[folders, subs] = await Promise.all([api.listFolders(), api.listSources()]);
+		[folders, subs, counts] = await Promise.all([
+			api.listFolders(),
+			api.listSources(),
+			api.unreadCounts().catch(() => null)
+		]);
 	}
 
 	// Cold-start snapshot: the sidebar and the first page of Unread from the
@@ -657,6 +731,8 @@
 
 	/** Unread count of the feeds the current view shows (muted ones aside). */
 	function unreadInView(): number {
+		if (filter.kind === 'folder' && counts) return counts.folders[filter.id] ?? 0;
+		if (filter.kind !== 'source' && filter.kind !== 'folder') return totalUnread;
 		const inView = (x: Subscription) =>
 			filter.kind === 'source'
 				? x.source.id === filter.id
@@ -731,7 +807,8 @@
 		await loadSidebar();
 	}
 
-	function folderUnread(subsIn: Subscription[]): number {
+	function folderUnread(folderId: string, subsIn: Subscription[]): number {
+		if (counts) return counts.folders[folderId] ?? 0;
 		return subsIn.reduce((n, s) => n + (s.muted ? 0 : s.unread_count), 0);
 	}
 
@@ -861,7 +938,10 @@
 
 	async function refreshUnreadFor(_sourceId: string) {
 		try {
-			subs = await api.listSources();
+			[subs, counts] = await Promise.all([
+				api.listSources(),
+				api.unreadCounts().catch(() => counts)
+			]);
 		} catch {
 			/* ignore */
 		}
@@ -882,6 +962,7 @@
 		for (const a of articles) if (inScope(a.source_id)) a.is_read = true;
 		articles = unreadView() ? articles.filter((a) => !a.is_read) : [...articles];
 		subs = subs.map((x) => (inScope(x.source.id) ? { ...x, unread_count: 0 } : x));
+		counts = null; // until the server's numbers arrive (right below)
 		if ((await runOp({ type: 'markAll', folder_id, source_id })) === 'sent') {
 			await Promise.all([loadArticles(true), loadSidebar()]);
 		}
@@ -1453,6 +1534,57 @@
 	}}
 />
 
+{#if twinsFor}
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<div class="twinsback" onclick={() => (twinsFor = null)}>
+		<div class="twinsbox" role="dialog" tabindex="-1" aria-label={$t('twins_title')} onclick={(e) => e.stopPropagation()}>
+			<div class="twinshead">
+				<strong>{$t('twins_title')}</strong>
+				<button class="x" aria-label="×" onclick={() => (twinsFor = null)}>×</button>
+			</div>
+			{#if twinsList === null}
+				<p class="muted">…</p>
+			{:else}
+				{@const mine = twinsList.filter((x) => x.followed)}
+				{@const other = twinsList.filter((x) => !x.followed)}
+				{#if twinsList.length === 0}<p class="muted">{$t('twins_none')}</p>{/if}
+				{#if mine.length}
+					<h4>{$t('twins_yours')}</h4>
+					<ul>
+						{#each mine as tw (tw.article_id)}
+							<li>
+								<button class="twinrow" class:read={tw.is_read} onclick={() => openTwin(tw)}>
+									<span class="atitle">{tw.title}</span>
+									<span class="muted small">{tw.source_title} · {relativeTime(tw.published_at, $locale)}</span>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+				{#if other.length}
+					<h4>{$t('twins_elsewhere')}</h4>
+					<p class="muted small">{$t('twins_note')}</p>
+					<ul>
+						{#each other as tw (tw.url ?? tw.source_title)}
+							<li class="twinother">
+								<span class="atitle">{tw.title}</span>
+								<span class="muted small">{tw.source_title} · {relativeTime(tw.published_at, $locale)}</span>
+								<span class="twinbtns">
+									{#if safeUrl(tw.url)}
+										<a class="btn" href={safeUrl(tw.url)} target="_blank" rel="noopener noreferrer">{$t('open_on_site')}</a>
+									{/if}
+									<button disabled={twinsBusy !== ''} onclick={() => followTwin(tw)}>{$t('follow_feed')}</button>
+								</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+				{#if twinsMsg}<p class="small">{twinsMsg}</p>{/if}
+			{/if}
+		</div>
+	</div>
+{/if}
+
 {#if viewOpen}
 	<div class="viewpop" role="menu" style="top: {viewPos.top}px; left: {viewPos.left}px">
 		{#each VIEWS as v (v)}
@@ -1631,7 +1763,7 @@
 					onclick={() => setFilter({ kind: 'folder', id: g.folder.id })}
 				>
 					<span class="ellipsis">📁 {g.folder.name}</span>
-					{#if folderUnread(g.subs)}<span class="badge">{folderUnread(g.subs)}</span>{/if}
+					{#if folderUnread(g.folder.id, g.subs)}<span class="badge">{folderUnread(g.folder.id, g.subs)}</span>{/if}
 				</button>
 				<button class="x" title={$t('delete_folder')} onclick={() => removeFolder(g.folder)}>×</button>
 			</div>
@@ -1687,9 +1819,12 @@
 				{/if}
 				{#if filter.kind === 'source' || filter.kind === 'folder'}
 					{@const f = filter}
-					{@const left = subs
-						.filter((x) => (f.kind === 'source' ? x.source.id === f.id : x.folder_id === f.id))
-						.reduce((n, x) => n + x.unread_count, 0)}
+					{@const left =
+						f.kind === 'folder' && counts
+							? (counts.folders[f.id] ?? 0)
+							: subs
+									.filter((x) => (f.kind === 'source' ? x.source.id === f.id : x.folder_id === f.id))
+									.reduce((n, x) => n + x.unread_count, 0)}
 					<!-- In a feed or folder: just what's left to read, or everything. -->
 					<button
 						class:active={onlyUnread}
@@ -1811,7 +1946,7 @@
 						</div>
 						<div class="meta muted">
 							<span class="ellipsis">{sourceName(a.source_id)}</span>
-							{#if a.dup_count > 1}<span class="dup" title={$t('duplicates')}>+{a.dup_count - 1}</span>{/if}
+							{#if twinCount(a) > 0}<button class="dup" title={$t('duplicates')} onclick={(e) => showTwins(a, e)}>⧉ {twinCount(a)}</button>{/if}
 							{#if a.is_saved}<span class="star">★</span>{/if}
 							{#if a.is_favorite}<span class="star">♥</span>{/if}
 						</div>
@@ -1846,7 +1981,7 @@
 							<div class="meta muted">
 								<span class="ellipsis">{sourceName(a.source_id)}</span>
 								<span>· {relativeTime(a.published_at, $locale)}</span>
-								{#if a.dup_count > 1}<span class="dup" title={$t('duplicates')}>+{a.dup_count - 1}</span>{/if}
+								{#if twinCount(a) > 0}<button class="dup" title={$t('duplicates')} onclick={(e) => showTwins(a, e)}>⧉ {twinCount(a)}</button>{/if}
 								{#if a.is_saved}<span class="star">★</span>{/if}
 								{#if a.is_favorite}<span class="star">♥</span>{/if}
 								{#if view === 'cardlist'}
@@ -2866,6 +3001,74 @@
 		to {
 			transform: rotate(360deg);
 		}
+	}
+	.twinsback {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.45);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 60;
+		padding: 1rem;
+	}
+	.twinsbox {
+		background: var(--surface);
+		color: var(--text);
+		border-radius: 12px;
+		width: min(560px, 100%);
+		max-height: 80vh;
+		overflow-y: auto;
+		padding: 1rem 1.1rem 1.1rem;
+		box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+	}
+	.twinshead {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 0.4rem;
+	}
+	.twinsbox h4 {
+		margin: 0.9rem 0 0.2rem;
+		font-size: 0.78rem;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--muted);
+	}
+	.twinsbox ul {
+		list-style: none;
+		padding: 0;
+		margin: 0.2rem 0 0;
+	}
+	.twinrow,
+	.twinother {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		text-align: left;
+		width: 100%;
+		background: none;
+		border: 0;
+		border-bottom: 1px solid var(--border);
+		padding: 0.55rem 0;
+		color: inherit;
+	}
+	.twinrow.read .atitle {
+		font-weight: 500;
+		opacity: 0.7;
+	}
+	.twinbtns {
+		display: flex;
+		gap: 0.5rem;
+		margin-top: 0.3rem;
+		flex-wrap: wrap;
+	}
+	button.dup {
+		border: 1px solid var(--border);
+		background: none;
+		cursor: pointer;
+		padding: 0.15rem 0.55rem;
+		font-size: 0.78rem;
 	}
 	.dup {
 		background: var(--border);

@@ -319,5 +319,13 @@
   "themeLight": "Claro",
   "themeDark": "Oscuro",
   "foldFolder": "Plegar carpeta",
-  "unfoldFolder": "Desplegar carpeta"
+  "unfoldFolder": "Desplegar carpeta",
+  "twinsTitle": "Más sobre esta noticia",
+  "twinsInYours": "En tus fuentes",
+  "twinsElsewhere": "En fuentes que no sigues",
+  "twinsNote": "No cuentan en tus no leídos mientras no sigas la fuente.",
+  "twinsNone": "No hay más copias.",
+  "openOnSite": "Abrir en su web",
+  "followThisFeed": "Seguir esta fuente",
+  "feedAdded": "Fuente añadida"
 }

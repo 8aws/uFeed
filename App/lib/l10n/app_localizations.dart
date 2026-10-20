@@ -1447,6 +1447,54 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Desplegar carpeta'**
   String get unfoldFolder;
+
+  /// No description provided for @twinsTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Más sobre esta noticia'**
+  String get twinsTitle;
+
+  /// No description provided for @twinsInYours.
+  ///
+  /// In es, this message translates to:
+  /// **'En tus fuentes'**
+  String get twinsInYours;
+
+  /// No description provided for @twinsElsewhere.
+  ///
+  /// In es, this message translates to:
+  /// **'En fuentes que no sigues'**
+  String get twinsElsewhere;
+
+  /// No description provided for @twinsNote.
+  ///
+  /// In es, this message translates to:
+  /// **'No cuentan en tus no leídos mientras no sigas la fuente.'**
+  String get twinsNote;
+
+  /// No description provided for @twinsNone.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay más copias.'**
+  String get twinsNone;
+
+  /// No description provided for @openOnSite.
+  ///
+  /// In es, this message translates to:
+  /// **'Abrir en su web'**
+  String get openOnSite;
+
+  /// No description provided for @followThisFeed.
+  ///
+  /// In es, this message translates to:
+  /// **'Seguir esta fuente'**
+  String get followThisFeed;
+
+  /// No description provided for @feedAdded.
+  ///
+  /// In es, this message translates to:
+  /// **'Fuente añadida'**
+  String get feedAdded;
 }
 
 class _AppLocalizationsDelegate

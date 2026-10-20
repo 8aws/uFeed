@@ -236,7 +236,7 @@ los extras.
 - [x] Los leídos desaparecen al instante de las vistas «sin leer» (hecho 2026-10-20)
 - [x] Plegar y desplegar carpetas en el menú lateral (hecho 2026-10-20)
 - [ ] Pendiente de ver en pantalla: el plegado de carpetas (los tests de lógica pasan)
-- [ ] «+N» de las tarjetas (artículos similares) pulsable para verlos
+- [x] Contadores y listas solo con las suscripciones propias; copias de la noticia en otras fuentes como aviso pulsable (ver, abrir su web, seguir la fuente), sin contar como propias (2026-10-20)
 - [ ] Vistas lista, tarjetas y mosaico; gestos
 - [ ] Artículo completo; contenido multimedia incrustado
 - [ ] Resumen IA; traducción; leer en mi idioma

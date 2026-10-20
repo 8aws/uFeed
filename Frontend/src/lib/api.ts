@@ -28,6 +28,8 @@ import type {
 	Role,
 	SiteConfig,
 	Subscription,
+	Twin,
+	UnreadCounts,
 	Tokens,
 	TrendingItem,
 	User
@@ -200,6 +202,8 @@ export const api = {
 
 	// sources
 	listSources: () => request<Subscription[]>('/sources'),
+	unreadCounts: () => request<UnreadCounts>('/articles/unread-counts'),
+	twins: (id: string) => request<Twin[]>(`/articles/${id}/twins`),
 	aiSummary: (id: string, lang: string, generate = false) =>
 		request<AISummary>(
 			`/articles/${id}/ai-summary?lang=${encodeURIComponent(lang)}&generate=${generate}`

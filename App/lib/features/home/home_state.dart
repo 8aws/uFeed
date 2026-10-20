@@ -50,17 +50,26 @@ List<Article> insertedInOrder(
 }
 
 class Sidebar {
-  const Sidebar({required this.folders, required this.subs});
+  const Sidebar({required this.folders, required this.subs, this.counts});
 
   final List<Folder> folders;
   final List<Subscription> subs;
 
+  /// The totals as the server counts them (one per duplicate story, own feeds
+  /// only); without them (no connection) the feeds' own badges are added up.
+  final UnreadCounts? counts;
+
   int get unreadTotal =>
+      counts?.total ??
       subs.where((s) => !s.muted).fold(0, (n, s) => n + s.unreadCount);
 
-  int unreadIn(String folderId) => subs
-      .where((s) => s.folderId == folderId && !s.muted)
-      .fold(0, (n, s) => n + s.unreadCount);
+  int unreadIn(String folderId) =>
+      counts?.folders[folderId] ??
+      (counts != null
+          ? 0
+          : subs
+                .where((s) => s.folderId == folderId && !s.muted)
+                .fold(0, (n, s) => n + s.unreadCount));
 
   Subscription? subFor(String sourceId) {
     for (final s in subs) {
@@ -75,6 +84,8 @@ class Sidebar {
       for (final s in subs)
         s.source.id == sourceId ? s.withUnread(s.unreadCount + delta) : s,
     ],
+    // Until the server's numbers arrive again: a good guess.
+    counts: counts?.adjusted(delta, subFor(sourceId)?.folderId),
   );
 }
 
@@ -87,10 +98,20 @@ class SidebarNotifier extends AsyncNotifier<Sidebar> {
   Future<Sidebar> build() async {
     final api = ref.watch(apiProvider);
     try {
-      final (folders, subs) = await (api.folders(), api.sources()).wait;
+      final (folders, subs, counts) = await (
+        api.folders(),
+        api.sources(),
+        api
+            .unreadCounts()
+            .then<UnreadCounts?>((c) => c)
+            .onError((_, _) => null),
+      ).wait;
       folders.sort((a, b) => a.position.compareTo(b.position));
-      return Sidebar(folders: folders, subs: subs);
-    } on ParallelWaitError<(List<Folder>?, List<Subscription>?), Object> {
+      return Sidebar(folders: folders, subs: subs, counts: counts);
+    } on ParallelWaitError<
+      (List<Folder>?, List<Subscription>?, UnreadCounts?),
+      Object
+    > {
       // No network: the menu from the last session.
       final snap = await _snapshot();
       if (snap != null) return Sidebar(folders: snap.folders, subs: snap.subs);
@@ -107,6 +128,32 @@ class SidebarNotifier extends AsyncNotifier<Sidebar> {
   void adjustUnread(String sourceId, int delta) {
     final s = state.value;
     if (s != null) state = AsyncData(s.adjustUnread(sourceId, delta));
+    _scheduleCounts();
+  }
+
+  Timer? _countsTimer;
+
+  /// After reading or un-reading, ask the server for the real numbers (the
+  /// local adjustment is only a guess: it can't know which copy of a story the
+  /// totals count).
+  void _scheduleCounts() {
+    _countsTimer?.cancel();
+    ref.onDispose(() => _countsTimer?.cancel());
+    _countsTimer = Timer(const Duration(seconds: 3), () async {
+      final s = state.value;
+      if (s == null) return;
+      try {
+        final c = await ref.read(apiProvider).unreadCounts();
+        final now = state.value;
+        if (now != null) {
+          state = AsyncData(
+            Sidebar(folders: now.folders, subs: now.subs, counts: c),
+          );
+        }
+      } on ApiException {
+        // keep the guess
+      }
+    });
   }
 
   Future<void> reload() async {
@@ -359,16 +406,13 @@ class ArticleListNotifier extends Notifier<ArticleList> {
     final side = ref.read(sidebarProvider).value;
     if (side == null) return 0;
     final f = ref.read(filterProvider);
-    var n = 0;
-    for (final s in side.subs) {
-      final inView = switch (f.kind) {
-        FilterKind.source => s.source.id == f.id,
-        FilterKind.folder => s.folderId == f.id,
-        _ => !s.muted,
-      };
-      if (inView) n += s.unreadCount;
-    }
-    return n;
+    // Each view counts as the lists do: the unread and folder views by the
+    // server's totals (one per story), a feed by its own badge.
+    return switch (f.kind) {
+      FilterKind.source => side.subFor(f.id!)?.unreadCount ?? 0,
+      FilterKind.folder => side.unreadIn(f.id!),
+      _ => side.unreadTotal,
+    };
   }
 
   void _replace(Article a) {

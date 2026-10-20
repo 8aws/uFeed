@@ -200,6 +200,7 @@ class Article {
     required this.isSaved,
     required this.isFavorite,
     required this.dupCount,
+    this.otherCopies = 0,
   });
 
   final String id;
@@ -219,7 +220,12 @@ class Article {
   final bool isRead;
   final bool isSaved;
   final bool isFavorite;
+
+  /// Copies of the story in your own feeds (1 = just this one).
   final int dupCount;
+
+  /// Copies in feeds you don't follow: a hint, never counted as yours.
+  final int otherCopies;
 
   Article copyWith({bool? isRead, bool? isSaved, bool? isFavorite}) => Article(
     id: id,
@@ -240,6 +246,7 @@ class Article {
     isSaved: isSaved ?? this.isSaved,
     isFavorite: isFavorite ?? this.isFavorite,
     dupCount: dupCount,
+    otherCopies: otherCopies,
   );
 
   /// For the offline copy (same shape as the API's).
@@ -262,6 +269,7 @@ class Article {
     'is_saved': isSaved,
     'is_favorite': isFavorite,
     'dup_count': dupCount,
+    'other_copies': otherCopies,
   };
 
   factory Article.fromJson(Json j) => Article(
@@ -283,6 +291,70 @@ class Article {
     isSaved: j['is_saved'] as bool? ?? false,
     isFavorite: j['is_favorite'] as bool? ?? false,
     dupCount: j['dup_count'] as int? ?? 1,
+    otherCopies: j['other_copies'] as int? ?? 0,
+  );
+
+  /// Other copies of the story, in your feeds or elsewhere.
+  int get twins => dupCount - 1 + otherCopies;
+}
+
+/// The numbers on the menu badges: unread in your own feeds, counted exactly as
+/// the lists show them.
+class UnreadCounts {
+  const UnreadCounts(this.total, this.folders);
+
+  final int total;
+  final Map<String, int> folders;
+
+  UnreadCounts adjusted(int delta, String? folderId) => UnreadCounts(
+    (total + delta).clamp(0, 1 << 30),
+    folderId == null
+        ? folders
+        : {
+            ...folders,
+            folderId: ((folders[folderId] ?? 0) + delta).clamp(0, 1 << 30),
+          },
+  );
+
+  factory UnreadCounts.fromJson(Json j) =>
+      UnreadCounts(j['total'] as int? ?? 0, {
+        for (final e in ((j['folders'] as Map?) ?? const {}).entries)
+          e.key as String: e.value as int,
+      });
+}
+
+/// Another copy of the same story: in a feed you follow (open it), or in one
+/// you don't (read it on its site, or follow that feed).
+class Twin {
+  const Twin({
+    required this.articleId,
+    required this.title,
+    required this.url,
+    required this.publishedAt,
+    required this.sourceTitle,
+    required this.siteUrl,
+    required this.followed,
+    required this.isRead,
+  });
+
+  final String? articleId;
+  final String? title;
+  final String? url;
+  final DateTime? publishedAt;
+  final String? sourceTitle;
+  final String? siteUrl;
+  final bool followed;
+  final bool isRead;
+
+  factory Twin.fromJson(Json j) => Twin(
+    articleId: j['article_id'] as String?,
+    title: j['title'] as String?,
+    url: j['url'] as String?,
+    publishedAt: _date(j['published_at']),
+    sourceTitle: j['source_title'] as String?,
+    siteUrl: j['site_url'] as String?,
+    followed: j['followed'] as bool? ?? false,
+    isRead: j['is_read'] as bool? ?? false,
   );
 }
 

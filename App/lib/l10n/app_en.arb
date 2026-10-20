@@ -318,5 +318,13 @@
   "themeLight": "Light",
   "themeDark": "Dark",
   "foldFolder": "Fold folder",
-  "unfoldFolder": "Unfold folder"
+  "unfoldFolder": "Unfold folder",
+  "twinsTitle": "More on this story",
+  "twinsInYours": "In your feeds",
+  "twinsElsewhere": "In feeds you don't follow",
+  "twinsNote": "They don't count in your unread until you follow the feed.",
+  "twinsNone": "No other copies.",
+  "openOnSite": "Open on its site",
+  "followThisFeed": "Follow this feed",
+  "feedAdded": "Feed added"
 }

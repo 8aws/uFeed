@@ -89,7 +89,26 @@ export interface Article {
 	is_read: boolean;
 	is_saved: boolean;
 	is_favorite: boolean;
-	dup_count: number;
+	dup_count: number; // copies in the reader's own feeds (1 = just this one)
+	other_copies?: number; // copies in feeds the reader doesn't follow (a hint only)
+}
+
+/** What the badges show: unread in the reader's own feeds, one per duplicate story. */
+export interface UnreadCounts {
+	total: number;
+	folders: Record<string, number>;
+}
+
+/** Another copy of the same story: in a followed feed (open it) or in one that isn't. */
+export interface Twin {
+	article_id: string | null;
+	title: string | null;
+	url: string | null;
+	published_at: string | null;
+	source_title: string | null;
+	site_url: string | null;
+	followed: boolean;
+	is_read: boolean;
 }
 
 export interface TrendingItem {

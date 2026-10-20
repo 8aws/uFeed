@@ -241,6 +241,18 @@ class ApiClient {
   // feeds and folders
 
   /// Feeds found at a site or feed address.
+  /// The menu badges, from the server (own feeds only, as the lists show them).
+  Future<UnreadCounts> unreadCounts() async =>
+      UnreadCounts.fromJson(await _json('GET', '/articles/unread-counts'));
+
+  /// One article of your feeds (to open a copy of a story found in another).
+  Future<Article> article(String id) async =>
+      Article.fromJson(await _json('GET', '/articles/$id'));
+
+  /// Other copies of a story, in your feeds and in feeds you don't follow.
+  Future<List<Twin>> twins(String id) =>
+      _list('/articles/$id/twins', Twin.fromJson);
+
   Future<List<DiscoveredFeed>> discover(String url) async {
     final data =
         await _request('POST', '/discover', body: {'url': url}) as List;

@@ -754,4 +754,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get unfoldFolder => 'Unfold folder';
+
+  @override
+  String get twinsTitle => 'More on this story';
+
+  @override
+  String get twinsInYours => 'In your feeds';
+
+  @override
+  String get twinsElsewhere => 'In feeds you don\'t follow';
+
+  @override
+  String get twinsNote =>
+      'They don\'t count in your unread until you follow the feed.';
+
+  @override
+  String get twinsNone => 'No other copies.';
+
+  @override
+  String get openOnSite => 'Open on its site';
+
+  @override
+  String get followThisFeed => 'Follow this feed';
+
+  @override
+  String get feedAdded => 'Feed added';
 }

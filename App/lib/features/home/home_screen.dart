@@ -21,6 +21,7 @@ import '../../l10n/app_localizations.dart';
 import '../reader/open_article.dart';
 import '../reader/reader_screen.dart';
 import 'article_tile.dart';
+import 'twins_sheet.dart';
 import 'home_state.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -358,6 +359,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         sourceTitle: side?.subFor(a.sourceId)?.title ?? '',
         selected: twoPane && ref.watch(openArticleProvider)?.currentId == a.id,
         onOpen: () => _openArticle(ReaderArgs(list.items, i), twoPane),
+        onTwins: () => showTwins(context, ref, a),
         onToggleRead: () => ctrl.setRead(a, !a.isRead),
         onToggleSaved: () => ctrl.setSaved(a, !a.isSaved),
       );
