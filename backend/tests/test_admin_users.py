@@ -165,6 +165,8 @@ async def test_purge_guests_removes_only_idle_guests(api: AsyncClient, db_sessio
 
 
 async def test_only_admins_see_the_list_and_summary(api: AsyncClient, db_session: AsyncSession):
+    # On an empty instance the first account becomes the admin: take that one first.
+    await _admin(api, db_session)
     r = await api.post(
         "/api/auth/register",
         json={"email": f"u-{uuid.uuid4().hex[:8]}@example.com", "password": "supersecret1"},
