@@ -255,10 +255,10 @@ async def test_feed_list_matches_its_unread_badge(
     assert badge == len(feed_a)
 
 
-async def _follow_as_other_user(api: AsyncClient, feed_url: str) -> None:
-    """A second person following a feed (so it counts as shared, not private)."""
-    other = await _register(api)
-    await _subscribe(api, other, feed_url)
+async def _follow_as_other_users(api: AsyncClient, feed_url: str) -> None:
+    """Two other people following a feed (so it counts as shared, not private)."""
+    for _ in range(2):
+        await _subscribe(api, await _register(api), feed_url)
 
 
 async def test_unread_counts_only_follow_your_own_feeds(
@@ -302,7 +302,7 @@ async def test_copies_elsewhere_are_a_hint_and_can_be_listed(
     other = await _seed_source(db_session, [])
     mine = await _seed_source(db_session, [])
     seed, copy = await _grouped(db_session, seed_in=other, copy_in=mine)
-    await _follow_as_other_user(api, other.feed_url)  # a shared feed, not a private one
+    await _follow_as_other_users(api, other.feed_url)  # a shared feed, not a private one
     headers = await _register(api)
     await _subscribe(api, headers, mine.feed_url)
 
