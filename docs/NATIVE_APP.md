@@ -233,6 +233,10 @@ los extras.
 ## 4. Paridad con la web (comprobación final)
 
 - [ ] Todo / Sin leer / Guardados / Favoritos / carpetas / fuentes
+- [x] Los leídos desaparecen al instante de las vistas «sin leer» (hecho 2026-10-20)
+- [x] Plegar y desplegar carpetas en el menú lateral (hecho 2026-10-20)
+- [ ] Pendiente de ver en pantalla: el plegado de carpetas (los tests de lógica pasan)
+- [ ] «+N» de las tarjetas (artículos similares) pulsable para verlos
 - [ ] Vistas lista, tarjetas y mosaico; gestos
 - [ ] Artículo completo; contenido multimedia incrustado
 - [ ] Resumen IA; traducción; leer en mi idioma
