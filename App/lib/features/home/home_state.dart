@@ -143,14 +143,19 @@ class SidebarNotifier extends AsyncNotifier<Sidebar> {
       final s = state.value;
       if (s == null) return;
       try {
-        final c = await ref.read(apiProvider).unreadCounts();
+        final api = ref.read(apiProvider);
+        // The feeds' own badges too: reading an article also reads its exact
+        // copies in other feeds of yours.
+        final (c, subs) = await (api.unreadCounts(), api.sources()).wait;
         final now = state.value;
         if (now != null) {
           state = AsyncData(
-            Sidebar(folders: now.folders, subs: now.subs, counts: c),
+            Sidebar(folders: now.folders, subs: subs, counts: c),
           );
         }
       } on ApiException {
+        // keep the guess
+      } on ParallelWaitError<(UnreadCounts?, List<Subscription>?), Object> {
         // keep the guess
       }
     });

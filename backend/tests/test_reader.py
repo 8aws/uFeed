@@ -191,15 +191,18 @@ async def test_collapse_duplicates(api: AsyncClient, db_session: AsyncSession) -
 
 async def _grouped(db: AsyncSession, seed_in: Source, copy_in: Source) -> tuple[Article, Article]:
     """A duplicate group made across two feeds: the seed in one, a copy in the other."""
+    tag = uuid.uuid4().hex
     seed = Article(
         source_id=seed_in.id,
-        guid=f"seed-{uuid.uuid4().hex}",
+        guid=f"seed-{tag}",
+        url=f"https://one.example/{tag}",
         title="Same story",
         published_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
     copy = Article(
         source_id=copy_in.id,
-        guid=f"copy-{uuid.uuid4().hex}",
+        guid=f"copy-{tag}",
+        url=f"https://two.example/{tag}",
         title="Same story (copy)",
         published_at=datetime(2025, 1, 2, tzinfo=UTC),
     )
@@ -336,6 +339,109 @@ async def test_a_feed_only_one_person_follows_is_never_hinted_to_others(
     items = (await api.get("/api/articles", headers=headers)).json()["items"]
     assert items[0]["other_copies"] == 0
     assert (await api.get(f"/api/articles/{copy.id}/twins", headers=headers)).json() == []
+
+
+async def _same_article_in_two_feeds(db: AsyncSession, a: Source, b: Source):
+    """The same address in two feeds of one site: the main feed and a section's."""
+    tag = uuid.uuid4().hex
+    one = Article(
+        source_id=a.id,
+        guid=f"a-{tag}",
+        url=f"https://www.site.example/post/{tag}/",
+        title="Main feed copy",
+        published_at=datetime(2025, 1, 1, tzinfo=UTC),
+    )
+    two = Article(
+        source_id=b.id,
+        guid=f"b-{tag}",
+        url=f"http://site.example/post/{tag}#comments",
+        title="Section feed copy",
+        published_at=datetime(2025, 1, 1, tzinfo=UTC),
+    )
+    db.add_all([one, two])
+    await db.flush()
+    one.dup_group_id = one.id
+    two.dup_group_id = one.id
+    await db.commit()
+    return one, two
+
+
+async def test_same_address_in_a_section_feed_is_not_a_twin(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The site's main feed holds every section: its copy in a section's feed
+    is the same article, not another one to hint at or to count."""
+    main = await _seed_source(db_session, [])
+    section = await _seed_source(db_session, [])
+    one, two = await _same_article_in_two_feeds(db_session, main, section)
+    await _follow_as_other_users(api, section.feed_url)  # a shared feed I don't follow
+    headers = await _register(api)
+    await _subscribe(api, headers, main.feed_url)
+
+    item = (await api.get("/api/articles", headers=headers)).json()["items"][0]
+    assert item["id"] == str(one.id)
+    assert item["other_copies"] == 0 and item["dup_count"] == 1
+    assert (await api.get(f"/api/articles/{one.id}/twins", headers=headers)).json() == []
+
+
+async def test_a_copy_on_another_site_is_still_a_twin(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    main = await _seed_source(db_session, [])
+    other_site = await _seed_source(db_session, [])
+    seed, copy = await _grouped(db_session, seed_in=other_site, copy_in=main)
+    await _follow_as_other_users(api, other_site.feed_url)
+    headers = await _register(api)
+    await _subscribe(api, headers, main.feed_url)
+    item = (await api.get("/api/articles", headers=headers)).json()["items"][0]
+    assert item["other_copies"] == 1
+    assert seed.url != copy.url
+
+
+async def test_both_feeds_followed_same_address_counts_once_and_reads_together(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    main = await _seed_source(db_session, [])
+    section = await _seed_source(db_session, [])
+    one, two = await _same_article_in_two_feeds(db_session, main, section)
+    headers = await _register(api)
+    sub_main = await _subscribe(api, headers, main.feed_url)
+    sub_section = await _subscribe(api, headers, section.feed_url)
+
+    mixed = (await api.get("/api/articles?unread=true", headers=headers)).json()["items"]
+    assert len(mixed) == 1 and mixed[0]["dup_count"] == 1  # no chip: it is one article
+    counts = (await api.get("/api/articles/unread-counts", headers=headers)).json()
+    assert counts["total"] == 1
+
+    # Reading it reads its copy in the other feed too: nothing lingers unread.
+    assert (await api.post(f"/api/articles/{one.id}/read", headers=headers)).status_code == 200
+    listed = {
+        s["id"]: s["unread_count"] for s in (await api.get("/api/sources", headers=headers)).json()
+    }
+    assert listed[sub_main["id"]] == 0 and listed[sub_section["id"]] == 0
+
+    # And un-reading brings both back.
+    await api.delete(f"/api/articles/{one.id}/read", headers=headers)
+    listed = {
+        s["id"]: s["unread_count"] for s in (await api.get("/api/sources", headers=headers)).json()
+    }
+    assert listed[sub_main["id"]] == 1 and listed[sub_section["id"]] == 1
+
+
+async def test_a_similar_story_on_another_site_is_not_read_with_it(
+    api: AsyncClient, db_session: AsyncSession
+) -> None:
+    a = await _seed_source(db_session, [])
+    b = await _seed_source(db_session, [])
+    seed, copy = await _grouped(db_session, seed_in=a, copy_in=b)
+    headers = await _register(api)
+    await _subscribe(api, headers, a.feed_url)
+    sub_b = await _subscribe(api, headers, b.feed_url)
+    await api.post(f"/api/articles/{seed.id}/read", headers=headers)
+    listed = {
+        s["id"]: s["unread_count"] for s in (await api.get("/api/sources", headers=headers)).json()
+    }
+    assert listed[sub_b["id"]] == 1  # a different address: still to read
 
 
 async def test_cannot_access_unsubscribed_article(

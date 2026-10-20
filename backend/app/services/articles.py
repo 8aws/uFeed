@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -151,6 +152,28 @@ def _is_group_rep(user_id: uuid.UUID, mine):
     )
 
 
+_SCHEME_WWW = re.compile(r"^https?://(www\.)?")
+
+
+def norm_url(url: str | None) -> str | None:
+    """An article's address without what doesn't make it another article: the
+    scheme, a leading www, the #fragment and trailing slashes. The same article
+    reaching you through two feeds of one site (the main feed and a section's)
+    has the same one."""
+    if not url:
+        return None
+    u = _SCHEME_WWW.sub("", url.strip().lower().split("#", 1)[0])
+    return u.rstrip("/") or None
+
+
+def _norm_url_sql(col):
+    """`norm_url` in SQL (same steps, so both always agree)."""
+    return func.rtrim(
+        func.regexp_replace(func.lower(func.split_part(col, "#", 1)), r"^https?://(www\.)?", ""),
+        "/",
+    )
+
+
 def _shared_sources():
     """Feeds followed by at least two people. A feed only one person follows
     may be private (a URL with a secret in it): its articles are never shown
@@ -215,10 +238,14 @@ class Twin:
 async def twins_of(db: AsyncSession, user_id: uuid.UUID, article_id: uuid.UUID) -> list[Twin]:
     """The other copies of this story: in the user's own feeds (they can open
     them) and in feeds others follow (title and link only, to decide whether to
-    read or follow that feed)."""
-    group = await db.scalar(select(Article.dup_group_id).where(Article.id == article_id))
-    if group is None:
+    read or follow that feed). A copy with the same address as this article, or
+    as one the user already has, is the same article, not a twin."""
+    me = (
+        await db.execute(select(Article.dup_group_id, Article.url).where(Article.id == article_id))
+    ).first()
+    if me is None or me.dup_group_id is None:
         return []
+    group, my_url = me
     mine = select(Subscription.source_id).where(Subscription.user_id == user_id)
     followed_col = Article.source_id.in_(mine)
     stmt = (
@@ -234,10 +261,24 @@ async def twins_of(db: AsyncSession, user_id: uuid.UUID, article_id: uuid.UUID) 
             or_(followed_col, Article.source_id.in_(_shared_sources())),
         )
         .order_by(followed_col.desc(), _SORT_TS.desc())
-        .limit(30)
+        .limit(60)
     )
+    rows = (await db.execute(stmt)).all()
+    # Addresses the user already has: this article's and those of followed copies.
+    have = {norm_url(my_url)} | {norm_url(a.url) for a, _, followed, _ in rows if followed}
+    have.discard(None)
+    seen: set[str | None] = set()
     out: list[Twin] = []
-    for art, src, followed, is_read in (await db.execute(stmt)).all():
+    for art, src, followed, is_read in rows:
+        key = norm_url(art.url)
+        if followed:
+            if key is not None and key == norm_url(my_url):
+                continue  # the same article through another of your feeds
+        elif key is None or key in have:
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
         out.append(
             Twin(
                 article_id=art.id if followed else None,
@@ -250,7 +291,7 @@ async def twins_of(db: AsyncSession, user_id: uuid.UUID, article_id: uuid.UUID) 
                 is_read=bool(is_read) if followed else False,
             )
         )
-    return out
+    return out[:30]
 
 
 async def list_articles(
@@ -271,29 +312,50 @@ async def list_articles(
     mine = select(Subscription.source_id).where(Subscription.user_id == user_id)
     # How many of the user's own articles share this one's dedup group (1 when
     # ungrouped): copies in sources nobody they follow publishes don't count.
+    # The same article reaching you through two feeds of one site (same address)
+    # is one article, not a twin: copies are counted by distinct address.
     dup_alias = aliased(Article)
+    own_alias = aliased(Article)
     dup_count_expr = case(
         (
             Article.dup_group_id.isnot(None),
-            select(func.count())
-            .select_from(dup_alias)
-            .where(
-                dup_alias.dup_group_id == Article.dup_group_id,
-                dup_alias.source_id.in_(mine),
-            )
-            .scalar_subquery(),
+            func.greatest(
+                1,
+                select(
+                    func.count(
+                        func.distinct(
+                            func.coalesce(
+                                _norm_url_sql(dup_alias.url), sa.cast(dup_alias.id, sa.Text)
+                            )
+                        )
+                    )
+                )
+                .where(
+                    dup_alias.dup_group_id == Article.dup_group_id,
+                    dup_alias.source_id.in_(mine),
+                )
+                .scalar_subquery(),
+            ),
         ),
         else_=1,
     )
     other_expr = case(
         (
             Article.dup_group_id.isnot(None),
-            select(func.count())
-            .select_from(dup_alias)
+            select(func.count(func.distinct(_norm_url_sql(dup_alias.url))))
             .where(
                 dup_alias.dup_group_id == Article.dup_group_id,
                 dup_alias.source_id.not_in(mine),
                 dup_alias.source_id.in_(_shared_sources()),
+                dup_alias.url.isnot(None),
+                # Not one you already have through a feed you follow.
+                ~select(own_alias.id)
+                .where(
+                    own_alias.dup_group_id == Article.dup_group_id,
+                    own_alias.source_id.in_(mine),
+                    _norm_url_sql(own_alias.url) == _norm_url_sql(dup_alias.url),
+                )
+                .exists(),
             )
             .scalar_subquery(),
         ),
@@ -441,8 +503,48 @@ async def set_state(
         .on_conflict_do_update(index_elements=["user_id", "article_id"], set_=set_)
     )
     await db.execute(stmt)
+    if is_read is not None:
+        await _sync_same_article(db, user_id, article_id, is_read)
     await db.commit()
     return True
+
+
+async def _sync_same_article(
+    db: AsyncSession, user_id: uuid.UUID, article_id: uuid.UUID, is_read: bool
+) -> None:
+    """Reading an article reads its exact copies in the user's other feeds (the
+    same address reaching them through a site's main feed and a section's), so
+    it never lingers as unread there. Only the same address: a similar story
+    from another site stays as it is."""
+    me = (
+        await db.execute(select(Article.dup_group_id, Article.url).where(Article.id == article_id))
+    ).first()
+    if me is None or me.dup_group_id is None or not me.url:
+        return
+    key = norm_url(me.url)
+    mine = select(Subscription.source_id).where(Subscription.user_id == user_id)
+    rows = (
+        await db.execute(
+            select(Article.id, Article.url).where(
+                Article.dup_group_id == me.dup_group_id,
+                Article.id != article_id,
+                Article.source_id.in_(mine),
+            )
+        )
+    ).all()
+    ids = [rid for rid, url in rows if norm_url(url) == key]
+    if not ids:
+        return
+    at = datetime.now(UTC) if is_read else None
+    stmt = pg_insert(ArticleState).values(
+        [{"user_id": user_id, "article_id": i, "is_read": is_read, "read_at": at} for i in ids]
+    )
+    await db.execute(
+        stmt.on_conflict_do_update(
+            index_elements=["user_id", "article_id"],
+            set_={"is_read": is_read, "read_at": at},
+        )
+    )
 
 
 async def mark_all_read(

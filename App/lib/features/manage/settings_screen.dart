@@ -159,13 +159,8 @@ class SettingsScreen extends ConsumerWidget {
             section('uFeed', [
               _link(context, Icons.public, t.web, '/'),
               if (staff) _link(context, Icons.tune, t.curation, '/curation'),
-              if (user.role == Role.admin)
-                _link(
-                  context,
-                  Icons.admin_panel_settings_outlined,
-                  t.admin,
-                  '/admin',
-                ),
+              // Administration is reached from the local network or VPN only,
+              // so the app doesn't link to it (editors' curation stays).
               _link(
                 context,
                 Icons.workspace_premium_outlined,
