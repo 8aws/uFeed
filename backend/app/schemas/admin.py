@@ -70,6 +70,43 @@ class AdminUserOut(BaseModel):
     last_activity_at: datetime | None = None
     banned: bool = False
     ban_until: datetime | None = None
+    is_guest: bool = False
+
+
+class AdminUserPage(BaseModel):
+    """One page of the user list (filtered and sorted by the server)."""
+
+    items: list[AdminUserOut]
+    total: int  # matching the filters, across all pages
+    limit: int
+    offset: int
+
+
+class AdminSummary(BaseModel):
+    """The whole user base at a glance, counted by the server (no lists loaded)."""
+
+    users: int  # registered accounts (guests aside)
+    by_role: dict[str, int]
+    new_7d: int
+    active_7d: int
+    active_30d: int
+    dormant: int
+    suspended: int
+    banned: int
+    disabled: int
+    guests: int
+    guests_today: int
+    guests_7d: int
+    guests_idle_30d: int
+    guest_daily_cap: int  # 0 = no limit
+
+
+class GuestPurge(BaseModel):
+    days: int = Field(default=30, ge=1, le=3650)
+
+
+class GuestPurgeResult(BaseModel):
+    deleted: int
 
 
 class AdminUserUpdate(BaseModel):

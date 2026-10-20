@@ -26,6 +26,8 @@ EXPECTED_PATHS = {
     "/api/site",
     "/api/admin/settings",
     "/api/admin/users",
+    "/api/admin/users/summary",
+    "/api/admin/guests/purge",
     "/api/admin/maintenance",
     "/api/me/password",
     "/api/admin/bans",

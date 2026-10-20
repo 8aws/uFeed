@@ -12,7 +12,10 @@ import type {
 	Translation,
 	HiddenArticle,
 	AdminSettings,
+	AdminSummary,
 	AdminUser,
+	AdminUserPage,
+	AdminUserQuery,
 	ApiKey,
 	ApiKeyCreated,
 	Article,
@@ -153,7 +156,15 @@ export const api = {
 		contact_email?: string;
 	}) =>
 		request<AdminSettings>('/admin/settings', { method: 'PATCH', body }),
-	adminUsers: () => request<AdminUser[]>('/admin/users'),
+	adminUsers: (query: AdminUserQuery = {}) => {
+		const p = new URLSearchParams();
+		for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== '') p.set(k, String(v));
+		const qs = p.toString();
+		return request<AdminUserPage>(`/admin/users${qs ? `?${qs}` : ''}`);
+	},
+	adminSummary: () => request<AdminSummary>('/admin/users/summary'),
+	purgeGuests: (days: number) =>
+		request<{ deleted: number }>('/admin/guests/purge', { method: 'POST', body: { days } }),
 	updatePlans: (plans: Partial<Record<Role, PlanLimits>>) =>
 		request<AdminSettings>('/admin/plans', { method: 'PUT', body: plans }),
 	updateAdminUser: (id: string, body: { role?: Role; is_active?: boolean }) =>

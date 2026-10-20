@@ -3,8 +3,9 @@ from __future__ import annotations
 import json
 import uuid
 from pathlib import Path
+from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from sqlalchemy import func, select, text
 
 from app.api.deps import AdminUser, DbSession
@@ -18,19 +19,23 @@ from app.models.user import User
 from app.schemas.admin import (
     AdminSettings,
     AdminSettingsUpdate,
+    AdminSummary,
     AdminUserOut,
+    AdminUserPage,
     AdminUserUpdate,
     BanCreate,
     BanOut,
     BanRequest,
+    GuestPurge,
+    GuestPurgeResult,
     Maintenance,
     PlanLimits,
     SuspendRequest,
     TemporaryPassword,
 )
 from app.schemas.common import OkResponse
+from app.services import admin_users, metrics, moderation
 from app.services import auth as auth_service
-from app.services import metrics, moderation
 from app.services import retention as retention_service
 from app.services import site as site_service
 
@@ -115,23 +120,53 @@ async def update_plans(body: dict[Role, PlanLimits], _: AdminUser, db: DbSession
     return _settings_out(await site_service.get_settings(db), plans)
 
 
-@router.get("/users", response_model=list[AdminUserOut])
-async def list_users(_: AdminUser, db: DbSession) -> list[AdminUserOut]:
-    feeds = _feeds_subquery()
-    rows = (
-        await db.execute(
-            select(User, func.coalesce(feeds.c.n, 0), moderation.last_activity_expr())
-            .outerjoin(feeds, feeds.c.user_id == User.id)
-            .order_by(User.created_at)
-        )
-    ).all()
-    now = moderation.now()
-    bans = {
-        b.email: b
-        for b in (await db.execute(select(Ban))).scalars()
-        if b.until is None or b.until > now
-    }
-    return [_user_out(u, n, act, bans.get(u.email)) for u, n, act in rows]
+@router.get("/users", response_model=AdminUserPage)
+async def list_users(
+    _: AdminUser,
+    db: DbSession,
+    q: str | None = Query(default=None, max_length=100, description="email or name contains"),
+    role: str | None = Query(default=None, max_length=16),
+    status: Literal["active", "disabled", "suspended", "banned", "dormant"] | None = None,
+    guests: Literal["hide", "only", "all"] = "hide",
+    inactive_days: int | None = Query(default=None, ge=1, le=3650),
+    sort: Literal["created", "activity", "feeds", "email"] = "created",
+    order: Literal["asc", "desc"] = "desc",
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> AdminUserPage:
+    """One page of users, filtered and sorted by the database. Guests are left
+    out unless asked for (`guests=all|only`): there can be thousands."""
+    rows, total, bans = await admin_users.page(
+        db,
+        q=q,
+        role=role,
+        status=status,
+        guests=guests,
+        inactive_days=inactive_days,
+        sort=sort,
+        descending=order == "desc",
+        limit=limit,
+        offset=offset,
+    )
+    return AdminUserPage(
+        items=[_user_out(r.user, r.feeds, r.activity, bans.get(r.user.email)) for r in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/users/summary", response_model=AdminSummary)
+async def users_summary(_: AdminUser, db: DbSession) -> AdminSummary:
+    """Totals for the dashboard (counted in the database, no lists)."""
+    return AdminSummary(**await admin_users.summary(db))
+
+
+@router.post("/guests/purge", response_model=GuestPurgeResult)
+async def purge_guests(body: GuestPurge, _: AdminUser, db: DbSession) -> GuestPurgeResult:
+    """Delete the guest profiles idle for `days` or more (what the nightly
+    clean-up does, with the number of days you choose)."""
+    return GuestPurgeResult(deleted=await moderation.delete_idle_guests(db, body.days))
 
 
 @router.patch("/users/{user_id}", response_model=AdminUserOut)

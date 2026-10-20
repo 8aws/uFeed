@@ -8,7 +8,9 @@
 	import Sparkline from '$lib/components/Sparkline.svelte';
 	import type {
 		AdminSettings,
+		AdminSummary,
 		AdminUser,
+		AdminUserQuery,
 		Ban,
 		Maintenance,
 		Metrics,
@@ -125,7 +127,7 @@
 			if (action === 'delete') {
 				if (!confirm($t('confirm_delete_user'))) return;
 				await api.deleteUser(u.id);
-				users = users.filter((x) => x.id !== u.id);
+				await Promise.all([loadUsers(), loadSummary()]);
 			} else {
 				let updated: AdminUser;
 				if (action.startsWith('suspend:')) updated = await api.suspendUser(u.id, Number(action.slice(8)));
@@ -152,7 +154,8 @@
 		try {
 			await api.createBan(banEmail.trim(), banDays === 0 ? null : banDays);
 			banEmail = '';
-			[bans, users] = await Promise.all([api.listBans(), api.adminUsers()]);
+			bans = await api.listBans();
+			await Promise.all([loadUsers(), loadSummary()]);
 			saved();
 		} catch (err) {
 			fail(err);
@@ -162,7 +165,8 @@
 	async function removeBan(b: Ban) {
 		try {
 			await api.deleteBan(b.id);
-			[bans, users] = await Promise.all([api.listBans(), api.adminUsers()]);
+			bans = await api.listBans();
+			await Promise.all([loadUsers(), loadSummary()]);
 			saved();
 		} catch (e) {
 			fail(e);
@@ -178,7 +182,7 @@
 		cleaning = true;
 		try {
 			maint = await api.runInactivity();
-			users = await api.adminUsers();
+			await Promise.all([loadUsers(), loadSummary()]);
 			saved();
 		} catch (e) {
 			fail(e);
@@ -235,7 +239,81 @@
 			fail(e);
 		}
 	}
+	// The user list is one page at a time, filtered and sorted by the server.
 	let users = $state<AdminUser[]>([]);
+	let usersTotal = $state(0);
+	let usum = $state<AdminSummary | null>(null);
+	const PAGE = 25;
+	let uOffset = $state(0);
+	let uq = $state('');
+	let uRole = $state('');
+	let uStatus = $state<NonNullable<AdminUserQuery['status']> | ''>('');
+	let uGuests = $state<NonNullable<AdminUserQuery['guests']>>('hide');
+	let uInactive = $state(0);
+	let uSort = $state<NonNullable<AdminUserQuery['sort']>>('created');
+	let uBusy = $state(false);
+	let guestPurging = $state(false);
+	let purgeDays = $state(30);
+	let purgeMsg = $state('');
+	let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+	async function loadUsers() {
+		uBusy = true;
+		try {
+			const page = await api.adminUsers({
+				q: uq.trim() || undefined,
+				role: uRole || undefined,
+				status: uStatus || undefined,
+				guests: uGuests,
+				inactive_days: uInactive || undefined,
+				sort: uSort,
+				order: uSort === 'email' ? 'asc' : 'desc',
+				limit: PAGE,
+				offset: uOffset
+			});
+			// A page that no longer exists (after deleting the last one on it).
+			if (page.items.length === 0 && page.total > 0 && uOffset > 0) {
+				uOffset = Math.max(0, (Math.ceil(page.total / PAGE) - 1) * PAGE);
+				return loadUsers();
+			}
+			users = page.items;
+			usersTotal = page.total;
+		} catch (e) {
+			fail(e);
+		} finally {
+			uBusy = false;
+		}
+	}
+	async function loadSummary() {
+		usum = await api.adminSummary().catch(() => null);
+	}
+	/** A filter changed: back to the first page. */
+	function refilter(delay = 0) {
+		uOffset = 0;
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(loadUsers, delay);
+	}
+	function gotoPage(n: number) {
+		uOffset = Math.max(0, n) * PAGE;
+		loadUsers();
+	}
+	const pages = $derived(Math.max(1, Math.ceil(usersTotal / PAGE)));
+	const pageNo = $derived(Math.floor(uOffset / PAGE));
+
+	async function purgeIdleGuests() {
+		if (!confirm(`${$t('adm_purge_confirm')} ${purgeDays} ${$t('days')}?`)) return;
+		guestPurging = true;
+		try {
+			const r = await api.purgeGuests(purgeDays);
+			purgeMsg = `${$t('adm_purged')}: ${r.deleted}`;
+			await Promise.all([loadSummary(), loadUsers()]);
+		} catch (e) {
+			fail(e);
+		} finally {
+			guestPurging = false;
+		}
+	}
+
 	let flash = $state('');
 	let error = $state('');
 
@@ -276,13 +354,13 @@
 
 	async function load() {
 		try {
-			[settings, users, maint, bans] = await Promise.all([
+			[settings, maint, bans] = await Promise.all([
 				api.adminSettings(),
-				api.adminUsers(),
 				api.adminMaintenance(),
 				api.listBans()
 			]);
 			if (settings) initDraft(settings.plan_limits);
+			await Promise.all([loadUsers(), loadSummary()]);
 		} catch (e) {
 			fail(e);
 		}
@@ -594,13 +672,81 @@
 	{/if}
 
 	<section>
-		<h2>{$t('users')} ({users.length})</h2>
-		<ul class="users">
+		<h2>{$t('users')} ({usersTotal})</h2>
+		{#if usum}
+			<div class="usum">
+				<div><strong>{usum.users}</strong><span>{$t('adm_registered')}</span></div>
+				<div><strong>{usum.new_7d}</strong><span>{$t('adm_new_7d')}</span></div>
+				<div><strong>{usum.active_7d}</strong><span>{$t('adm_active_7d')}</span></div>
+				<div><strong>{usum.active_30d}</strong><span>{$t('adm_active_30d')}</span></div>
+				<div><strong>{usum.dormant}</strong><span>{$t('adm_dormant')}</span></div>
+				<div><strong>{usum.suspended + usum.banned + usum.disabled}</strong><span>{$t('adm_blocked')}</span></div>
+			</div>
+			<p class="muted small">
+				{#each Object.entries(usum.by_role) as [r, n] (r)}
+					<span class="chip">{roleName(r as Role)} {n}</span>
+				{/each}
+			</p>
+		{/if}
+		<div class="ufilters">
+			<input
+				type="search"
+				placeholder={$t('adm_search')}
+				bind:value={uq}
+				oninput={() => refilter(300)}
+			/>
+			<select bind:value={uRole} onchange={() => refilter()}>
+				<option value="">{$t('adm_all_plans')}</option>
+				{#each (settings?.roles ?? []).filter((r) => r !== 'guest') as r (r)}
+					<option value={r}>{roleName(r)}</option>
+				{/each}
+			</select>
+			<select bind:value={uStatus} onchange={() => refilter()}>
+				<option value="">{$t('adm_any_status')}</option>
+				<option value="active">{$t('adm_st_active')}</option>
+				<option value="disabled">{$t('adm_st_disabled')}</option>
+				<option value="suspended">{$t('adm_st_suspended')}</option>
+				<option value="banned">{$t('banned')}</option>
+				<option value="dormant">{$t('adm_dormant')}</option>
+			</select>
+			<select bind:value={uInactive} onchange={() => refilter()}>
+				<option value={0}>{$t('adm_any_activity')}</option>
+				{#each [7, 30, 60, 90, 180] as d (d)}<option value={d}>{$t('adm_inactive_over')} {d} {$t('days')}</option>{/each}
+			</select>
+			<select bind:value={uGuests} onchange={() => refilter()}>
+				<option value="hide">{$t('adm_guests_hide')}</option>
+				<option value="all">{$t('adm_guests_all')}</option>
+				<option value="only">{$t('adm_guests_only')}</option>
+			</select>
+			<select bind:value={uSort} onchange={() => refilter()}>
+				<option value="created">{$t('adm_sort_created')}</option>
+				<option value="activity">{$t('adm_sort_activity')}</option>
+				<option value="feeds">{$t('adm_sort_feeds')}</option>
+				<option value="email">{$t('adm_sort_email')}</option>
+			</select>
+		</div>
+		{#if usum}
+			<div class="guestbar">
+				<strong>👤 {$t('adm_guests')}:</strong>
+				{usum.guests} · {usum.guests_today} {$t('adm_today')} · {usum.guests_7d} {$t('adm_last_7d')} · {usum.guests_idle_30d}
+				{$t('adm_idle_30d')}
+				{#if usum.guest_daily_cap}· {$t('adm_daily_cap')} {usum.guest_daily_cap}{/if}
+				<span class="grow"></span>
+				<select bind:value={purgeDays}>
+					{#each [7, 14, 30, 60] as d (d)}<option value={d}>{d} {$t('days')}</option>{/each}
+				</select>
+				<button class="small-btn" onclick={purgeIdleGuests} disabled={guestPurging}>🧹 {$t('adm_purge_guests')}</button>
+				{#if purgeMsg}<span class="muted small">{purgeMsg}</span>{/if}
+			</div>
+		{/if}
+		{#if !uBusy && users.length === 0}<p class="muted">{$t('adm_no_match')}</p>{/if}
+		<ul class="users" class:busy={uBusy}>
 			{#each users as u (u.id)}
 				{@const self = u.id === $user?.id}
 				<li class:inactive={!u.is_active}>
 					<div class="uinfo">
 						<strong class="ellipsis">{u.display_name || u.email}</strong>
+						{#if u.is_guest}<span class="badge">{$t('role_guest')}</span>{/if}
 						{#if self}<span class="muted small">({$t('you')})</span>{/if}
 						<span class="muted small ellipsis">
 							{#if u.display_name}{u.email} · {/if}{relativeTime(u.created_at, $locale)} · {u.feeds}
@@ -683,6 +829,13 @@
 				{/if}
 			{/each}
 		</ul>
+		{#if pages > 1}
+			<div class="pager">
+				<button class="small-btn" disabled={pageNo === 0 || uBusy} onclick={() => gotoPage(pageNo - 1)}>← {$t('adm_prev')}</button>
+				<span class="muted small">{$t('adm_page')} {pageNo + 1} / {pages} · {usersTotal}</span>
+				<button class="small-btn" disabled={pageNo >= pages - 1 || uBusy} onclick={() => gotoPage(pageNo + 1)}>{$t('adm_next')} →</button>
+			</div>
+		{/if}
 	</section>
 
 	<section>
@@ -758,6 +911,69 @@
 	.check.small {
 		font-size: 0.8rem;
 		margin: 0;
+	}
+	.usum {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+		gap: 0.5rem;
+		margin: 0.6rem 0;
+	}
+	.usum div {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 0.5rem 0.7rem;
+		display: flex;
+		flex-direction: column;
+	}
+	.usum strong {
+		font-size: 1.3rem;
+	}
+	.usum span {
+		color: var(--muted);
+		font-size: 0.78rem;
+	}
+	.chip {
+		display: inline-block;
+		background: var(--border);
+		border-radius: 999px;
+		padding: 0 0.5rem;
+		margin-right: 0.3rem;
+	}
+	.ufilters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin: 0.6rem 0;
+	}
+	.ufilters input[type='search'] {
+		flex: 1 1 14rem;
+		min-width: 10rem;
+	}
+	.guestbar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem;
+		font-size: 0.88rem;
+		background: var(--surface);
+		border: 1px dashed var(--border);
+		border-radius: 8px;
+		padding: 0.45rem 0.7rem;
+		margin-bottom: 0.6rem;
+	}
+	.guestbar .grow {
+		flex: 1;
+	}
+	.pager {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 0.8rem;
+		margin-top: 0.8rem;
+	}
+	.users.busy {
+		opacity: 0.55;
 	}
 	.users {
 		list-style: none;

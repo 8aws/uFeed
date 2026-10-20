@@ -73,7 +73,7 @@ async def test_admin_manages_users_but_not_self(api: AsyncClient, db_session: As
     oid = other.json()["user"]["id"]
     h = _h(admin)
 
-    users = (await api.get("/api/admin/users", headers=h)).json()
+    users = (await api.get("/api/admin/users?limit=100", headers=h)).json()["items"]
     assert {aid, oid} <= {u["id"] for u in users}
 
     r = await api.patch(f"/api/admin/users/{oid}", headers=h, json={"role": "editor"})

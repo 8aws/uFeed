@@ -213,6 +213,43 @@ export interface AdminUser {
 	last_activity_at: string | null;
 	banned: boolean;
 	ban_until: string | null;
+	is_guest?: boolean;
+}
+
+export interface AdminUserPage {
+	items: AdminUser[];
+	total: number;
+	limit: number;
+	offset: number;
+}
+
+export interface AdminSummary {
+	users: number;
+	by_role: Record<string, number>;
+	new_7d: number;
+	active_7d: number;
+	active_30d: number;
+	dormant: number;
+	suspended: number;
+	banned: number;
+	disabled: number;
+	guests: number;
+	guests_today: number;
+	guests_7d: number;
+	guests_idle_30d: number;
+	guest_daily_cap: number;
+}
+
+export interface AdminUserQuery {
+	q?: string;
+	role?: string;
+	status?: 'active' | 'disabled' | 'suspended' | 'banned' | 'dormant';
+	guests?: 'hide' | 'only' | 'all';
+	inactive_days?: number;
+	sort?: 'created' | 'activity' | 'feeds' | 'email';
+	order?: 'asc' | 'desc';
+	limit?: number;
+	offset?: number;
 }
 
 export interface BackupStatus {
