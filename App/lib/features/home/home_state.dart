@@ -29,6 +29,26 @@ class Filter {
   String get key => id == null ? kind.name : '${kind.name}:$id';
 }
 
+/// Where an article goes in a list ordered like the server's: newest first
+/// (published, else fetched), ties by id, descending. Returns the list with it
+/// added (unchanged if it is already there); `atEnd` says whether it may go
+/// last: false while more pages are still to load, since it would then belong
+/// somewhere beyond what is on screen.
+List<Article> insertedInOrder(
+  List<Article> items,
+  Article a, {
+  required bool atEnd,
+}) {
+  if (items.any((x) => x.id == a.id)) return items;
+  int when(Article x) =>
+      (x.publishedAt ?? x.fetchedAt)?.millisecondsSinceEpoch ?? 0;
+  bool ahead(Article x) =>
+      when(x) > when(a) || (when(x) == when(a) && x.id.compareTo(a.id) > 0);
+  final at = items.indexWhere((x) => !ahead(x));
+  if (at < 0) return atEnd ? [...items, a] : items;
+  return [...items.sublist(0, at), a, ...items.sublist(at)];
+}
+
 class Sidebar {
   const Sidebar({required this.folders, required this.subs});
 
@@ -374,10 +394,40 @@ class ArticleListNotifier extends Notifier<ArticleList> {
     }
   }
 
+  /// In the unread views a post leaves the list as soon as it is read (swipe,
+  /// long press, opening it) and comes back to its place if marked unread
+  /// again, as on the web.
   Future<void> setRead(Article a, bool read) async {
     if (a.isRead == read) return;
     ref.read(sidebarProvider.notifier).adjustUnread(a.sourceId, read ? -1 : 1);
-    await _set(a, a.copyWith(isRead: read), Field.read, read);
+    final after = a.copyWith(isRead: read);
+    if (unreadView) {
+      if (read) {
+        state = state.copyWith(
+          items: [
+            for (final x in state.items)
+              if (x.id != a.id) x,
+          ],
+        );
+      } else if (_belongsHere(a)) {
+        state = state.copyWith(
+          items: insertedInOrder(state.items, after, atEnd: state.done),
+        );
+      }
+    }
+    await _set(a, after, Field.read, read);
+  }
+
+  /// Whether an article is one this view lists (for putting it back).
+  bool _belongsHere(Article a) {
+    final f = ref.read(filterProvider);
+    final sub = ref.read(sidebarProvider).value?.subFor(a.sourceId);
+    return switch (f.kind) {
+      FilterKind.unread => !(sub?.muted ?? false),
+      FilterKind.source => a.sourceId == f.id,
+      FilterKind.folder => sub?.folderId == f.id,
+      _ => false,
+    };
   }
 
   Future<void> setSaved(Article a, bool saved) async {

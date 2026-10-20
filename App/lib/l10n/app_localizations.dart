@@ -1435,6 +1435,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Oscuro'**
   String get themeDark;
+
+  /// No description provided for @foldFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Plegar carpeta'**
+  String get foldFolder;
+
+  /// No description provided for @unfoldFolder.
+  ///
+  /// In es, this message translates to:
+  /// **'Desplegar carpeta'**
+  String get unfoldFolder;
 }
 
 class _AppLocalizationsDelegate

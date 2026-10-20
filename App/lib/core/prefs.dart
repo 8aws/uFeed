@@ -105,6 +105,28 @@ final displayPrefsProvider =
       DisplayPrefsNotifier.new,
     );
 
+/// Folders folded in the side menu, remembered on this device (as the web's
+/// caret does).
+class CollapsedFoldersNotifier extends Notifier<Set<String>> {
+  static const _key = 'ufeed_collapsed_folders';
+
+  @override
+  Set<String> build() =>
+      (ref.read(prefsProvider).getStringList(_key) ?? const []).toSet();
+
+  void toggle(String folderId) {
+    final next = {...state};
+    if (!next.remove(folderId)) next.add(folderId);
+    state = next;
+    ref.read(prefsProvider).setStringList(_key, next.toList());
+  }
+}
+
+final collapsedFoldersProvider =
+    NotifierProvider<CollapsedFoldersNotifier, Set<String>>(
+      CollapsedFoldersNotifier.new,
+    );
+
 /// Read-aloud preferences, per device (same as the web's).
 class SpeechPrefs {
   const SpeechPrefs({

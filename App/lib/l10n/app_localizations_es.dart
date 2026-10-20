@@ -752,4 +752,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get themeDark => 'Oscuro';
+
+  @override
+  String get foldFolder => 'Plegar carpeta';
+
+  @override
+  String get unfoldFolder => 'Desplegar carpeta';
 }

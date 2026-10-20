@@ -748,4 +748,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get themeDark => 'Dark';
+
+  @override
+  String get foldFolder => 'Fold folder';
+
+  @override
+  String get unfoldFolder => 'Unfold folder';
 }

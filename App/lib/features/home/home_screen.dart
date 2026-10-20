@@ -408,6 +408,7 @@ class _SideMenu extends ConsumerWidget {
     final current = ref.watch(filterProvider);
     final side = ref.watch(sidebarProvider);
     final user = ref.watch(sessionProvider).value;
+    final folded = ref.watch(collapsedFoldersProvider);
 
     void pick(Filter f) {
       ref.read(filterProvider.notifier).set(f);
@@ -425,13 +426,14 @@ class _SideMenu extends ConsumerWidget {
       int unread = 0,
       double indent = 0,
       VoidCallback? onLongPress,
+      Widget? trailing,
     }) => ListTile(
       dense: true,
       contentPadding: EdgeInsets.only(left: 16 + indent, right: 16),
       leading: icon,
       minLeadingWidth: 20,
       title: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: count(unread),
+      trailing: trailing ?? count(unread),
       selected: current == f,
       selectedTileColor: c.accentSoft,
       onTap: () => pick(f),
@@ -529,18 +531,41 @@ class _SideMenu extends ConsumerWidget {
                   Filter(FilterKind.folder, folder.id),
                   const Icon(Icons.folder_outlined),
                   folder.name,
-                  unread: data.unreadIn(folder.id),
                   onLongPress: () => showFolderActions(context, ref, folder),
-                ),
-                for (final s in data.subs.where((s) => s.folderId == folder.id))
-                  item(
-                    Filter(FilterKind.source, s.source.id),
-                    favicon(s),
-                    s.title,
-                    unread: s.muted ? 0 : s.unreadCount,
-                    indent: 16,
-                    onLongPress: () => showFeedActions(context, ref, s),
+                  // Count and fold/unfold, like the web's caret.
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      count(data.unreadIn(folder.id)),
+                      IconButton(
+                        tooltip: folded.contains(folder.id)
+                            ? t.unfoldFolder
+                            : t.foldFolder,
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          folded.contains(folder.id)
+                              ? Icons.chevron_right
+                              : Icons.expand_more,
+                        ),
+                        onPressed: () => ref
+                            .read(collapsedFoldersProvider.notifier)
+                            .toggle(folder.id),
+                      ),
+                    ],
                   ),
+                ),
+                if (!folded.contains(folder.id))
+                  for (final s in data.subs.where(
+                    (s) => s.folderId == folder.id,
+                  ))
+                    item(
+                      Filter(FilterKind.source, s.source.id),
+                      favicon(s),
+                      s.title,
+                      unread: s.muted ? 0 : s.unreadCount,
+                      indent: 16,
+                      onLongPress: () => showFeedActions(context, ref, s),
+                    ),
               ],
               for (final s in data.subs.where((s) => s.folderId == null))
                 item(

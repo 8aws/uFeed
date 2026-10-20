@@ -316,5 +316,7 @@
   "appearance": "Appearance",
   "themeSystem": "System",
   "themeLight": "Light",
-  "themeDark": "Dark"
+  "themeDark": "Dark",
+  "foldFolder": "Fold folder",
+  "unfoldFolder": "Unfold folder"
 }

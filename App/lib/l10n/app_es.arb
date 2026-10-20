@@ -317,5 +317,7 @@
   "appearance": "Apariencia",
   "themeSystem": "Sistema",
   "themeLight": "Claro",
-  "themeDark": "Oscuro"
+  "themeDark": "Oscuro",
+  "foldFolder": "Plegar carpeta",
+  "unfoldFolder": "Desplegar carpeta"
 }
