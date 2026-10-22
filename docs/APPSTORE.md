@@ -209,6 +209,21 @@ list on the left and the article on the right. Refresh button in the top bar,
 automatic retries when the server doesn't answer, smaller text sizes, and
 memory and stability improvements.
 
+## What's new in 1.1.1
+
+Español: Elige el aspecto: claro, oscuro o el del sistema (Ajustes). Los
+contadores y las listas siguen siempre tus propias suscripciones; si una noticia
+también está en otras fuentes, un aviso te lo dice y puedes verlas. Los
+artículos leídos salen al instante de «Sin leer», las carpetas del menú se
+pliegan, las imágenes que fallan se reintentan sin dejar huecos y Ajustes muestra
+la versión.
+
+English: Choose your look: light, dark or the system's (Settings). Counters and
+lists always follow your own subscriptions; when a story also appears in other
+sources, a hint tells you and you can open them. Read articles leave "Unread"
+at once, the side-menu folders fold, images that fail are retried without
+leaving blank space, and Settings shows the version.
+
 ## Age rating
 
 The app shows content from feeds the user adds (any website), and links open
