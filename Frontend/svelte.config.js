@@ -27,8 +27,11 @@ const config = {
 				'frame-src': ['https://www.youtube-nocookie.com', 'https://player.vimeo.com'],
 				'object-src': ['none'],
 				'base-uri': ['self'],
-				'form-action': ['self'],
-				'upgrade-insecure-requests': true
+				'form-action': ['self']
+				// No 'upgrade-insecure-requests': the administration entry on the local
+				// network is plain http://<ip>:8197, and the browser would turn the
+				// page's own scripts into https:// requests that nothing answers.
+				// The public site is HTTPS-only anyway (Cosmos, HSTS).
 			}
 		}
 	}
