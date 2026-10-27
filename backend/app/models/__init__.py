@@ -10,6 +10,7 @@ from app.models.hidden_article import HiddenArticle
 from app.models.metric import MetricSample, UsageDaily
 from app.models.muted_keyword import MutedKeyword
 from app.models.read_event import ReadEvent
+from app.models.recovery_code import RecoveryCode
 from app.models.source import Source
 from app.models.subscription import Subscription
 from app.models.user import User
@@ -27,6 +28,7 @@ __all__ = [
     "MetricSample",
     "MutedKeyword",
     "ReadEvent",
+    "RecoveryCode",
     "Source",
     "Subscription",
     "UsageDaily",

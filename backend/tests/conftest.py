@@ -14,6 +14,13 @@ from app.db.session import get_db
 from app.main import app
 
 
+@pytest.fixture(autouse=True)
+def _staff_codes_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Editors/admins normally need a one-time code; the suites that are not
+    about that talk to the endpoints as before (test_staff_totp turns it on)."""
+    monkeypatch.setattr(settings, "staff_totp", False)
+
+
 @pytest.fixture
 def client():
     """Sync client for DB-less tests (health, contract)."""

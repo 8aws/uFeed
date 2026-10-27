@@ -1,6 +1,6 @@
 import type { CatalogSection } from '$lib/catalog';
-import { get } from 'svelte/store';
-import { clearTokens, getAccess, getRefresh, setTokens } from '$lib/auth';
+import { get, writable } from 'svelte/store';
+import { clearTokens, getAccess, getRefresh, getStepUp, setStepUp, setTokens } from '$lib/auth';
 import { locale } from '$lib/i18n';
 import type {
 	AISummary,
@@ -30,10 +30,14 @@ import type {
 	PlanLimits,
 	Role,
 	SiteConfig,
+	StepUp,
 	Subscription,
 	Twin,
 	UnreadCounts,
 	Tokens,
+	TotpEnabled,
+	TotpSetup,
+	TotpStatus,
 	TrendingItem,
 	User
 } from '$lib/types';
@@ -58,6 +62,45 @@ interface Options {
 	body?: unknown;
 	auth?: boolean;
 	retry?: boolean;
+	stepUpTried?: boolean;
+}
+
+/** What the person has to do before an editor/admin request can go through. */
+export type StepUpMode = 'enrol' | 'code' | 'fresh';
+export interface StepUpAsk {
+	mode: StepUpMode;
+	done: (ok: boolean) => void;
+}
+
+/** Set while the one-time-code window must be shown (see StepUpModal). */
+export const stepUpAsk = writable<StepUpAsk | null>(null);
+let stepUpPending: Promise<boolean> | null = null;
+
+const STEP_UP_CODES: Record<string, StepUpMode> = {
+	totp_enrol_required: 'enrol',
+	totp_required: 'code',
+	totp_fresh_required: 'fresh'
+};
+
+/** One window for any number of requests that fail at the same time. */
+export function askStepUp(mode: StepUpMode): Promise<boolean> {
+	if (!stepUpPending) {
+		stepUpPending = new Promise<boolean>((resolve) => {
+			stepUpAsk.set({
+				mode,
+				done: (ok) => {
+					stepUpAsk.set(null);
+					stepUpPending = null;
+					resolve(ok);
+				}
+			});
+		});
+	}
+	return stepUpPending;
+}
+
+function needsStepUp(path: string): boolean {
+	return path.startsWith('/admin') || path.startsWith('/curation');
 }
 
 async function raw(path: string, opts: Options): Promise<Response> {
@@ -66,6 +109,8 @@ async function raw(path: string, opts: Options): Promise<Response> {
 	if (opts.auth !== false) {
 		const token = getAccess();
 		if (token) headers['Authorization'] = `Bearer ${token}`;
+		const proof = needsStepUp(path) ? getStepUp() : null;
+		if (proof) headers['X-Step-Up'] = proof;
 	}
 	return fetch(BASE + path, {
 		method: opts.method ?? 'GET',
@@ -104,6 +149,11 @@ async function request<T>(path: string, opts: Options = {}): Promise<T> {
 			}
 		} catch {
 			/* non-JSON error body */
+		}
+		const mode = resp.status === 403 ? STEP_UP_CODES[code] : undefined;
+		if (mode && needsStepUp(path) && !opts.stepUpTried) {
+			if (mode !== 'enrol') setStepUp(null); // expired or not fresh enough
+			if (await askStepUp(mode)) return request<T>(path, { ...opts, stepUpTried: true });
 		}
 		const ra = Number(resp.headers.get('Retry-After'));
 		throw new ApiError(resp.status, code, message, Number.isFinite(ra) && ra > 0 ? ra : null);
@@ -144,6 +194,23 @@ export const api = {
 		request<ApiKeyCreated>('/keys', { method: 'POST', body: { name, scopes } }),
 	revokeKey: (id: string) => request<unknown>(`/keys/${id}`, { method: 'DELETE' }),
 
+	// one-time codes of editors and admins
+	totpStatus: () => request<TotpStatus>('/staff/totp'),
+	totpSetup: () => request<TotpSetup>('/staff/totp/setup', { method: 'POST' }),
+	totpEnable: (code: string) =>
+		request<TotpEnabled>('/staff/totp/enable', { method: 'POST', body: { code } }),
+	totpVerify: async (code: string) => {
+		const r = await request<StepUp>('/staff/totp/verify', { method: 'POST', body: { code } });
+		setStepUp(r.step_up_token);
+		return r;
+	},
+	totpRecoveryCodes: (code: string) =>
+		request<{ recovery_codes: string[] }>('/staff/totp/recovery-codes', {
+			method: 'POST',
+			body: { code }
+		}),
+	totpDisable: (code: string, password: string) =>
+		request<unknown>('/staff/totp/disable', { method: 'POST', body: { code, password } }),
 	// site + admin
 	site: () => request<SiteConfig>('/site', { auth: false }),
 	adminSettings: () => request<AdminSettings>('/admin/settings'),

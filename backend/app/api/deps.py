@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import Annotated
 
 import jwt
@@ -108,24 +109,78 @@ ApiKeyRead = Annotated[ApiKey, Depends(require_scope("read"))]
 ApiKeyState = Annotated[ApiKey, Depends(require_scope("state"))]
 
 
-async def require_admin(user: CurrentUser) -> User:
+def _need_code(code: str, message: str) -> AppError:
+    return AppError(status_code=403, code=code, message=message)
+
+
+async def check_step_up(user: User, token: str | None, fresh: bool = False) -> None:
+    """Editors and admins must have typed a one-time code (see staff_totp routes):
+    the proof comes in `X-Step-Up`. `fresh` wants one younger than staff_fresh_s."""
+    if not settings.staff_totp:
+        return
+    if not user.totp_enabled:
+        raise _need_code("totp_enrol_required", "Set up your one-time codes first.")
+    if not token:
+        raise _need_code("totp_required", "Enter your one-time code.")
+    try:
+        payload = decode_token(token)
+    except jwt.PyJWTError as exc:
+        raise _need_code("totp_required", "Enter your one-time code.") from exc
+    if (
+        payload.get("type") != "stepup"
+        or payload.get("sub") != str(user.id)
+        or not token_version_ok(payload, user.token_version)
+    ):
+        raise _need_code("totp_required", "Enter your one-time code.")
+    if fresh and time.time() - int(payload.get("iat", 0)) > settings.staff_fresh_s:
+        raise _need_code("totp_fresh_required", "Enter a new one-time code for this action.")
+
+
+StepUp = Annotated[str | None, Header(alias="X-Step-Up")]
+
+
+async def require_admin(user: CurrentUser, step_up: StepUp = None) -> User:
     if user.role != "admin":
         raise AppError(403, "forbidden", "Administrator access required.")
+    await check_step_up(user, step_up)
     return user
 
 
 AdminUser = Annotated[User, Depends(require_admin)]
 
 
-async def require_curator(user: CurrentUser) -> User:
+async def require_fresh_admin(user: CurrentUser, step_up: StepUp = None) -> User:
+    """For the actions that can lock people out or change the instance: a code
+    typed in the last few minutes, not just earlier in the session."""
+    if user.role != "admin":
+        raise AppError(403, "forbidden", "Administrator access required.")
+    await check_step_up(user, step_up, fresh=True)
+    return user
+
+
+FreshAdmin = Annotated[User, Depends(require_fresh_admin)]
+
+
+async def require_curator(user: CurrentUser, step_up: StepUp = None) -> User:
     """Editors curate shared content (starter catalogue, feed health, the
     shared rankings); admins can do everything editors can."""
     if user.role not in ("editor", "admin"):
         raise AppError(403, "forbidden", "Editor access required.")
+    await check_step_up(user, step_up)
     return user
 
 
 CuratorUser = Annotated[User, Depends(require_curator)]
+
+
+async def require_staff(user: CurrentUser) -> User:
+    """Editors and admins, before they have proved anything (set-up and sign-in)."""
+    if user.role not in ("editor", "admin"):
+        raise AppError(403, "forbidden", "Editor or administrator access required.")
+    return user
+
+
+StaffUser = Annotated[User, Depends(require_staff)]
 
 
 async def rate_limit_auth(request: Request) -> None:

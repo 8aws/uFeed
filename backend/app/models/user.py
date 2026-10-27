@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Integer, SmallInteger, String
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, Integer, SmallInteger, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin
@@ -46,3 +46,13 @@ class User(Base, TimestampMixin):
     digest_days: Mapped[int] = mapped_column(
         SmallInteger, default=127, server_default="127", nullable=False
     )
+    # One-time codes for editors and admins (see app.core.totp). The secret is
+    # sealed; it is "pending" until the first code proves the device has it.
+    totp_secret: Mapped[str | None] = mapped_column(Text, nullable=True)
+    totp_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Last time step accepted: a code works once.
+    totp_last_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    @property
+    def totp_enabled(self) -> bool:
+        return self.totp_secret is not None and self.totp_enabled_at is not None

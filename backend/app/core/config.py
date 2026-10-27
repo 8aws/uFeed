@@ -31,6 +31,18 @@ class Settings(BaseSettings):
     jwt_refresh_ttl_days: int = Field(default=30)
     reset_ttl_min: int = Field(default=60)  # password-reset links
 
+    # Editors and admins prove themselves with a one-time code (TOTP) before the
+    # curation and administration endpoints answer. The proof ("step-up" token)
+    # lasts `staff_session_hours`; the riskiest actions want one younger than
+    # `staff_fresh_s`. Off only for tests and for the first set-up of a new box.
+    staff_totp: bool = Field(default=True)
+    staff_session_hours: int = Field(default=12)
+    staff_fresh_s: int = Field(default=300)
+    totp_issuer: str = Field(default="uFeed")
+    # Key that seals the TOTP secrets in the database; derived from JWT_SECRET
+    # when empty (then rotating JWT_SECRET also asks everyone to enrol again).
+    secretbox_key: str = Field(default="")
+
     # Outgoing mail (password resets, daily digest). Empty host = mail off.
     smtp_host: str = Field(default="")
     smtp_port: int = Field(default=587)

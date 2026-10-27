@@ -8,7 +8,7 @@ from typing import Literal
 from fastapi import APIRouter, Query
 from sqlalchemy import func, select, text
 
-from app.api.deps import AdminUser, DbSession
+from app.api.deps import AdminUser, DbSession, FreshAdmin
 from app.api.errors import AppError
 from app.core.config import settings
 from app.core.roles import ROLES, Role
@@ -104,14 +104,14 @@ async def get_settings(_: AdminUser, db: DbSession) -> AdminSettings:
 
 
 @router.patch("/settings", response_model=AdminSettings)
-async def update_settings(body: AdminSettingsUpdate, _: AdminUser, db: DbSession) -> AdminSettings:
+async def update_settings(body: AdminSettingsUpdate, _: FreshAdmin, db: DbSession) -> AdminSettings:
     values = body.model_dump(exclude_none=True)
     cfg = await site_service.update_settings(db, values)
     return _settings_out(cfg, await site_service.plan_limits(db))
 
 
 @router.put("/plans", response_model=AdminSettings)
-async def update_plans(body: dict[Role, PlanLimits], _: AdminUser, db: DbSession) -> AdminSettings:
+async def update_plans(body: dict[Role, PlanLimits], _: FreshAdmin, db: DbSession) -> AdminSettings:
     """Replace the limits of the given plans (others keep their values)."""
     plans = await site_service.plan_limits(db)
     for role, limits in body.items():
@@ -163,7 +163,7 @@ async def users_summary(_: AdminUser, db: DbSession) -> AdminSummary:
 
 
 @router.post("/guests/purge", response_model=GuestPurgeResult)
-async def purge_guests(body: GuestPurge, _: AdminUser, db: DbSession) -> GuestPurgeResult:
+async def purge_guests(body: GuestPurge, _: FreshAdmin, db: DbSession) -> GuestPurgeResult:
     """Delete the guest profiles idle for `days` or more (what the nightly
     clean-up does, with the number of days you choose)."""
     return GuestPurgeResult(deleted=await moderation.delete_idle_guests(db, body.days))
@@ -171,7 +171,7 @@ async def purge_guests(body: GuestPurge, _: AdminUser, db: DbSession) -> GuestPu
 
 @router.patch("/users/{user_id}", response_model=AdminUserOut)
 async def update_user(
-    user_id: uuid.UUID, body: AdminUserUpdate, admin: AdminUser, db: DbSession
+    user_id: uuid.UUID, body: AdminUserUpdate, admin: FreshAdmin, db: DbSession
 ) -> AdminUserOut:
     target = await db.get(User, user_id)
     if target is None:
@@ -193,7 +193,7 @@ async def update_user(
 
 
 @router.post("/users/{user_id}/reset-password", response_model=TemporaryPassword)
-async def reset_password(user_id: uuid.UUID, admin: AdminUser, db: DbSession) -> TemporaryPassword:
+async def reset_password(user_id: uuid.UUID, admin: FreshAdmin, db: DbSession) -> TemporaryPassword:
     """Set a random temporary password (shown once) and sign the user out."""
     target = await db.get(User, user_id)
     if target is None:
@@ -293,7 +293,7 @@ async def unban_user(user_id: uuid.UUID, admin: AdminUser, db: DbSession) -> Adm
 
 
 @router.delete("/users/{user_id}", response_model=OkResponse)
-async def delete_user(user_id: uuid.UUID, admin: AdminUser, db: DbSession) -> OkResponse:
+async def delete_user(user_id: uuid.UUID, admin: FreshAdmin, db: DbSession) -> OkResponse:
     """Delete an account and all its data. Admins must be demoted first."""
     target = await _target(db, user_id, admin)
     if target.role == "admin":

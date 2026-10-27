@@ -11,6 +11,7 @@
 	import { authed, user } from '$lib/auth';
 	import { get } from 'svelte/store';
 	import { setLocale } from '$lib/i18n';
+	import StepUpModal from '$lib/components/StepUpModal.svelte';
 
 	let { children } = $props();
 	let ready = $state(false);
@@ -60,4 +61,5 @@
 
 {#if ready}
 	{@render children()}
+	<StepUpModal />
 {/if}

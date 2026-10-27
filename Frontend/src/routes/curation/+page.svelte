@@ -1,4 +1,5 @@
 <script lang="ts">
+	import StaffSecurity from '$lib/components/StaffSecurity.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
@@ -215,6 +216,7 @@
 <div class="page">
 	<a class="back" href="/settings">← {$t('settings')}</a>
 	<h1>✎ {$t('curation')}</h1>
+	<StaffSecurity />
 	<p class="muted small">{$t('curation_hint')}</p>
 	{#if $user?.role === 'admin'}
 		<a class="pill" href="/admin">🛡 {$t('admin')} →</a>

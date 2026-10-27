@@ -11,7 +11,7 @@ import jwt
 
 from app.core.config import settings
 
-TokenType = Literal["access", "refresh", "reset", "digest_off"]
+TokenType = Literal["access", "refresh", "reset", "digest_off", "stepup"]
 API_KEY_PLAINTEXT_PREFIX = "uf"
 
 
@@ -63,6 +63,12 @@ def create_reset_token(sub: str, version: int) -> str:
     the reset itself bumps, so each link works once (and any password change
     voids older links)."""
     return _create_token(sub, "reset", timedelta(minutes=settings.reset_ttl_min), version)
+
+
+def create_step_up_token(sub: str, version: int) -> str:
+    """Proof that an editor/admin just typed a one-time code. Its `iat` says how
+    fresh the proof is; it dies with the session (password change, deactivation)."""
+    return _create_token(sub, "stepup", timedelta(hours=settings.staff_session_hours), version)
 
 
 def create_digest_off_token(sub: str) -> str:

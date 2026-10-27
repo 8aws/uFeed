@@ -157,6 +157,21 @@ docker compose -f docker-compose.yml -f compose.prod.yml exec backend \
 ```
 It prints a temporary password; you'll be asked to change it after signing in.
 
+**One-time codes (editors and admins).** Curation and Administration ask for a
+6-digit code (TOTP; any authenticator or password manager) on top of the password:
+the first visit shows a QR, the key as text and an `otpauth://` link, then ten
+recovery codes. The proof lasts `STAFF_SESSION_HOURS` (12) per browser tab; role
+changes, deleting users, resetting passwords, plans/settings and purging guests
+want a code typed within the last `STAFF_FRESH_S` (300) seconds. `STAFF_TOTP=false`
+turns the requirement off (only for a first set-up). Secrets are sealed in the
+database with a key derived from `JWT_SECRET` (or set `SECRETBOX_KEY`; changing
+either makes everyone enrol again). Lost phone and recovery codes, from the server
+only:
+```bash
+docker compose -f docker-compose.yml -f compose.prod.yml exec backend \
+  python -m app.scripts.reset_totp you@example.com
+```
+
 ## 7. Updating
 
 If the box can reach the repo:

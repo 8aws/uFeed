@@ -1,4 +1,5 @@
 <script lang="ts">
+	import StaffSecurity from '$lib/components/StaffSecurity.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { api, ApiError } from '$lib/api';
@@ -412,6 +413,7 @@
 <div class="page">
 	<a class="back" href="/settings">← {$t('settings')}</a>
 	<h1>🛡 {$t('admin')}</h1>
+	<StaffSecurity />
 	<a class="pill" href="/curation">✎ {$t('curation')} →</a>
 	{#if flash}<p class="flash">✓ {flash}</p>{/if}
 	{#if error}<p class="err">{error}</p>{/if}

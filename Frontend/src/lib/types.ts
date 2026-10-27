@@ -380,3 +380,24 @@ export interface Digest {
 		readers: number;
 	}[];
 }
+
+export interface TotpStatus {
+	enabled: boolean;
+	pending: boolean;
+	required: boolean;
+	recovery_left: number;
+}
+
+export interface TotpSetup {
+	secret: string;
+	otpauth_url: string;
+}
+
+export interface StepUp {
+	step_up_token: string;
+	expires_in: number;
+}
+
+export interface TotpEnabled extends StepUp {
+	recovery_codes: string[];
+}

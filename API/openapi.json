@@ -70,6 +70,95 @@
         }
       }
     },
+    "/api/auth/guest": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Guest",
+        "description": "Use the app without registering: an account with no personal data (App\nStore 5.1.1(v)). It reads and manages a few feeds; AI, the server voice\nand the rest need a real account (see `upgrade`). Limited per IP and per\nday, and deleted after a long absence.",
+        "operationId": "guest_api_auth_guest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/upgrade": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Upgrade",
+        "description": "A guest registers: same feeds, folders and saved articles, now with an\nemail and password (and the regular plan).",
+        "operationId": "upgrade_api_auth_upgrade_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpgradeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/auth/login": {
       "post": {
         "tags": [
@@ -1419,6 +1508,86 @@
         }
       }
     },
+    "/api/articles/unread-counts": {
+      "get": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Unread Counts",
+        "description": "The badge numbers: unread in your own feeds, as the lists show them.",
+        "operationId": "unread_counts_api_articles_unread_counts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCountsOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/articles/{article_id}/twins": {
+      "get": {
+        "tags": [
+          "articles"
+        ],
+        "summary": "Article Twins",
+        "description": "Other copies of this story (same duplicate group): in your feeds, and in\nfeeds you don't follow, to read them or to follow that feed.",
+        "operationId": "article_twins_api_articles__article_id__twins_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Article Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TwinOut"
+                  },
+                  "title": "Response Article Twins Api Articles  Article Id  Twins Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/{article_id}": {
       "get": {
         "tags": [
@@ -2568,6 +2737,29 @@
         ],
         "summary": "Get Settings",
         "operationId": "get_settings_api_admin_settings_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2578,13 +2770,18 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       },
       "patch": {
         "tags": [
@@ -2592,15 +2789,38 @@
         ],
         "summary": "Update Settings",
         "operationId": "update_settings_api_admin_settings_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AdminSettingsUpdate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -2623,12 +2843,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/plans": {
@@ -2639,15 +2854,41 @@
         "summary": "Update Plans",
         "description": "Replace the limits of the given plans (others keep their values).",
         "operationId": "update_plans_api_admin_plans_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
+                "type": "object",
                 "additionalProperties": {
                   "$ref": "#/components/schemas/PlanLimits"
                 },
                 "propertyNames": {
                   "enum": [
+                    "guest",
                     "free",
                     "general",
                     "vip",
@@ -2655,12 +2896,10 @@
                     "admin"
                   ]
                 },
-                "type": "object",
                 "title": "Body"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -2683,12 +2922,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/users": {
@@ -2697,28 +2931,318 @@
           "admin"
         ],
         "summary": "List Users",
+        "description": "One page of users, filtered and sorted by the database. Guests are left\nout unless asked for (`guests=all|only`): there can be thousands.",
         "operationId": "list_users_api_admin_users_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "email or name contains",
+              "title": "Q"
+            },
+            "description": "email or name contains"
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 16
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "active",
+                    "disabled",
+                    "suspended",
+                    "banned",
+                    "dormant"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "guests",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "hide",
+                "only",
+                "all"
+              ],
+              "type": "string",
+              "default": "hide",
+              "title": "Guests"
+            }
+          },
+          {
+            "name": "inactive_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3650,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Inactive Days"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "created",
+                "activity",
+                "feeds",
+                "email"
+              ],
+              "type": "string",
+              "default": "created",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "desc",
+              "title": "Order"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AdminUserOut"
-                  },
-                  "type": "array",
-                  "title": "Response List Users Api Admin Users Get"
+                  "$ref": "#/components/schemas/AdminUserPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/api/admin/users/summary": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Users Summary",
+        "description": "Totals for the dashboard (counted in the database, no lists).",
+        "operationId": "users_summary_api_admin_users_summary_get",
         "security": [
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/guests/purge": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Purge Guests",
+        "description": "Delete the guest profiles idle for `days` or more (what the nightly\nclean-up does, with the number of days you choose).",
+        "operationId": "purge_guests_api_admin_guests_purge_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuestPurge"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestPurgeResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/admin/users/{user_id}": {
@@ -2742,6 +3266,22 @@
               "type": "string",
               "format": "uuid",
               "title": "User Id"
+            }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
             }
           }
         ],
@@ -2800,6 +3340,22 @@
               "format": "uuid",
               "title": "User Id"
             }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
           }
         ],
         "responses": {
@@ -2848,6 +3404,22 @@
               "type": "string",
               "format": "uuid",
               "title": "User Id"
+            }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
             }
           }
         ],
@@ -2898,6 +3470,22 @@
               "default": 7,
               "title": "Days"
             }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
           }
         ],
         "responses": {
@@ -2933,6 +3521,29 @@
         ],
         "summary": "Maintenance",
         "operationId": "maintenance_api_admin_maintenance_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2943,13 +3554,18 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/retention/run": {
@@ -2960,6 +3576,29 @@
         "summary": "Run Retention Now",
         "description": "Apply the retention policy now instead of waiting for the nightly run.",
         "operationId": "run_retention_now_api_admin_retention_run_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2970,13 +3609,18 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/users/{user_id}/suspend": {
@@ -3001,6 +3645,22 @@
               "type": "string",
               "format": "uuid",
               "title": "User Id"
+            }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
             }
           }
         ],
@@ -3058,6 +3718,22 @@
               "format": "uuid",
               "title": "User Id"
             }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
           }
         ],
         "responses": {
@@ -3107,6 +3783,22 @@
               "format": "uuid",
               "title": "User Id"
             }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
           }
         ],
         "responses": {
@@ -3155,6 +3847,22 @@
               "type": "string",
               "format": "uuid",
               "title": "User Id"
+            }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
             }
           }
         ],
@@ -3212,6 +3920,22 @@
               "format": "uuid",
               "title": "User Id"
             }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
           }
         ],
         "responses": {
@@ -3245,27 +3969,55 @@
         ],
         "summary": "List Bans",
         "operationId": "list_bans_api_admin_bans_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/BanOut"
                   },
-                  "type": "array",
                   "title": "Response List Bans Api Admin Bans Get"
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       },
       "post": {
         "tags": [
@@ -3274,15 +4026,38 @@
         "summary": "Create Ban",
         "description": "Ban an email even if it has no account yet (prevents signing up).",
         "operationId": "create_ban_api_admin_bans_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/BanCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -3305,12 +4080,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/admin/bans/{ban_id}": {
@@ -3334,6 +4104,22 @@
               "type": "string",
               "format": "uuid",
               "title": "Ban Id"
+            }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
             }
           }
         ],
@@ -3369,6 +4155,29 @@
         "summary": "Run Inactivity Now",
         "description": "Apply the inactivity policy now instead of waiting for the nightly run.",
         "operationId": "run_inactivity_now_api_admin_inactivity_run_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3379,13 +4188,18 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/curation/catalog": {
@@ -3396,15 +4210,38 @@
         "summary": "Save Catalog",
         "description": "Replace the starter catalogue (sections=None restores the built-in one).",
         "operationId": "save_catalog_api_curation_catalog_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/Catalog"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -3427,12 +4264,7 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/curation/sources": {
@@ -3443,27 +4275,55 @@
         "summary": "Curation Sources",
         "description": "Every feed on the instance, problems first, with subscriber counts.",
         "operationId": "curation_sources_api_curation_sources_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/SourceHealthOut"
                   },
-                  "type": "array",
                   "title": "Response Curation Sources Api Curation Sources Get"
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/curation/sources/{source_id}": {
@@ -3488,6 +4348,22 @@
               "type": "string",
               "format": "uuid",
               "title": "Source Id"
+            }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
             }
           }
         ],
@@ -3533,27 +4409,55 @@
         "summary": "Delete Orphan Sources",
         "description": "Remove feeds nobody follows (keeps any with saved/favourite articles).",
         "operationId": "delete_orphan_sources_api_curation_sources_delete_orphans_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "object",
                   "additionalProperties": {
                     "type": "integer"
                   },
-                  "type": "object",
                   "title": "Response Delete Orphan Sources Api Curation Sources Delete Orphans Post"
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/curation/hidden": {
@@ -3564,27 +4468,55 @@
         "summary": "Hidden Articles",
         "description": "Articles kept out of Trending and the insight rankings, newest first.",
         "operationId": "hidden_articles_api_curation_hidden_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/HiddenArticleOut"
                   },
-                  "type": "array",
                   "title": "Response Hidden Articles Api Curation Hidden Get"
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/curation/hidden/ids": {
@@ -3594,6 +4526,29 @@
         ],
         "summary": "Hidden Ids",
         "operationId": "hidden_ids_api_curation_hidden_ids_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3604,13 +4559,18 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
+        }
       }
     },
     "/api/curation/articles/{article_id}/hidden": {
@@ -3635,6 +4595,22 @@
               "type": "string",
               "format": "uuid",
               "title": "Article Id"
+            }
+          },
+          {
+            "name": "X-Step-Up",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Step-Up"
             }
           }
         ],
@@ -3670,6 +4646,244 @@
             }
           }
         }
+      }
+    },
+    "/api/staff/totp": {
+      "get": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "Status",
+        "operationId": "status_api_staff_totp_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/staff/totp/setup": {
+      "post": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "Setup",
+        "operationId": "setup_api_staff_totp_setup_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpSetup"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/staff/totp/enable": {
+      "post": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "Enable",
+        "operationId": "enable_api_staff_totp_enable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpEnabled"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/staff/totp/verify": {
+      "post": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "Verify",
+        "operationId": "verify_api_staff_totp_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepUp"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/staff/totp/recovery-codes": {
+      "post": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "Recovery Codes",
+        "description": "Ten new codes (the old ones stop working); asks for a code to confirm.",
+        "operationId": "recovery_codes_api_staff_totp_recovery_codes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/staff/totp/disable": {
+      "post": {
+        "tags": [
+          "staff"
+        ],
+        "summary": "Disable",
+        "description": "Turn it off (to enrol a new phone): needs a code and the password.",
+        "operationId": "disable_api_staff_totp_disable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpDisable"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/digest": {
@@ -4542,13 +5756,11 @@
         "properties": {
           "password": {
             "type": "string",
-            "title": "Password"
+            "title": "Password",
+            "default": ""
           }
         },
         "type": "object",
-        "required": [
-          "password"
-        ],
         "title": "AccountDelete"
       },
       "AdminSettings": {
@@ -4560,6 +5772,7 @@
           "default_role": {
             "type": "string",
             "enum": [
+              "guest",
               "free",
               "general",
               "vip",
@@ -4638,6 +5851,7 @@
               {
                 "type": "string",
                 "enum": [
+                  "guest",
                   "free",
                   "general",
                   "vip",
@@ -4706,6 +5920,88 @@
         },
         "type": "object",
         "title": "AdminSettingsUpdate"
+      },
+      "AdminSummary": {
+        "properties": {
+          "users": {
+            "type": "integer",
+            "title": "Users"
+          },
+          "by_role": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "By Role"
+          },
+          "new_7d": {
+            "type": "integer",
+            "title": "New 7D"
+          },
+          "active_7d": {
+            "type": "integer",
+            "title": "Active 7D"
+          },
+          "active_30d": {
+            "type": "integer",
+            "title": "Active 30D"
+          },
+          "dormant": {
+            "type": "integer",
+            "title": "Dormant"
+          },
+          "suspended": {
+            "type": "integer",
+            "title": "Suspended"
+          },
+          "banned": {
+            "type": "integer",
+            "title": "Banned"
+          },
+          "disabled": {
+            "type": "integer",
+            "title": "Disabled"
+          },
+          "guests": {
+            "type": "integer",
+            "title": "Guests"
+          },
+          "guests_today": {
+            "type": "integer",
+            "title": "Guests Today"
+          },
+          "guests_7d": {
+            "type": "integer",
+            "title": "Guests 7D"
+          },
+          "guests_idle_30d": {
+            "type": "integer",
+            "title": "Guests Idle 30D"
+          },
+          "guest_daily_cap": {
+            "type": "integer",
+            "title": "Guest Daily Cap"
+          }
+        },
+        "type": "object",
+        "required": [
+          "users",
+          "by_role",
+          "new_7d",
+          "active_7d",
+          "active_30d",
+          "dormant",
+          "suspended",
+          "banned",
+          "disabled",
+          "guests",
+          "guests_today",
+          "guests_7d",
+          "guests_idle_30d",
+          "guest_daily_cap"
+        ],
+        "title": "AdminSummary",
+        "description": "The whole user base at a glance, counted by the server (no lists loaded)."
       },
       "AdminUserOut": {
         "properties": {
@@ -4799,6 +6095,11 @@
               }
             ],
             "title": "Ban Until"
+          },
+          "is_guest": {
+            "type": "boolean",
+            "title": "Is Guest",
+            "default": false
           }
         },
         "type": "object",
@@ -4811,6 +6112,38 @@
         ],
         "title": "AdminUserOut"
       },
+      "AdminUserPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUserOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "AdminUserPage",
+        "description": "One page of the user list (filtered and sorted by the server)."
+      },
       "AdminUserUpdate": {
         "properties": {
           "role": {
@@ -4818,6 +6151,7 @@
               {
                 "type": "string",
                 "enum": [
+                  "guest",
                   "free",
                   "general",
                   "vip",
@@ -5195,6 +6529,11 @@
             "type": "integer",
             "title": "Dup Count",
             "default": 1
+          },
+          "other_copies": {
+            "type": "integer",
+            "title": "Other Copies",
+            "default": 0
           }
         },
         "type": "object",
@@ -5727,6 +7066,53 @@
         "type": "object",
         "title": "FullTextOut",
         "description": "The article's full text (from its web page), when the feed had only an excerpt."
+      },
+      "GuestPurge": {
+        "properties": {
+          "days": {
+            "type": "integer",
+            "maximum": 3650.0,
+            "minimum": 1.0,
+            "title": "Days",
+            "default": 30
+          }
+        },
+        "type": "object",
+        "title": "GuestPurge"
+      },
+      "GuestPurgeResult": {
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "title": "GuestPurgeResult"
+      },
+      "GuestRequest": {
+        "properties": {
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "en",
+                  "es"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale"
+          }
+        },
+        "type": "object",
+        "title": "GuestRequest"
       },
       "HTTPValidationError": {
         "properties": {
@@ -6263,6 +7649,22 @@
         "type": "object",
         "title": "ReadEventRequest"
       },
+      "RecoveryCodes": {
+        "properties": {
+          "recovery_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recovery Codes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recovery_codes"
+        ],
+        "title": "RecoveryCodes"
+      },
       "RefreshRequest": {
         "properties": {
           "refresh_token": {
@@ -6362,6 +7764,11 @@
           "registration_open": {
             "type": "boolean",
             "title": "Registration Open"
+          },
+          "guest_access": {
+            "type": "boolean",
+            "title": "Guest Access",
+            "default": true
           },
           "refresh_cooldown_s": {
             "additionalProperties": {
@@ -6577,6 +7984,24 @@
         ],
         "title": "SourcePauseRequest"
       },
+      "StepUp": {
+        "properties": {
+          "step_up_token": {
+            "type": "string",
+            "title": "Step Up Token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step_up_token",
+          "expires_in"
+        ],
+        "title": "StepUp"
+      },
       "SubscribeRequest": {
         "properties": {
           "url": {
@@ -6775,6 +8200,113 @@
         ],
         "title": "Tokens"
       },
+      "TotpCode": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 6,
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "title": "TotpCode"
+      },
+      "TotpDisable": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 6,
+            "title": "Code"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "password"
+        ],
+        "title": "TotpDisable"
+      },
+      "TotpEnabled": {
+        "properties": {
+          "step_up_token": {
+            "type": "string",
+            "title": "Step Up Token"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          },
+          "recovery_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recovery Codes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step_up_token",
+          "expires_in",
+          "recovery_codes"
+        ],
+        "title": "TotpEnabled"
+      },
+      "TotpSetup": {
+        "properties": {
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          },
+          "otpauth_url": {
+            "type": "string",
+            "title": "Otpauth Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "secret",
+          "otpauth_url"
+        ],
+        "title": "TotpSetup"
+      },
+      "TotpStatus": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "pending": {
+            "type": "boolean",
+            "title": "Pending"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required"
+          },
+          "recovery_left": {
+            "type": "integer",
+            "title": "Recovery Left"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "pending",
+          "required",
+          "recovery_left"
+        ],
+        "title": "TotpStatus"
+      },
       "TranslationOut": {
         "properties": {
           "lang": {
@@ -6856,6 +8388,136 @@
         ],
         "title": "TrendingItem"
       },
+      "TwinOut": {
+        "properties": {
+          "article_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "source_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Title"
+          },
+          "site_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Url"
+          },
+          "followed": {
+            "type": "boolean",
+            "title": "Followed",
+            "default": false
+          },
+          "is_read": {
+            "type": "boolean",
+            "title": "Is Read",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "TwinOut",
+        "description": "Another copy of the same story. `article_id` is set only when it is in a\nfeed the user follows; otherwise just enough to read it on its site or to\nfollow that feed."
+      },
+      "UnreadCountsOut": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "default": 0
+          },
+          "folders": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Folders",
+            "default": {}
+          }
+        },
+        "type": "object",
+        "title": "UnreadCountsOut",
+        "description": "What the badges show: the user's own unread, one per duplicate story."
+      },
+      "UpgradeRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "UpgradeRequest",
+        "description": "Turn a guest into a registered account (same data, real credentials)."
+      },
       "UserOut": {
         "properties": {
           "id": {
@@ -6898,6 +8560,11 @@
           "must_change_password": {
             "type": "boolean",
             "title": "Must Change Password",
+            "default": false
+          },
+          "is_guest": {
+            "type": "boolean",
+            "title": "Is Guest",
             "default": false
           },
           "created_at": {
