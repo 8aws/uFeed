@@ -68,7 +68,7 @@ if ! ssh "$DEPLOY_HOST" "grep -q '^COMPOSE_FILE=' '$DEPLOY_PATH/.env'"; then
 fi
 
 # 4) Sync, refusing to delete anything unexpected on the box.
-excludes=(--exclude=.git --exclude=.env --exclude=.deploy.env --exclude=backups
+excludes=(--exclude=.git --exclude=.env --exclude='.env.*' --exclude=.deploy.env --exclude=backups
 	--exclude='AI/intel-debs/*.deb')
 deleting="$(rsync -a --delete --dry-run --itemize-changes "${excludes[@]}" \
 	"$SRC/" "$DEPLOY_HOST:$DEPLOY_PATH/" | grep '^\*deleting' || true)"
