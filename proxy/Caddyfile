@@ -12,7 +12,9 @@
 	}
 }
 
-{$UFEED_DOMAIN::80} {
+# Everything the app serves, shared by the public entry and the administration
+# entry below.
+(ufeed_app) {
 	encode gzip
 
 	header {
@@ -65,4 +67,26 @@
 	handle {
 		reverse_proxy frontend:80
 	}
+}
+
+# Public entry (the one Cosmos publishes). Administration is NOT served here:
+# the page and its API answer 404, so a stolen password or session on the public
+# internet can't reach it. It lives on the local entry below.
+{$UFEED_DOMAIN::80} {
+	handle /api/admin* {
+		header Content-Type application/json
+		respond `{"error":{"code":"admin_local_only","message":"Administration is only available from the local network."}}` 404
+	}
+	handle /admin* {
+		respond "Administration is only available from the local network." 404
+	}
+	import ufeed_app
+}
+
+# Local entry: the same site WITH administration. Published by docker-compose on
+# UFEED_ADMIN_BIND:UFEED_ADMIN_PORT (127.0.0.1:8197 unless .env says otherwise;
+# on the Beelink 0.0.0.0:8197, reachable only from the LAN because the router
+# forwards just 80/443 to Cosmos). NEVER add a Cosmos route to this port.
+:8081 {
+	import ufeed_app
 }

@@ -3,6 +3,7 @@
 	import QRCode from 'qrcode';
 	import { api, ApiError, stepUpAsk } from '$lib/api';
 	import { setStepUp } from '$lib/auth';
+	import { copyText } from '$lib/clipboard';
 	import { t } from '$lib/i18n';
 	import type { TotpSetup } from '$lib/types';
 
@@ -81,12 +82,10 @@
 	}
 
 	async function copy(text: string, what: string) {
-		try {
-			await navigator.clipboard.writeText(text);
+		// If copying is blocked the text is on screen to select.
+		if (await copyText(text)) {
 			copied = what;
 			setTimeout(() => (copied = ''), 1500);
-		} catch {
-			/* clipboard blocked: the text is on screen to select */
 		}
 	}
 

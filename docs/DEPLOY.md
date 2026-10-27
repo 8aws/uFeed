@@ -157,6 +157,16 @@ docker compose -f docker-compose.yml -f compose.prod.yml exec backend \
 ```
 It prints a temporary password; you'll be asked to change it after signing in.
 
+**Administration only on the local network.** Caddy has two entries (proxy/Caddyfile):
+the public one (what Cosmos publishes) answers 404 for `/admin` and `/api/admin/*`;
+the local one serves the same site with administration, published by compose on
+`UFEED_ADMIN_BIND:UFEED_ADMIN_PORT` (default `127.0.0.1:8197`; the Beelink's `.env`
+sets `UFEED_ADMIN_BIND=0.0.0.0`, `UFEED_ADMIN_PORT=8197`, so it is
+`http://192.168.100.98:8197` from the home LAN; there is no VPN yet). Never add a
+Cosmos route to that port. It is plain HTTP: sessions live in localStorage, not
+cookies, so this works. Curation (editors) stays on the public site. Set the two
+variables in the box's `.env` BEFORE deploying, or the administration has no way in.
+
 **One-time codes (editors and admins).** Curation and Administration ask for a
 6-digit code (TOTP; any authenticator or password manager) on top of the password:
 the first visit shows a QR, the key as text and an `otpauth://` link, then ten

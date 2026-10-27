@@ -108,6 +108,11 @@ services:
       # Behind an external TLS proxy set UFEED_HTTPS_BIND=127.0.0.1 so the
       # (unused) HTTPS port isn't exposed on the network.
       - "${UFEED_HTTPS_BIND:-0.0.0.0}:${UFEED_HTTPS_PORT:-443}:443"
+      # Administration entry (the public one answers 404 for /admin and
+      # /api/admin). Local only: loopback by default; the Beelink's .env sets
+      # UFEED_ADMIN_BIND=0.0.0.0 UFEED_ADMIN_PORT=8197 (LAN) and no external
+      # proxy may ever route to it.
+      - "${UFEED_ADMIN_BIND:-127.0.0.1}:${UFEED_ADMIN_PORT:-8197}:8081"
 
 volumes:
   tts-cache:
