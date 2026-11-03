@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -23,8 +23,8 @@ from app.schemas.common import OkResponse
 from app.schemas.curation import Catalog, HiddenArticleOut, HiddenIds, HideRequest
 from app.schemas.source import SourceHealthOut, SourcePauseRequest
 from app.services import articles as article_service
+from app.services import audit, source_health
 from app.services import site as site_service
-from app.services import source_health
 
 router = APIRouter(prefix="/curation", tags=["curation"])
 
@@ -40,7 +40,9 @@ async def load_catalog(db: DbSession) -> Catalog:
 
 
 @router.put("/catalog", response_model=Catalog)
-async def save_catalog(body: Catalog, _: CuratorUser, db: DbSession) -> Catalog:
+async def save_catalog(
+    body: Catalog, request: Request, user: CuratorUser, db: DbSession
+) -> Catalog:
     """Replace the starter catalogue (sections=None restores the built-in one)."""
     if body.sections is None:
         value = None
@@ -49,6 +51,13 @@ async def save_catalog(body: Catalog, _: CuratorUser, db: DbSession) -> Catalog:
             mode="json"
         )
     await site_service.set_internal(db, CATALOG_KEY, value)
+    await audit.record(
+        db,
+        request,
+        user,
+        "curation.catalog",
+        sections=None if body.sections is None else len(body.sections),
+    )
     return await load_catalog(db)
 
 
@@ -63,20 +72,36 @@ async def curation_sources(_: CuratorUser, db: DbSession) -> list[SourceHealthOu
 
 @router.patch("/sources/{source_id}", response_model=OkResponse)
 async def pause_source(
-    source_id: uuid.UUID, body: SourcePauseRequest, _: CuratorUser, db: DbSession
+    source_id: uuid.UUID,
+    body: SourcePauseRequest,
+    request: Request,
+    user: CuratorUser,
+    db: DbSession,
 ) -> OkResponse:
     """Pause polling of a dead feed (or resume it, retrying soon)."""
     src = await db.get(Source, source_id)
     if src is None:
         raise AppError(404, "not_found", "Source not found.")
     await source_health.set_paused(db, src, body.paused)
+    # The feed's address is not logged: a single-follower feed may be private.
+    await audit.record(
+        db,
+        request,
+        user,
+        "curation.pause" if body.paused else "curation.resume",
+        feed=src.title or str(src.id),
+    )
     return OkResponse()
 
 
 @router.post("/sources/delete-orphans")
-async def delete_orphan_sources(_: CuratorUser, db: DbSession) -> dict[str, int]:
+async def delete_orphan_sources(
+    request: Request, user: CuratorUser, db: DbSession
+) -> dict[str, int]:
     """Remove feeds nobody follows (keeps any with saved/favourite articles)."""
-    return {"deleted": await source_health.delete_orphans(db)}
+    deleted = await source_health.delete_orphans(db)
+    await audit.record(db, request, user, "curation.orphans", deleted=deleted)
+    return {"deleted": deleted}
 
 
 # --- Shared rankings ------------------------------------------------------------
@@ -113,7 +138,11 @@ async def hidden_ids(_: CuratorUser, db: DbSession) -> HiddenIds:
 
 @router.put("/articles/{article_id}/hidden", response_model=OkResponse)
 async def set_hidden(
-    article_id: uuid.UUID, body: HideRequest, user: CuratorUser, db: DbSession
+    article_id: uuid.UUID,
+    body: HideRequest,
+    request: Request,
+    user: CuratorUser,
+    db: DbSession,
 ) -> OkResponse:
     """Hide an article from (or restore it to) the shared rankings."""
     if await db.get(Article, article_id) is None:
@@ -127,4 +156,11 @@ async def set_hidden(
     else:
         await db.execute(delete(HiddenArticle).where(HiddenArticle.article_id == article_id))
     await db.commit()
+    await audit.record(
+        db,
+        request,
+        user,
+        "curation.hide" if body.hidden else "curation.unhide",
+        article=str(article_id),
+    )
     return OkResponse()

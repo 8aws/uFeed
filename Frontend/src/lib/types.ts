@@ -401,3 +401,20 @@ export interface StepUp {
 export interface TotpEnabled extends StepUp {
 	recovery_codes: string[];
 }
+
+export interface AuditEntry {
+	id: string;
+	created_at: string;
+	actor_email: string;
+	action: string;
+	target_email: string | null;
+	detail: Record<string, unknown>;
+	ip: string | null;
+}
+
+export interface AuditPage {
+	items: AuditEntry[];
+	total: number;
+	limit: number;
+	offset: number;
+}

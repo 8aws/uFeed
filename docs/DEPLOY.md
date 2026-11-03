@@ -167,6 +167,13 @@ Cosmos route to that port. It is plain HTTP: sessions live in localStorage, not
 cookies, so this works. Curation (editors) stays on the public site. Set the two
 variables in the box's `.env` BEFORE deploying, or the administration has no way in.
 
+**Activity log.** Administration shows who did what to whom (role and plan changes,
+suspensions, bans, deletions, settings, clean-ups, curation, and one-time-code
+events, with the IP), newest first, filterable. Entries carry the emails as they
+were, so they still read well after an account is deleted; passwords, codes and
+feed addresses are never written. Kept `AUDIT_RETENTION_DAYS` (365; 0 = forever),
+purged by the nightly clean-up.
+
 **One-time codes (editors and admins).** Curation and Administration ask for a
 6-digit code (TOTP; any authenticator or password manager) on top of the password:
 the first visit shows a QR, the key as text and an `otpauth://` link, then ten

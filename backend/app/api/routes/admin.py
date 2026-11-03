@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from sqlalchemy import func, select, text
 
 from app.api.deps import AdminUser, DbSession, FreshAdmin
@@ -23,6 +23,8 @@ from app.schemas.admin import (
     AdminUserOut,
     AdminUserPage,
     AdminUserUpdate,
+    AuditEntryOut,
+    AuditPage,
     BanCreate,
     BanOut,
     BanRequest,
@@ -34,7 +36,7 @@ from app.schemas.admin import (
     TemporaryPassword,
 )
 from app.schemas.common import OkResponse
-from app.services import admin_users, metrics, moderation
+from app.services import admin_users, audit, metrics, moderation
 from app.services import auth as auth_service
 from app.services import retention as retention_service
 from app.services import site as site_service
@@ -104,19 +106,26 @@ async def get_settings(_: AdminUser, db: DbSession) -> AdminSettings:
 
 
 @router.patch("/settings", response_model=AdminSettings)
-async def update_settings(body: AdminSettingsUpdate, _: FreshAdmin, db: DbSession) -> AdminSettings:
+async def update_settings(
+    body: AdminSettingsUpdate, request: Request, admin: FreshAdmin, db: DbSession
+) -> AdminSettings:
     values = body.model_dump(exclude_none=True)
     cfg = await site_service.update_settings(db, values)
+    await audit.record(db, request, admin, "settings.update", **values)
     return _settings_out(cfg, await site_service.plan_limits(db))
 
 
 @router.put("/plans", response_model=AdminSettings)
-async def update_plans(body: dict[Role, PlanLimits], _: FreshAdmin, db: DbSession) -> AdminSettings:
+async def update_plans(
+    body: dict[Role, PlanLimits], request: Request, admin: FreshAdmin, db: DbSession
+) -> AdminSettings:
     """Replace the limits of the given plans (others keep their values)."""
     plans = await site_service.plan_limits(db)
+    changed = [r for r, limits in body.items() if plans.get(r) != limits.model_dump()]
     for role, limits in body.items():
         plans[role] = limits.model_dump()
     await site_service.save_plan_limits(db, plans)
+    await audit.record(db, request, admin, "settings.plans", plans=changed)
     return _settings_out(await site_service.get_settings(db), plans)
 
 
@@ -163,15 +172,19 @@ async def users_summary(_: AdminUser, db: DbSession) -> AdminSummary:
 
 
 @router.post("/guests/purge", response_model=GuestPurgeResult)
-async def purge_guests(body: GuestPurge, _: FreshAdmin, db: DbSession) -> GuestPurgeResult:
+async def purge_guests(
+    body: GuestPurge, request: Request, admin: FreshAdmin, db: DbSession
+) -> GuestPurgeResult:
     """Delete the guest profiles idle for `days` or more (what the nightly
     clean-up does, with the number of days you choose)."""
-    return GuestPurgeResult(deleted=await moderation.delete_idle_guests(db, body.days))
+    deleted = await moderation.delete_idle_guests(db, body.days)
+    await audit.record(db, request, admin, "user.purge_guests", days=body.days, deleted=deleted)
+    return GuestPurgeResult(deleted=deleted)
 
 
 @router.patch("/users/{user_id}", response_model=AdminUserOut)
 async def update_user(
-    user_id: uuid.UUID, body: AdminUserUpdate, admin: FreshAdmin, db: DbSession
+    user_id: uuid.UUID, body: AdminUserUpdate, request: Request, admin: FreshAdmin, db: DbSession
 ) -> AdminUserOut:
     target = await db.get(User, user_id)
     if target is None:
@@ -181,6 +194,7 @@ async def update_user(
         (body.role is not None and body.role != "admin") or body.is_active is False
     ):
         raise AppError(400, "cannot_modify_self", "You can't demote or disable your own account.")
+    old_role, old_active = target.role, target.is_active
     if body.role is not None:
         target.role = body.role
     if body.is_active is not None:
@@ -189,11 +203,21 @@ async def update_user(
         target.is_active = body.is_active
     await db.commit()
     await db.refresh(target)
+    if target.role != old_role:
+        await audit.record(
+            db, request, admin, "user.role", target, **{"from": old_role, "to": target.role}
+        )
+    if target.is_active != old_active:
+        await audit.record(
+            db, request, admin, "user.enable" if target.is_active else "user.disable", target
+        )
     return await _user_row(db, target)
 
 
 @router.post("/users/{user_id}/reset-password", response_model=TemporaryPassword)
-async def reset_password(user_id: uuid.UUID, admin: FreshAdmin, db: DbSession) -> TemporaryPassword:
+async def reset_password(
+    user_id: uuid.UUID, request: Request, admin: FreshAdmin, db: DbSession
+) -> TemporaryPassword:
     """Set a random temporary password (shown once) and sign the user out."""
     target = await db.get(User, user_id)
     if target is None:
@@ -202,6 +226,7 @@ async def reset_password(user_id: uuid.UUID, admin: FreshAdmin, db: DbSession) -
         raise AppError(400, "cannot_modify_self", "Use Settings to change your own password.")
     temp = auth_service.temporary_password()
     await auth_service.set_password(db, target, temp, must_change=True)
+    await audit.record(db, request, admin, "user.reset_password", target)
     return TemporaryPassword(temporary_password=temp)
 
 
@@ -239,9 +264,10 @@ async def maintenance(_: AdminUser, db: DbSession) -> Maintenance:
 
 
 @router.post("/retention/run", response_model=Maintenance)
-async def run_retention_now(admin: AdminUser, db: DbSession) -> Maintenance:
+async def run_retention_now(request: Request, admin: AdminUser, db: DbSession) -> Maintenance:
     """Apply the retention policy now instead of waiting for the nightly run."""
     await retention_service.run_retention(db)
+    await audit.record(db, request, admin, "maintenance.retention")
     return await maintenance(admin, db)
 
 
@@ -250,55 +276,72 @@ async def run_retention_now(admin: AdminUser, db: DbSession) -> Maintenance:
 
 @router.post("/users/{user_id}/suspend", response_model=AdminUserOut)
 async def suspend_user(
-    user_id: uuid.UUID, body: SuspendRequest, admin: AdminUser, db: DbSession
+    user_id: uuid.UUID, body: SuspendRequest, request: Request, admin: AdminUser, db: DbSession
 ) -> AdminUserOut:
     """Temporarily block an account (signs it out; lifts by itself)."""
     target = await _target(db, user_id, admin)
     await moderation.suspend(db, target, body.days)
+    await audit.record(db, request, admin, "user.suspend", target, days=body.days)
     return await _user_row(db, target)
 
 
 @router.delete("/users/{user_id}/suspend", response_model=AdminUserOut)
-async def unsuspend_user(user_id: uuid.UUID, admin: AdminUser, db: DbSession) -> AdminUserOut:
+async def unsuspend_user(
+    user_id: uuid.UUID, request: Request, admin: AdminUser, db: DbSession
+) -> AdminUserOut:
     target = await _target(db, user_id, admin)
     await moderation.lift(db, target)
+    await audit.record(db, request, admin, "user.unsuspend", target)
     return await _user_row(db, target)
 
 
 @router.post("/users/{user_id}/reactivate", response_model=AdminUserOut)
-async def reactivate_user(user_id: uuid.UUID, admin: AdminUser, db: DbSession) -> AdminUserOut:
+async def reactivate_user(
+    user_id: uuid.UUID, request: Request, admin: AdminUser, db: DbSession
+) -> AdminUserOut:
     """Undo a deactivation for inactivity (stops the pending deletion)."""
     target = await _target(db, user_id, admin)
     await moderation.reactivate(db, target)
+    await audit.record(db, request, admin, "user.reactivate", target)
     return await _user_row(db, target)
 
 
 @router.post("/users/{user_id}/ban", response_model=AdminUserOut)
 async def ban_user(
-    user_id: uuid.UUID, body: BanRequest, admin: AdminUser, db: DbSession
+    user_id: uuid.UUID, body: BanRequest, request: Request, admin: AdminUser, db: DbSession
 ) -> AdminUserOut:
     """Ban the account's email (temporary or permanent); blocks re-registering."""
     target = await _target(db, user_id, admin)
     await moderation.ban_email(db, target.email, body.days, body.reason, admin)
+    await audit.record(
+        db, request, admin, "user.ban", target, days=body.days, reason=body.reason or None
+    )
     await db.refresh(target)
     return await _user_row(db, target)
 
 
 @router.delete("/users/{user_id}/ban", response_model=AdminUserOut)
-async def unban_user(user_id: uuid.UUID, admin: AdminUser, db: DbSession) -> AdminUserOut:
+async def unban_user(
+    user_id: uuid.UUID, request: Request, admin: AdminUser, db: DbSession
+) -> AdminUserOut:
     target = await _target(db, user_id, admin)
     await moderation.unban_email(db, target.email)
+    await audit.record(db, request, admin, "user.unban", target)
     await db.refresh(target)
     return await _user_row(db, target)
 
 
 @router.delete("/users/{user_id}", response_model=OkResponse)
-async def delete_user(user_id: uuid.UUID, admin: FreshAdmin, db: DbSession) -> OkResponse:
+async def delete_user(
+    user_id: uuid.UUID, request: Request, admin: FreshAdmin, db: DbSession
+) -> OkResponse:
     """Delete an account and all its data. Admins must be demoted first."""
     target = await _target(db, user_id, admin)
     if target.role == "admin":
         raise AppError(400, "cannot_delete_admin", "Demote the admin before deleting it.")
+    email = target.email
     await moderation.delete_user(db, target)
+    await audit.record(db, request, admin, "user.delete", target_email=email)
     return OkResponse()
 
 
@@ -309,25 +352,58 @@ async def list_bans(_: AdminUser, db: DbSession) -> list[BanOut]:
 
 
 @router.post("/bans", response_model=BanOut, status_code=201)
-async def create_ban(body: BanCreate, admin: AdminUser, db: DbSession) -> BanOut:
+async def create_ban(body: BanCreate, request: Request, admin: AdminUser, db: DbSession) -> BanOut:
     """Ban an email even if it has no account yet (prevents signing up)."""
     if body.email.lower() == admin.email:
         raise AppError(400, "cannot_modify_self", "You can't ban yourself.")
     ban = await moderation.ban_email(db, body.email, body.days, body.reason, admin)
+    await audit.record(
+        db,
+        request,
+        admin,
+        "ban.create",
+        target_email=body.email.lower(),
+        days=body.days,
+        reason=body.reason or None,
+    )
     return BanOut.model_validate(ban)
 
 
 @router.delete("/bans/{ban_id}", response_model=OkResponse)
-async def delete_ban(ban_id: uuid.UUID, _: AdminUser, db: DbSession) -> OkResponse:
+async def delete_ban(
+    ban_id: uuid.UUID, request: Request, admin: AdminUser, db: DbSession
+) -> OkResponse:
     ban = await db.get(Ban, ban_id)
     if ban is None:
         raise AppError(404, "not_found", "Ban not found.")
-    await moderation.unban_email(db, ban.email)
+    email = ban.email
+    await moderation.unban_email(db, email)
+    await audit.record(db, request, admin, "ban.delete", target_email=email)
     return OkResponse()
 
 
 @router.post("/inactivity/run", response_model=Maintenance)
-async def run_inactivity_now(admin: AdminUser, db: DbSession) -> Maintenance:
+async def run_inactivity_now(request: Request, admin: AdminUser, db: DbSession) -> Maintenance:
     """Apply the inactivity policy now instead of waiting for the nightly run."""
     await moderation.run_inactivity_cleanup(db)
+    await audit.record(db, request, admin, "maintenance.inactivity")
     return await maintenance(admin, db)
+
+
+@router.get("/audit", response_model=AuditPage)
+async def audit_log(
+    _: AdminUser,
+    db: DbSession,
+    kind: Literal["user", "settings", "ban", "maintenance", "staff", "curation"] | None = None,
+    q: str | None = Query(default=None, max_length=120),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> AuditPage:
+    """Who did what, newest first (administration, curation and one-time codes)."""
+    rows, total = await audit.page(db, kind=kind, q=q, limit=limit, offset=offset)
+    return AuditPage(
+        items=[AuditEntryOut.model_validate(r) for r in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )

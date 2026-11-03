@@ -16,6 +16,7 @@ import type {
 	AdminUser,
 	AdminUserPage,
 	AdminUserQuery,
+	AuditPage,
 	ApiKey,
 	ApiKeyCreated,
 	Article,
@@ -230,6 +231,11 @@ export const api = {
 		return request<AdminUserPage>(`/admin/users${qs ? `?${qs}` : ''}`);
 	},
 	adminSummary: () => request<AdminSummary>('/admin/users/summary'),
+	adminAudit: (query: { kind?: string; q?: string; limit?: number; offset?: number } = {}) => {
+		const p = new URLSearchParams();
+		for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== '') p.set(k, String(v));
+		return request<AuditPage>(`/admin/audit?${p.toString()}`);
+	},
 	purgeGuests: (days: number) =>
 		request<{ deleted: number }>('/admin/guests/purge', { method: 'POST', body: { days } }),
 	updatePlans: (plans: Partial<Record<Role, PlanLimits>>) =>

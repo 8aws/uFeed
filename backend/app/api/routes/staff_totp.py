@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import DbSession, StaffUser, rate_limit_auth
 from app.api.errors import AppError
@@ -18,7 +18,7 @@ from app.schemas.staff_totp import (
     TotpSetup,
     TotpStatus,
 )
-from app.services import staff_totp
+from app.services import audit, staff_totp
 
 router = APIRouter(prefix="/staff/totp", tags=["staff"], dependencies=[Depends(rate_limit_auth)])
 
@@ -39,9 +39,10 @@ def _step_up(user: User) -> StepUp:
     )
 
 
-async def _checked(db: DbSession, user: User, code: str) -> None:
+async def _checked(db: DbSession, request: Request, user: User, code: str) -> None:
     await _throttle(user)
     if not await staff_totp.verify(db, user, code):
+        await audit.record(db, request, user, "staff.code_failed")
         raise AppError(403, "invalid_code", "That code is not valid.")
 
 
@@ -64,34 +65,45 @@ async def setup(user: StaffUser, db: DbSession) -> TotpSetup:
 
 
 @router.post("/enable", response_model=TotpEnabled)
-async def enable(body: TotpCode, user: StaffUser, db: DbSession) -> TotpEnabled:
+async def enable(body: TotpCode, request: Request, user: StaffUser, db: DbSession) -> TotpEnabled:
     await _throttle(user)
     codes = await staff_totp.enable(db, user, body.code)
     if codes is None:
         raise AppError(403, "invalid_code", "That code is not valid.")
+    await audit.record(db, request, user, "staff.totp_enable")
     return TotpEnabled(**_step_up(user).model_dump(), recovery_codes=codes)
 
 
 @router.post("/verify", response_model=StepUp)
-async def verify(body: TotpCode, user: StaffUser, db: DbSession) -> StepUp:
-    await _checked(db, user, body.code)
+async def verify(body: TotpCode, request: Request, user: StaffUser, db: DbSession) -> StepUp:
+    await _checked(db, request, user, body.code)
+    await audit.record(db, request, user, "staff.code_ok")
     return _step_up(user)
 
 
 @router.post("/recovery-codes", response_model=RecoveryCodes)
-async def recovery_codes(body: TotpCode, user: StaffUser, db: DbSession) -> RecoveryCodes:
+async def recovery_codes(
+    body: TotpCode, request: Request, user: StaffUser, db: DbSession
+) -> RecoveryCodes:
     """Ten new codes (the old ones stop working); asks for a code to confirm."""
-    await _checked(db, user, body.code)
-    return RecoveryCodes(recovery_codes=await staff_totp.new_recovery_codes(db, user))
+    await _checked(db, request, user, body.code)
+    codes = await staff_totp.new_recovery_codes(db, user)
+    await audit.record(db, request, user, "staff.recovery_codes")
+    return RecoveryCodes(recovery_codes=codes)
 
 
 @router.post("/disable", response_model=OkResponse)
-async def disable(body: TotpDisable, user: StaffUser, db: DbSession) -> OkResponse:
+async def disable(
+    body: TotpDisable, request: Request, user: StaffUser, db: DbSession
+) -> OkResponse:
     """Turn it off (to enrol a new phone): needs a code and the password."""
     await _throttle(user)
     if not verify_password(body.password, user.password_hash):
+        await audit.record(db, request, user, "staff.code_failed", why="password")
         raise AppError(403, "invalid_credentials", "Wrong password.")
     if not await staff_totp.verify(db, user, body.code):
+        await audit.record(db, request, user, "staff.code_failed")
         raise AppError(403, "invalid_code", "That code is not valid.")
     await staff_totp.disable(db, user)
+    await audit.record(db, request, user, "staff.totp_disable")
     return OkResponse()

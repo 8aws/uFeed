@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AuditLog from '$lib/components/AuditLog.svelte';
 	import StaffSecurity from '$lib/components/StaffSecurity.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -868,6 +869,7 @@
 		{/if}
 	</section>
 
+	<AuditLog />
 </div>
 
 <style>

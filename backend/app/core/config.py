@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     staff_session_hours: int = Field(default=12)
     staff_fresh_s: int = Field(default=300)
     totp_issuer: str = Field(default="uFeed")
+    # The audit log keeps this many days (0 = forever); purged nightly.
+    audit_retention_days: int = Field(default=365)
     # Key that seals the TOTP secrets in the database; derived from JWT_SECRET
     # when empty (then rotating JWT_SECRET also asks everyone to enrol again).
     secretbox_key: str = Field(default="")

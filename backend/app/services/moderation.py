@@ -197,6 +197,10 @@ async def run_inactivity_cleanup(db: AsyncSession | None = None) -> dict[str, An
     guests = await delete_idle_guests(db, settings.guest_idle_days)
     deleted = await delete_dormant(db, int(cfg["dormant_delete_days"]))
     deactivated = await deactivate_inactive(db, int(cfg["inactivity_days"]))
+    # Imported here: the audit service uses this module's clock.
+    from app.services import audit
+
+    await audit.purge_old(db)
     result = {
         "days": int(cfg["inactivity_days"]),
         "delete_days": int(cfg["dormant_delete_days"]),

@@ -156,3 +156,22 @@ class BanOut(BaseModel):
     until: datetime | None = None
     reason: str | None = None
     created_at: datetime
+
+
+class AuditEntryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    created_at: datetime
+    actor_email: str
+    action: str  # "user.delete", "settings.update"...
+    target_email: str | None = None
+    detail: dict[str, Any] = {}
+    ip: str | None = None
+
+
+class AuditPage(BaseModel):
+    items: list[AuditEntryOut]
+    total: int
+    limit: int
+    offset: int
