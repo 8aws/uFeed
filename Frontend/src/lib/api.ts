@@ -64,6 +64,8 @@ interface Options {
 	auth?: boolean;
 	retry?: boolean;
 	stepUpTried?: boolean;
+	/** Background call: if a code is needed, fail quietly instead of opening the window. */
+	quiet?: boolean;
 }
 
 /** What the person has to do before an editor/admin request can go through. */
@@ -152,7 +154,7 @@ async function request<T>(path: string, opts: Options = {}): Promise<T> {
 			/* non-JSON error body */
 		}
 		const mode = resp.status === 403 ? STEP_UP_CODES[code] : undefined;
-		if (mode && needsStepUp(path) && !opts.stepUpTried) {
+		if (mode && needsStepUp(path) && !opts.stepUpTried && !opts.quiet) {
 			if (mode !== 'enrol') setStepUp(null); // expired or not fresh enough
 			if (await askStepUp(mode)) return request<T>(path, { ...opts, stepUpTried: true });
 		}
@@ -275,7 +277,8 @@ export const api = {
 	saveCatalog: (sections: CatalogSection[] | null) =>
 		request<CatalogResponse>('/curation/catalog', { method: 'PUT', body: { sections } }),
 	hiddenArticles: () => request<HiddenArticle[]>('/curation/hidden'),
-	hiddenIds: () => request<{ ids: string[] }>('/curation/hidden/ids'),
+	// Asked on every load of the reader: never pops the code window by itself.
+	hiddenIds: () => request<{ ids: string[] }>('/curation/hidden/ids', { quiet: true }),
 	setHidden: (id: string, hidden: boolean) =>
 		request<unknown>(`/curation/articles/${id}/hidden`, { method: 'PUT', body: { hidden } }),
 
