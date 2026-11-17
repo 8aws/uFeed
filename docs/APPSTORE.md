@@ -227,14 +227,14 @@ leaving blank space, and Settings shows the version.
 ## What's new in 1.1.2
 
 Español: Nueva búsqueda en la lista (por palabras y, en los planes con IA, por
-significado) y se puede seleccionar y copiar texto de los artículos. Al leer y pasar artículos deslizando, la lista sigue cargando más y ya no
+significado) se puede seleccionar y copiar texto de los artículos y el idioma se elige en Ajustes. Al leer y pasar artículos deslizando, la lista sigue cargando más y ya no
 se queda vacía ni con el círculo de carga parado. Los vídeos enlazados dentro de
 una frase ya no tapan palabras: el enlace se mantiene y el vídeo aparece justo
 debajo del párrafo. Las tablas anchas se desplazan de lado y no apilan el texto
 letra a letra.
 
 English: New search in the list (by words and, on plans with AI, by meaning) and
-you can select and copy article text. When you read and swipe through articles, the list keeps loading more and
+you can select and copy article text, and the language is picked in Settings. When you read and swipe through articles, the list keeps loading more and
 no longer ends up empty with a stuck spinner. Videos linked inside a sentence no
 longer hide words: the link stays and the video appears just below the paragraph.
 Wide tables scroll sideways instead of stacking text one letter per line.

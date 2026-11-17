@@ -592,6 +592,26 @@ class _DisplaySettings extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(t.language),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(value: 'system', label: Text(t.languageSystem)),
+              const ButtonSegment(value: 'es', label: Text('Español')),
+              const ButtonSegment(value: 'en', label: Text('English')),
+            ],
+            selected: {p.language},
+            onSelectionChanged: (v) {
+              set(p.copyWith(language: v.first));
+              // The server's emails and starter feeds follow it too.
+              ref
+                  .read(apiProvider)
+                  .updateMe({'locale': deviceLocale()})
+                  .then<void>((_) {}, onError: (_) {});
+            },
+          ),
+          const SizedBox(height: 12),
           Text(t.appearance),
           const SizedBox(height: 8),
           SegmentedButton<String>(

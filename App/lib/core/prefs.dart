@@ -38,12 +38,18 @@ final listStyleProvider = NotifierProvider<ListStyleNotifier, ListStyle>(
 const textScales = [0.85, 0.9, 1.0, 1.15, 1.3, 1.5];
 
 /// Accessibility display options, per device (same as the web's).
+/// The language picked in Settings (`es` or `en`); null follows the device.
+/// Kept here, outside the widgets, because the API client and the places that
+/// ask for the user's language read it without a `ref`.
+String? languageOverride;
+
 class DisplayPrefs {
   const DisplayPrefs({
     this.textScale = 1,
     this.atkinson = false,
     this.autoFull = true,
     this.theme = 'system',
+    this.language = 'system',
   });
 
   /// On top of the system text size (Dynamic Type).
@@ -58,16 +64,21 @@ class DisplayPrefs {
   /// Appearance: `system` (follows the device), `light` or `dark`.
   final String theme;
 
+  /// App language: `system` (the device's), `es` or `en`.
+  final String language;
+
   DisplayPrefs copyWith({
     double? textScale,
     bool? atkinson,
     bool? autoFull,
     String? theme,
+    String? language,
   }) => DisplayPrefs(
     textScale: textScale ?? this.textScale,
     atkinson: atkinson ?? this.atkinson,
     autoFull: autoFull ?? this.autoFull,
     theme: theme ?? this.theme,
+    language: language ?? this.language,
   );
 }
 
@@ -76,10 +87,15 @@ class DisplayPrefsNotifier extends Notifier<DisplayPrefs> {
   static const _font = 'ufeed_atkinson';
   static const _full = 'ufeed_auto_full';
   static const _theme = 'ufeed_theme';
+  static const _language = 'ufeed_language';
 
   @override
   DisplayPrefs build() {
     final p = ref.read(prefsProvider);
+    final language = const {'es', 'en'}.contains(p.getString(_language))
+        ? p.getString(_language)!
+        : 'system';
+    languageOverride = language == 'system' ? null : language;
     return DisplayPrefs(
       textScale: p.getDouble(_scale) ?? 1,
       atkinson: p.getBool(_font) ?? false,
@@ -87,6 +103,7 @@ class DisplayPrefsNotifier extends Notifier<DisplayPrefs> {
       theme: const {'light', 'dark'}.contains(p.getString(_theme))
           ? p.getString(_theme)!
           : 'system',
+      language: language,
     );
   }
 
@@ -97,6 +114,8 @@ class DisplayPrefsNotifier extends Notifier<DisplayPrefs> {
     p.setBool(_font, next.atkinson);
     p.setBool(_full, next.autoFull);
     p.setString(_theme, next.theme);
+    p.setString(_language, next.language);
+    languageOverride = next.language == 'system' ? null : next.language;
   }
 }
 

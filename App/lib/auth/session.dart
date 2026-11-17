@@ -12,8 +12,10 @@ import '../core/prefs.dart';
 import '../offline/providers.dart';
 import 'starter_feeds.dart';
 
-/// The app language sent to the server: the device's if we have it, else English.
+/// The app language sent to the server: the one picked in Settings, else the
+/// device's if we have it, else English.
 String deviceLocale() {
+  if (languageOverride != null) return languageOverride!;
   final code = PlatformDispatcher.instance.locale.languageCode;
   return code == 'es' ? 'es' : 'en';
 }

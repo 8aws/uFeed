@@ -794,4 +794,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noResults => 'Nothing found.';
+
+  @override
+  String get language => 'Language';
+
+  @override
+  String get languageSystem => 'Device';
 }

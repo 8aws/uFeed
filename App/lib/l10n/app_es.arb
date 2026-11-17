@@ -332,5 +332,7 @@
   "searchHint": "Buscar título, fuente, contenido…",
   "searchAi": "Búsqueda con IA",
   "searchClose": "Cerrar búsqueda",
-  "noResults": "No se ha encontrado nada."
+  "noResults": "No se ha encontrado nada.",
+  "language": "Idioma",
+  "languageSystem": "Del dispositivo"
 }

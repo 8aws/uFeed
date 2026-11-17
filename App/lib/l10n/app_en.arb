@@ -331,5 +331,7 @@
   "searchHint": "Search title, source, content…",
   "searchAi": "AI search",
   "searchClose": "Close search",
-  "noResults": "Nothing found."
+  "noResults": "Nothing found.",
+  "language": "Language",
+  "languageSystem": "Device"
 }

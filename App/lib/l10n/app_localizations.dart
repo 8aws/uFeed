@@ -1525,6 +1525,18 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'No se ha encontrado nada.'**
   String get noResults;
+
+  /// No description provided for @language.
+  ///
+  /// In es, this message translates to:
+  /// **'Idioma'**
+  String get language;
+
+  /// No description provided for @languageSystem.
+  ///
+  /// In es, this message translates to:
+  /// **'Del dispositivo'**
+  String get languageSystem;
 }
 
 class _AppLocalizationsDelegate

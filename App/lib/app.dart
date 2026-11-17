@@ -61,6 +61,7 @@ class UFeedApp extends ConsumerWidget {
     final font = display.atkinson ? 'Atkinson Hyperlegible' : null;
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
+      locale: display.language == 'system' ? null : Locale(display.language),
       onGenerateTitle: (context) => AppLocalizations.of(context).appName,
       theme: buildTheme(Brightness.light, fontFamily: font),
       darkTheme: buildTheme(Brightness.dark, fontFamily: font),

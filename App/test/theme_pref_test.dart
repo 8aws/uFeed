@@ -31,4 +31,32 @@ void main() {
     addTearDown(c.dispose);
     expect(c.read(displayPrefsProvider).theme, 'system');
   });
+
+  test(
+    'the language follows the device until one is picked, and is remembered',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final c = await _container();
+      addTearDown(c.dispose);
+      expect(c.read(displayPrefsProvider).language, 'system');
+      expect(languageOverride, isNull);
+
+      final n = c.read(displayPrefsProvider.notifier);
+      n.update(c.read(displayPrefsProvider).copyWith(language: 'en'));
+      expect(languageOverride, 'en');
+
+      languageOverride = null; // a new start
+      final again = await _container();
+      addTearDown(again.dispose);
+      expect(again.read(displayPrefsProvider).language, 'en');
+      expect(languageOverride, 'en');
+
+      again
+          .read(displayPrefsProvider.notifier)
+          .update(
+            again.read(displayPrefsProvider).copyWith(language: 'system'),
+          );
+      expect(languageOverride, isNull);
+    },
+  );
 }
