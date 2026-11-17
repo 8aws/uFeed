@@ -239,6 +239,18 @@ no longer ends up empty with a stuck spinner. Videos linked inside a sentence no
 longer hide words: the link stays and the video appears just below the paragraph.
 Wide tables scroll sideways instead of stacking text one letter per line.
 
+## What's new in 1.1.3
+
+Español: La búsqueda también funciona sin conexión sobre lo guardado en el
+dispositivo (con aviso de que pueden faltar los artículos más recientes). El
+mosaico es más compacto: título sin resumen. Los Ajustes se agrupan en secciones
+plegables y el idioma está en «Apariencia e idioma».
+
+English: Search also works offline on what is saved on the device (with a notice
+that the latest articles may be missing). The mosaic is more compact: title
+without summary. Settings are grouped in folding sections and the language is
+under "Appearance and language".
+
 ## Age rating
 
 The app shows content from feeds the user adds (any website), and links open
