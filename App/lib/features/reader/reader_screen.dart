@@ -17,12 +17,16 @@ import 'open_article.dart';
 
 /// What the reader opens: a list and where in it (swipe for the others).
 class ReaderArgs {
-  const ReaderArgs(this.articles, this.index);
+  const ReaderArgs(this.articles, this.index, {this.fromList = false});
 
-  ReaderArgs.single(Article a) : articles = [a], index = 0;
+  ReaderArgs.single(Article a) : articles = [a], index = 0, fromList = false;
 
   final List<Article> articles;
   final int index;
+
+  /// Opened from the home list: swiping towards its end brings in the next
+  /// pages, as scrolling the list would.
+  final bool fromList;
 }
 
 enum _More { read, full, translate, original, text }
@@ -60,7 +64,24 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       setState(() => _markRead(_index));
       _autoRead();
       _follow();
+      if (_index >= _articles.length - 3) _loadMore().ignore();
     });
+  }
+
+  bool _loadingMore = false;
+
+  /// Near the last article of what was loaded: ask the list for its next page
+  /// (reading removes posts from the unread lists, so the end comes quickly).
+  Future<void> _loadMore() async {
+    if (!widget.args.fromList || _loadingMore) return;
+    _loadingMore = true;
+    try {
+      final fresh = await _list.more({for (final a in _articles) a.id});
+      if (!mounted || fresh.isEmpty) return;
+      setState(() => _articles.addAll(fresh));
+    } finally {
+      _loadingMore = false;
+    }
   }
 
   void _follow() {
@@ -348,6 +369,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           setState(() => _index = i);
           _autoRead();
           _follow();
+          if (i >= _articles.length - 3) _loadMore().ignore();
         },
         itemBuilder: (context, i) => ArticlePage(
           key: ValueKey(_articles[i].id),

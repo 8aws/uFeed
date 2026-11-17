@@ -458,6 +458,10 @@ class ArticleListNotifier extends Notifier<ArticleList> {
               if (x.id != a.id) x,
           ],
         );
+        // Reading empties the list from the top: keep it topped up.
+        if (!state.done && !state.loading && state.items.length < 12) {
+          unawaited(load());
+        }
       } else if (_belongsHere(a)) {
         state = state.copyWith(
           items: insertedInOrder(state.items, after, atEnd: state.done),
@@ -465,6 +469,25 @@ class ArticleListNotifier extends Notifier<ArticleList> {
       }
     }
     await _set(a, after, Field.read, read);
+  }
+
+  /// For the reader opened from this list: fetches the next page when there is
+  /// one and returns the articles of the list it doesn't have yet.
+  Future<List<Article>> more(Set<String> have) async {
+    List<Article> fresh() => [
+      for (final a in state.items)
+        if (!have.contains(a.id)) a,
+    ];
+    // A page may already be on its way (the list tops itself up).
+    for (var i = 0; i < 66 && state.loading; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+    var next = fresh();
+    if (next.isEmpty && !state.done && !state.loading && state.error == null) {
+      await load();
+      next = fresh();
+    }
+    return next;
   }
 
   /// Whether an article is one this view lists (for putting it back).

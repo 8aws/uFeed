@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html_parser;
 import 'package:just_audio/just_audio.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -54,6 +55,132 @@ Uri? safeUri(String? url, [Uri? base]) {
   return null;
 }
 
+const _blockTags = {
+  'p',
+  'li',
+  'blockquote',
+  'td',
+  'th',
+  'div',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+};
+
+/// A link to a YouTube/Vimeo video inside a sentence ("durante la <a>rueda de
+/// prensa</a> que siguió…") keeps its words as a normal link (tap opens the
+/// video) and the video's card goes right after that paragraph, so the card
+/// never replaces words nor splits the sentence. A link that is the whole
+/// paragraph, or has no words (a thumbnail), still becomes the card itself.
+String withEmbedCards(String html) {
+  if (!RegExp(r'youtu|vimeo', caseSensitive: false).hasMatch(html)) return html;
+  final body = html_parser.parse(html).body;
+  if (body == null) return html;
+  final after = <dom.Node, dom.Node>{}; // block -> last card put after it
+  var changed = false;
+  for (final a in body.querySelectorAll('a')) {
+    if (a.attributes.containsKey('data-embed')) continue;
+    final embed = embedOf(a.attributes['href'], null);
+    final words = a.text.trim();
+    if (embed == null || words.isEmpty) continue;
+    dom.Element? block = a.parent;
+    while (block != null && !_blockTags.contains(block.localName)) {
+      block = block.parent;
+    }
+    if (block != null && block.text.trim() == words) {
+      continue; // the whole paragraph: the card replaces it
+    }
+    a.attributes['data-link'] = '1';
+    final anchor = block ?? a;
+    final parent = anchor.parent ?? body;
+    final card = dom.Element.tag('div')
+      ..attributes['data-embedcard'] = '${embed.provider}:${embed.id}';
+    final at = parent.nodes.indexOf(after[anchor] ?? anchor);
+    parent.nodes.insert(at + 1, card);
+    after[anchor] = card;
+    changed = true;
+  }
+  return changed ? body.innerHtml : html;
+}
+
+/// Layout the site gave its tables (widths, padding, no-wrap, break-anywhere…)
+/// is meant for a desktop page; on a phone it leaves columns a letter wide.
+const _tableLayoutProps = {
+  'width',
+  'min-width',
+  'max-width',
+  'height',
+  'min-height',
+  'max-height',
+  'word-break',
+  'overflow-wrap',
+  'word-wrap',
+  'white-space',
+  'writing-mode',
+  'text-orientation',
+  'table-layout',
+  'display',
+  'float',
+  'position',
+  'transform',
+  'flex',
+  'flex-basis',
+  'padding',
+  'padding-left',
+  'padding-right',
+  'margin',
+  'margin-left',
+  'margin-right',
+};
+
+const _tableParts = {
+  'table',
+  'thead',
+  'tbody',
+  'tfoot',
+  'tr',
+  'td',
+  'th',
+  'col',
+  'colgroup',
+};
+
+/// Tables without the site's sizing, so the reader lays the columns out itself
+/// (and scrolls sideways when they don't fit). Colours, bold, spans and
+/// borders stay.
+String tidyTables(String html) {
+  if (!html.toLowerCase().contains('<table')) return html;
+  final body = html_parser.parse(html).body;
+  if (body == null) return html;
+  for (final table in body.querySelectorAll('table')) {
+    for (final e in [table, ...table.querySelectorAll('*')]) {
+      if (_tableParts.contains(e.localName)) {
+        for (final name in const ['width', 'height', 'nowrap']) {
+          e.attributes.remove(name);
+        }
+      }
+      final style = e.attributes['style'];
+      if (style == null) continue;
+      final kept = style.split(';').where((d) {
+        final prop = d.split(':').first.trim().toLowerCase();
+        return prop.isNotEmpty && !_tableLayoutProps.contains(prop);
+      });
+      if (kept.isEmpty) {
+        e.attributes.remove('style');
+      } else {
+        e.attributes['style'] = kept.join(';');
+      }
+    }
+    for (final col in table.querySelectorAll('colgroup, col')) {
+      col.remove();
+    }
+  }
+  return body.innerHtml;
+}
+
 Future<void> openLink(Uri url, {bool external = false}) => launchUrl(
   url,
   mode: external ? LaunchMode.externalApplication : LaunchMode.inAppBrowserView,
@@ -68,17 +195,21 @@ class ArticleHtml extends StatelessWidget {
     required this.html,
     required this.baseUrl,
     required this.textStyle,
+    this.insideTable = false,
   });
 
   final String html;
   final Uri? baseUrl;
   final TextStyle textStyle;
 
+  /// The inside of a table that is already in a horizontal scroller.
+  final bool insideTable;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     return HtmlWidget(
-      html,
+      insideTable ? html : tidyTables(withEmbedCards(html)),
       baseUrl: baseUrl,
       textStyle: textStyle,
       onTapUrl: (url) {
@@ -121,10 +252,31 @@ class ArticleHtml extends StatelessWidget {
             child: NetImage(src.toString(), fit: BoxFit.contain),
           ),
         );
+      case 'table':
+        return insideTable
+            ? null
+            : _ScrollTable(
+                table: e,
+                render: (html) => ArticleHtml(
+                  html: html,
+                  baseUrl: baseUrl,
+                  textStyle: textStyle,
+                  insideTable: true,
+                ),
+              );
       case 'a':
+        // A link with words in a sentence stays a link (see withEmbedCards).
+        if (e.attributes.containsKey('data-link')) return null;
         final embed = embedOf(e.attributes['href'], e.attributes['data-embed']);
         if (embed == null) return null; // a normal link
         return _EmbedCard(provider: embed.provider, id: embed.id);
+      case 'div':
+        final tag = e.attributes['data-embedcard'];
+        if (tag == null) return null;
+        final embed = embedOf(null, tag);
+        return embed == null
+            ? const SizedBox.shrink()
+            : _EmbedCard(provider: embed.provider, id: embed.id);
       case 'audio':
         final src = safeUri(
           e.attributes['src'] ?? e.querySelector('source')?.attributes['src'],
@@ -192,8 +344,9 @@ class _MediaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // Room above and below: the card is its own block, never touching the text.
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 14),
       child: Material(
         color: c.accentSoft,
         borderRadius: BorderRadius.circular(8),
@@ -318,6 +471,45 @@ class _PodcastPlayerState extends State<_PodcastPlayer> {
           );
         },
       ),
+    );
+  }
+}
+
+/// Narrowest a table column may get before the table scrolls sideways instead
+/// of squeezing its words into columns one letter wide.
+const _minColumnWidth = 120.0;
+
+/// A table that doesn't fit the screen at a readable column width scrolls
+/// sideways; one that fits is laid out as usual.
+class _ScrollTable extends StatelessWidget {
+  const _ScrollTable({required this.table, required this.render});
+
+  final dom.Element table;
+  final Widget Function(String html) render;
+
+  int get _columns {
+    final row = table.querySelector('tr');
+    if (row == null) return 1;
+    var n = 0;
+    for (final cell in row.children) {
+      if (cell.localName != 'td' && cell.localName != 'th') continue;
+      n += int.tryParse(cell.attributes['colspan'] ?? '') ?? 1;
+    }
+    return n < 1 ? 1 : n;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inner = render(table.outerHtml);
+    final needed = _columns * _minColumnWidth;
+    return LayoutBuilder(
+      builder: (context, box) {
+        if (!box.maxWidth.isFinite || needed <= box.maxWidth) return inner;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(width: needed, child: inner),
+        );
+      },
     );
   }
 }

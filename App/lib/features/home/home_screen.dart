@@ -54,6 +54,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
+  /// Scrolling loads the next page, but a list that is shorter than the screen
+  /// (everything read and gone from an unread view) can't scroll: fetch more
+  /// until it fills the screen or ends, instead of leaving the spinner idle.
+  void _fillIfShort(ArticleList list, ArticleListNotifier ctrl) {
+    if (list.done || list.loading || list.error != null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final now = ref.read(articleListProvider);
+      if (now.done || now.loading || now.error != null) return;
+      if (!_scroll.hasClients || _scroll.position.extentAfter < 800) {
+        ctrl.load();
+      }
+    });
+  }
+
   String _title(AppLocalizations t, Filter f, Sidebar? side) =>
       switch (f.kind) {
         FilterKind.all => t.all,
@@ -301,7 +316,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ) {
     if (list.items.isEmpty) {
       final String message;
-      if (list.loading) {
+      if (list.loading || (!list.done && list.error == null)) {
         return const Center(child: CircularProgressIndicator());
       } else if (list.error != null) {
         final e = list.error!;
@@ -340,6 +355,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     final twoPane = useTwoPane(context);
     final count = list.items.length + (list.done ? 0 : 1);
+    _fillIfShort(list, ctrl);
     Widget item(BuildContext context, int i) {
       if (i == list.items.length) {
         return Padding(
@@ -358,7 +374,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         style: style,
         sourceTitle: side?.subFor(a.sourceId)?.title ?? '',
         selected: twoPane && ref.watch(openArticleProvider)?.currentId == a.id,
-        onOpen: () => _openArticle(ReaderArgs(list.items, i), twoPane),
+        onOpen: () =>
+            _openArticle(ReaderArgs(list.items, i, fromList: true), twoPane),
         onTwins: () => showTwins(context, ref, a),
         onToggleRead: () => ctrl.setRead(a, !a.isRead),
         onToggleSaved: () => ctrl.setSaved(a, !a.isSaved),

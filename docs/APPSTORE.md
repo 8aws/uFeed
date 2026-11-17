@@ -224,6 +224,19 @@ sources, a hint tells you and you can open them. Read articles leave "Unread"
 at once, the side-menu folders fold, images that fail are retried without
 leaving blank space, and Settings shows the version.
 
+## What's new in 1.1.2
+
+Español: Al leer y pasar artículos deslizando, la lista sigue cargando más y ya no
+se queda vacía ni con el círculo de carga parado. Los vídeos enlazados dentro de
+una frase ya no tapan palabras: el enlace se mantiene y el vídeo aparece justo
+debajo del párrafo. Las tablas anchas se desplazan de lado y no apilan el texto
+letra a letra.
+
+English: When you read and swipe through articles, the list keeps loading more and
+no longer ends up empty with a stuck spinner. Videos linked inside a sentence no
+longer hide words: the link stays and the video appears just below the paragraph.
+Wide tables scroll sideways instead of stacking text one letter per line.
+
 ## Age rating
 
 The app shows content from feeds the user adds (any website), and links open
