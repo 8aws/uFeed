@@ -354,7 +354,7 @@ class ArticleTile extends StatelessWidget {
   Widget _card(BuildContext context, AppLocalizations t, UColors c) {
     final img = article.imageUrl;
     final excerpt = _excerpt;
-    if (style == ListStyle.masonry) return _tile(t, c, img, excerpt);
+    if (style == ListStyle.masonry) return _tile(t, c, img);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -390,44 +390,29 @@ class ArticleTile extends StatelessWidget {
   }
 
   /// Masonry: as many stories per screen as stay readable. The picture is a
-  /// band as tall as the card list's thumbnail (84 px), then source, a
-  /// headline of up to 4 lines and 2 of summary. Measured on iPhone width:
-  /// ~7 stories per screen, against ~5 with 16:10 pictures.
-  Widget _tile(AppLocalizations t, UColors c, String? img, String excerpt) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (img != null)
-            _DropOnError(
-              builder: (fail) =>
-                  SizedBox(height: 84, child: _image(img, onError: fail)),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(7, 5, 7, 7),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _meta(t, c, size: 10.5),
-                const SizedBox(height: 2),
-                _title(c, lines: 4, size: 13, height: 1.2),
-                if (excerpt.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    excerpt,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.muted,
-                      fontSize: 11.5,
-                      height: 1.28,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      );
+  /// band as tall as the card list's thumbnail (84 px), then source and a
+  /// headline of up to 4 lines; no summary, to save room.
+  Widget _tile(AppLocalizations t, UColors c, String? img) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (img != null)
+        _DropOnError(
+          builder: (fail) =>
+              SizedBox(height: 84, child: _image(img, onError: fail)),
+        ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(7, 5, 7, 7),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _meta(t, c, size: 10.5),
+            const SizedBox(height: 2),
+            _title(c, lines: 4, size: 13, height: 1.2),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 /// Shows what `builder` makes until the picture inside reports `fail`; then

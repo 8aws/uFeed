@@ -808,4 +808,7 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get offlineSearchBanner =>
       'Sin conexión: resultados de lo guardado en el dispositivo. Actualiza para obtener los artículos más recientes.';
+
+  @override
+  String get appearanceLanguage => 'Apariencia e idioma';
 }

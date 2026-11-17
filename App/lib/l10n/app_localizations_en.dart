@@ -804,4 +804,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get offlineSearchBanner =>
       'Offline — showing what is saved on this device. Refresh to get the latest articles.';
+
+  @override
+  String get appearanceLanguage => 'Appearance and language';
 }

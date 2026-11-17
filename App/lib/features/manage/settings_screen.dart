@@ -55,28 +55,33 @@ class SettingsScreen extends ConsumerWidget {
     final user = ref.watch(sessionProvider).value;
     if (user == null) return const SizedBox.shrink();
 
-    Widget section(String title, List<Widget> children) => Padding(
-      padding: const EdgeInsets.only(top: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-            child: Text(
-              title.toUpperCase(),
+    // Each group folds away: open only what is needed.
+    Widget section(
+      String title,
+      IconData icon,
+      List<Widget> children, {
+      bool danger = false,
+    }) => Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Material(
+        color: c.surface,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            key: PageStorageKey<String>(title),
+            leading: Icon(icon, color: danger ? c.danger : c.muted),
+            title: Text(
+              title,
               style: TextStyle(
-                color: c.muted,
-                fontSize: 12,
                 fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+                color: danger ? c.danger : null,
               ),
             ),
+            expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+            childrenPadding: EdgeInsets.zero,
+            children: children,
           ),
-          Material(
-            color: c.surface,
-            child: Column(children: children),
-          ),
-        ],
+        ),
       ),
     );
 
@@ -87,7 +92,7 @@ class SettingsScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.only(bottom: 40),
           children: [
-            section(t.account, [
+            section(t.account, Icons.person_outline, [
               if (user.isGuest) ...[
                 ListTile(
                   leading: const Icon(Icons.person_outline),
@@ -133,18 +138,22 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ]),
             if (!user.isGuest)
-              section(t.digestTitle, [_DigestSettings(user: user)]),
-            section(t.voiceSettings, [
+              section(t.digestTitle, Icons.mail_outline, [
+                _DigestSettings(user: user),
+              ]),
+            section(t.appearanceLanguage, Icons.palette_outlined, const [
+              _DisplaySettings(),
+            ]),
+            section(t.voiceSettings, Icons.record_voice_over_outlined, [
               ListTile(
                 leading: const Icon(Icons.record_voice_over_outlined),
                 title: Text(t.voiceSettings),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => showVoiceSheet(context),
               ),
-              const _DisplaySettings(),
             ]),
-            section(t.filters, const [_Filters()]),
-            section(t.feeds, [
+            section(t.filters, Icons.volume_off_outlined, const [_Filters()]),
+            section(t.feeds, Icons.rss_feed, [
               ListTile(
                 leading: const Icon(Icons.upload_file),
                 title: Text(t.importOpml),
@@ -156,7 +165,7 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => _exportOpml(context, ref),
               ),
             ]),
-            section('uFeed', [
+            section('uFeed', Icons.info_outline, [
               _link(context, Icons.public, t.web, '/'),
               if (staff) _link(context, Icons.tune, t.curation, '/curation'),
               // Administration is reached from the local network or VPN only,
@@ -172,7 +181,7 @@ class SettingsScreen extends ConsumerWidget {
               const _VersionTile(),
             ]),
             if (!user.isGuest)
-              section(t.deleteAccount, [
+              section(t.deleteAccount, Icons.delete_forever, danger: true, [
                 ListTile(
                   leading: Icon(Icons.delete_forever, color: c.danger),
                   title: Text(

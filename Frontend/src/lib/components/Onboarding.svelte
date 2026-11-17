@@ -317,7 +317,13 @@
 	}
 	.count {
 		margin-right: auto;
+		min-width: 0;
 		font-size: 0.85rem;
+	}
+	/* Narrow phones: the labels never break mid-word ("Omiti/r"). */
+	.actions button {
+		flex: none;
+		white-space: nowrap;
 	}
 	.primary {
 		background: var(--accent);

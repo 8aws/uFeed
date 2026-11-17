@@ -1543,6 +1543,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Sin conexión: resultados de lo guardado en el dispositivo. Actualiza para obtener los artículos más recientes.'**
   String get offlineSearchBanner;
+
+  /// No description provided for @appearanceLanguage.
+  ///
+  /// In es, this message translates to:
+  /// **'Apariencia e idioma'**
+  String get appearanceLanguage;
 }
 
 class _AppLocalizationsDelegate

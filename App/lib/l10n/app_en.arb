@@ -334,5 +334,6 @@
   "noResults": "Nothing found.",
   "language": "Language",
   "languageSystem": "Device",
-  "offlineSearchBanner": "Offline — showing what is saved on this device. Refresh to get the latest articles."
+  "offlineSearchBanner": "Offline — showing what is saved on this device. Refresh to get the latest articles.",
+  "appearanceLanguage": "Appearance and language"
 }

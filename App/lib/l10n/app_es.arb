@@ -335,5 +335,6 @@
   "noResults": "No se ha encontrado nada.",
   "language": "Idioma",
   "languageSystem": "Del dispositivo",
-  "offlineSearchBanner": "Sin conexión: resultados de lo guardado en el dispositivo. Actualiza para obtener los artículos más recientes."
+  "offlineSearchBanner": "Sin conexión: resultados de lo guardado en el dispositivo. Actualiza para obtener los artículos más recientes.",
+  "appearanceLanguage": "Apariencia e idioma"
 }
