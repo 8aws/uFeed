@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/net_image.dart';
 import '../../api/api_client.dart';
 import '../../api/models.dart';
+import '../../auth/plan.dart';
 import '../../auth/session.dart';
 import '../../core/prefs.dart';
 import '../../core/dialogs.dart';
@@ -34,6 +35,27 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _refreshing = false;
   final _scroll = ScrollController();
+  bool _searching = false;
+  final _searchField = TextEditingController();
+  Timer? _typing;
+
+  void _openSearch() => setState(() => _searching = true);
+
+  void _closeSearch() {
+    _typing?.cancel();
+    _searchField.clear();
+    ref.read(searchProvider.notifier).clear();
+    setState(() => _searching = false);
+  }
+
+  /// Search as you type, a moment after the last key.
+  void _typed(String text) {
+    _typing?.cancel();
+    _typing = Timer(
+      const Duration(milliseconds: 350),
+      () => ref.read(searchProvider.notifier).setQuery(text),
+    );
+  }
 
   @override
   void initState() {
@@ -50,6 +72,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    _typing?.cancel();
+    _searchField.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -102,9 +126,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final twoPane = useTwoPane(context);
     final open = twoPane ? ref.watch(openArticleProvider) : null;
 
-    ref.listen(filterProvider, (_, _) {
+    ref.listen(filterProvider, (_, next) {
       if (_scroll.hasClients) _scroll.jumpTo(0);
+      // "For you" is picked for you, not searched.
+      if (next.kind == FilterKind.forYou && _searching) _closeSearch();
     });
+    final search = ref.watch(searchProvider);
+    final aiSearch = ref.watch(planProvider).value?.aiFeatures ?? false;
+    final canSearch = filter.kind != FilterKind.forYou;
     ref.listen(listenProvider.select((s) => s.radioDone), (_, done) {
       if (done) {
         ScaffoldMessenger.of(
@@ -115,29 +144,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final listPane = Scaffold(
       appBar: AppBar(
-        title: GestureDetector(
-          onTap: () => _scroll.hasClients
-              ? _scroll.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOut,
-                )
-              : null,
-          child: Text(_title(t, filter, side)),
-        ),
+        title: _searching
+            ? TextField(
+                controller: _searchField,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onChanged: _typed,
+                onSubmitted: (v) {
+                  _typing?.cancel();
+                  ref.read(searchProvider.notifier).setQuery(v);
+                },
+                decoration: InputDecoration(
+                  hintText: t.searchHint,
+                  border: InputBorder.none,
+                ),
+              )
+            : GestureDetector(
+                onTap: () => _scroll.hasClients
+                    ? _scroll.animateTo(
+                        0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                      )
+                    : null,
+                child: Text(_title(t, filter, side)),
+              ),
         actions: [
+          if (_searching) ...[
+            if (aiSearch)
+              IconButton(
+                tooltip: t.searchAi,
+                isSelected: search.ai,
+                icon: const Icon(Icons.auto_awesome_outlined),
+                selectedIcon: const Icon(Icons.auto_awesome),
+                onPressed: () =>
+                    ref.read(searchProvider.notifier).setAi(!search.ai),
+              ),
+            IconButton(
+              tooltip: t.searchClose,
+              icon: const Icon(Icons.close),
+              onPressed: _closeSearch,
+            ),
+          ] else if (canSearch)
+            IconButton(
+              tooltip: t.search,
+              icon: const Icon(Icons.search),
+              onPressed: _openSearch,
+            ),
           // Pull-to-refresh only works from the top of the list.
-          IconButton(
-            tooltip: t.refresh,
-            icon: _refreshing
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh),
-            onPressed: _refreshing ? null : () => _pullToRefresh(t, ctrl),
-          ),
+          if (!_searching)
+            IconButton(
+              tooltip: t.refresh,
+              icon: _refreshing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              onPressed: _refreshing ? null : () => _pullToRefresh(t, ctrl),
+            ),
           if (scoped)
             IconButton(
               tooltip: onlyUnread ? t.all : t.unread,
@@ -146,7 +212,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               onPressed: ref.read(onlyUnreadProvider.notifier).toggle,
             ),
-          if (canMarkAll)
+          if (canMarkAll && !_searching)
             IconButton(
               tooltip: t.markAllRead,
               icon: const Icon(Icons.done_all),
@@ -325,6 +391,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             : e.isUnreachable
             ? t.serverUnavailable
             : t.somethingFailed;
+      } else if (ctrl.searching) {
+        message = t.noResults;
       } else {
         message = ctrl.unreadView ? t.noUnreadHere : t.noArticles;
       }
@@ -343,7 +411,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Text(t.retry),
               ),
             )
-          else if (onlyUnreadHere)
+          else if (onlyUnreadHere && !ctrl.searching)
             Center(
               child: TextButton(
                 onPressed: ref.read(onlyUnreadProvider.notifier).toggle,

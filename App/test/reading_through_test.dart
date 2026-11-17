@@ -35,6 +35,9 @@ class _FakeApi implements ApiClient {
   final int total;
   final int size;
   int requests = 0;
+  String? lastQuery;
+  bool? lastSemantic;
+  bool? lastUnread;
 
   @override
   Future<Page<Article>> articles({
@@ -44,10 +47,14 @@ class _FakeApi implements ApiClient {
     bool saved = false,
     bool favorite = false,
     String? q,
+    bool semantic = false,
     String? cursor,
     int limit = 30,
   }) async {
     requests++;
+    lastQuery = q;
+    lastSemantic = semantic;
+    lastUnread = unread;
     final from = int.tryParse(cursor ?? '0') ?? 0;
     final to = (from + size).clamp(0, total);
     return Page(
@@ -55,6 +62,9 @@ class _FakeApi implements ApiClient {
       nextCursor: to >= total ? null : '$to',
     );
   }
+
+  @override
+  Future<List<Article>> forYou({int limit = 40}) async => const [];
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
@@ -155,5 +165,53 @@ void main() {
     expect(third.length, 4);
     have.addAll(third.map((a) => a.id));
     expect(await list.more(have), isEmpty); // the end: nothing more to bring
+  });
+
+  test(
+    'a search looks through everything, keeps what it finds, and ends',
+    () async {
+      final api = _FakeApi(10, 5);
+      final c = _container(api);
+      c.read(articleListProvider);
+      await _settle(c);
+      expect(api.lastUnread, isTrue);
+      expect(api.lastQuery, isNull);
+
+      final search = c.read(searchProvider.notifier);
+      search.setQuery('  pirámide ');
+      c.read(articleListProvider);
+      await _settle(c);
+      expect(api.lastQuery, 'pirámide');
+      expect(api.lastSemantic, isFalse);
+      expect(api.lastUnread, isFalse); // read posts are found too
+
+      // Reading a result does not make it vanish from the results.
+      final list = c.read(articleListProvider.notifier);
+      final first = c.read(articleListProvider).items.first;
+      await list.setRead(first, true);
+      expect(c.read(articleListProvider).items.length, 5);
+
+      search.setAi(true);
+      c.read(articleListProvider);
+      await _settle(c);
+      expect(api.lastSemantic, isTrue);
+
+      search.clear();
+      c.read(articleListProvider);
+      await _settle(c);
+      expect(api.lastQuery, isNull);
+      expect(api.lastUnread, isTrue);
+    },
+  );
+
+  test('"For you" is not searched', () async {
+    final api = _FakeApi(10, 5);
+    final c = _container(api);
+    c.read(filterProvider.notifier).set(const Filter(FilterKind.forYou));
+    c.read(searchProvider.notifier).setQuery('algo');
+    c.read(articleListProvider);
+    await _settle(c);
+    expect(c.read(articleListProvider.notifier).searching, isFalse);
+    expect(api.requests, 0); // the For-you list is fetched apart
   });
 }

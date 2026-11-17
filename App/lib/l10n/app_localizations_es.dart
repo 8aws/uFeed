@@ -783,4 +783,19 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get feedAdded => 'Fuente añadida';
+
+  @override
+  String get search => 'Buscar';
+
+  @override
+  String get searchHint => 'Buscar título, fuente, contenido…';
+
+  @override
+  String get searchAi => 'Búsqueda con IA';
+
+  @override
+  String get searchClose => 'Cerrar búsqueda';
+
+  @override
+  String get noResults => 'No se ha encontrado nada.';
 }

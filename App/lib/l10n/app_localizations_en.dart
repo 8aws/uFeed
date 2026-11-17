@@ -779,4 +779,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get feedAdded => 'Feed added';
+
+  @override
+  String get search => 'Search';
+
+  @override
+  String get searchHint => 'Search title, source, content…';
+
+  @override
+  String get searchAi => 'AI search';
+
+  @override
+  String get searchClose => 'Close search';
+
+  @override
+  String get noResults => 'Nothing found.';
 }

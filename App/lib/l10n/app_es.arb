@@ -327,5 +327,10 @@
   "twinsNone": "No hay más copias.",
   "openOnSite": "Abrir en su web",
   "followThisFeed": "Seguir esta fuente",
-  "feedAdded": "Fuente añadida"
+  "feedAdded": "Fuente añadida",
+  "search": "Buscar",
+  "searchHint": "Buscar título, fuente, contenido…",
+  "searchAi": "Búsqueda con IA",
+  "searchClose": "Cerrar búsqueda",
+  "noResults": "No se ha encontrado nada."
 }

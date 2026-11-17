@@ -326,5 +326,10 @@
   "twinsNone": "No other copies.",
   "openOnSite": "Open on its site",
   "followThisFeed": "Follow this feed",
-  "feedAdded": "Feed added"
+  "feedAdded": "Feed added",
+  "search": "Search",
+  "searchHint": "Search title, source, content…",
+  "searchAi": "AI search",
+  "searchClose": "Close search",
+  "noResults": "Nothing found."
 }

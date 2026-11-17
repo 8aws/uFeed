@@ -1495,6 +1495,36 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Fuente añadida'**
   String get feedAdded;
+
+  /// No description provided for @search.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar'**
+  String get search;
+
+  /// No description provided for @searchHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Buscar título, fuente, contenido…'**
+  String get searchHint;
+
+  /// No description provided for @searchAi.
+  ///
+  /// In es, this message translates to:
+  /// **'Búsqueda con IA'**
+  String get searchAi;
+
+  /// No description provided for @searchClose.
+  ///
+  /// In es, this message translates to:
+  /// **'Cerrar búsqueda'**
+  String get searchClose;
+
+  /// No description provided for @noResults.
+  ///
+  /// In es, this message translates to:
+  /// **'No se ha encontrado nada.'**
+  String get noResults;
 }
 
 class _AppLocalizationsDelegate

@@ -168,6 +168,40 @@ class SidebarNotifier extends AsyncNotifier<Sidebar> {
   }
 }
 
+/// What is typed in the search box and how it is searched.
+class SearchState {
+  const SearchState({this.query = '', this.ai = false});
+
+  final String query;
+
+  /// By meaning (plans with AI features) instead of by words.
+  final bool ai;
+
+  bool get active => query.isNotEmpty;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SearchState && other.query == query && other.ai == ai;
+
+  @override
+  int get hashCode => Object.hash(query, ai);
+}
+
+class SearchNotifier extends Notifier<SearchState> {
+  @override
+  SearchState build() => const SearchState();
+
+  void setQuery(String q) => state = SearchState(query: q.trim(), ai: state.ai);
+
+  void setAi(bool ai) => state = SearchState(query: state.query, ai: ai);
+
+  void clear() => state = SearchState(ai: state.ai);
+}
+
+final searchProvider = NotifierProvider<SearchNotifier, SearchState>(
+  SearchNotifier.new,
+);
+
 class FilterNotifier extends Notifier<Filter> {
   @override
   Filter build() => const Filter(FilterKind.unread);
@@ -247,11 +281,19 @@ class ArticleListNotifier extends Notifier<ArticleList> {
   ArticleList build() {
     ref.watch(filterProvider);
     ref.watch(onlyUnreadProvider);
+    ref.watch(searchProvider);
     Future.microtask(() => load(reset: true));
     return const ArticleList(loading: true);
   }
 
+  /// A search looks through everything of the view (read posts too), and what
+  /// it finds stays when read.
+  bool get searching =>
+      ref.read(searchProvider).active &&
+      ref.read(filterProvider).kind != FilterKind.forYou;
+
   bool get unreadView {
+    if (searching) return false;
     final f = ref.read(filterProvider);
     return f.kind == FilterKind.unread ||
         ((f.kind == FilterKind.folder || f.kind == FilterKind.source) &&
@@ -292,7 +334,10 @@ class ArticleListNotifier extends Notifier<ArticleList> {
         );
         return;
       }
+      final search = ref.read(searchProvider);
       final page = await _api.articles(
+        q: searching ? search.query : null,
+        semantic: searching && search.ai,
         unread: unreadView,
         saved: f.kind == FilterKind.saved,
         favorite: f.kind == FilterKind.favorites,
@@ -317,7 +362,7 @@ class ArticleListNotifier extends Notifier<ArticleList> {
         done: page.nextCursor == null,
         listedAt: reset ? DateTime.now() : state.listedAt,
       );
-      if (reset) unawaited(_saveSnapshot(f, items));
+      if (reset && !searching) unawaited(_saveSnapshot(f, items));
     } on ApiException catch (e) {
       if (seq != _seq) return;
       final keep = state.items.isNotEmpty;
@@ -334,7 +379,7 @@ class ArticleListNotifier extends Notifier<ArticleList> {
   /// saved articles kept for offline reading.
   Future<List<Article>?> _cached(Filter f) async {
     final user = _userId;
-    if (user == null) return null;
+    if (user == null || searching) return null;
     if (f.kind == FilterKind.saved) {
       final saved = ref.read(offlineSavedProvider);
       if (saved.isNotEmpty) {
@@ -351,7 +396,7 @@ class ArticleListNotifier extends Notifier<ArticleList> {
   Future<void> _saveSnapshot(Filter f, List<Article> items) async {
     final user = _userId;
     final side = ref.read(sidebarProvider).value;
-    if (user == null || side == null) return;
+    if (user == null || side == null || searching) return;
     await ref
         .read(localStoreProvider)
         .saveHome(

@@ -356,6 +356,7 @@ class ApiClient {
     bool saved = false,
     bool favorite = false,
     String? q,
+    bool semantic = false,
     String? cursor,
     int limit = 30,
   }) async => Page.fromJson(
@@ -369,6 +370,8 @@ class ApiClient {
         if (saved) 'saved': true,
         if (favorite) 'favorite': true,
         'q': q,
+        // Meaning, not just words (plans with AI features; others get text).
+        if (semantic && q != null) 'semantic': true,
         'cursor': cursor,
         'limit': limit,
       },
