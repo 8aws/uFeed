@@ -74,6 +74,20 @@ class LocalStore {
     );
   }
 
+  // Recently loaded articles, for searching without a connection
+
+  Future<void> saveRecent(String userId, List<Article> items) =>
+      _write('recent', {
+        'user': userId,
+        'items': [for (final a in items) a.toJson()],
+      });
+
+  Future<List<Article>> loadRecent(String userId) async {
+    final j = await _read('recent');
+    if (j == null || j['user'] != userId) return const [];
+    return [for (final a in j['items'] as List) Article.fromJson(a as Json)];
+  }
+
   // Saved articles
 
   Future<void> saveSaved(String userId, List<OfflineArticle> items) =>

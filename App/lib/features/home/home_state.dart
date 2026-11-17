@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/api_client.dart';
 import '../../api/models.dart';
 import '../../auth/session.dart';
+import '../../offline/local_search.dart';
 import '../../offline/local_store.dart';
 import '../../offline/outbox.dart';
 import '../../offline/providers.dart';
@@ -234,9 +235,14 @@ class ArticleList {
     this.error,
     this.listedAt,
     this.offline = false,
+    this.localSearch = false,
   });
 
   final List<Article> items;
+
+  /// A search answered from what the device keeps (no connection): it may lack
+  /// the most recent articles.
+  final bool localSearch;
 
   /// Showing the copy kept on the device (no connection).
   final bool offline;
@@ -256,6 +262,7 @@ class ArticleList {
     ApiException? error,
     DateTime? listedAt,
     bool? offline,
+    bool? localSearch,
   }) => ArticleList(
     items: items ?? this.items,
     cursor: cursor ?? this.cursor,
@@ -264,6 +271,7 @@ class ArticleList {
     error: error,
     listedAt: listedAt ?? this.listedAt,
     offline: offline ?? this.offline,
+    localSearch: localSearch ?? this.localSearch,
   );
 }
 
@@ -363,8 +371,22 @@ class ArticleListNotifier extends Notifier<ArticleList> {
         listedAt: reset ? DateTime.now() : state.listedAt,
       );
       if (reset && !searching) unawaited(_saveSnapshot(f, items));
+      if (!searching) unawaited(_remember(page.items));
     } on ApiException catch (e) {
       if (seq != _seq) return;
+      if (searching && e.isUnreachable && f.kind != FilterKind.forYou) {
+        // No connection: look through what the device keeps, and say so.
+        final local = await _searchLocal(f);
+        if (seq != _seq) return;
+        state = ArticleList(
+          items: local,
+          done: true,
+          offline: true,
+          localSearch: true,
+          listedAt: DateTime.now(),
+        );
+        return;
+      }
       final keep = state.items.isNotEmpty;
       state = state.copyWith(
         loading: false,
@@ -373,6 +395,44 @@ class ArticleListNotifier extends Notifier<ArticleList> {
         offline: e.isUnreachable && keep,
       );
     }
+  }
+
+  /// Keeps what the lists load, so a search still finds it without a connection.
+  Future<void> _remember(List<Article> items) async {
+    final user = _userId;
+    if (user == null || items.isEmpty) return;
+    final store = ref.read(localStoreProvider);
+    final kept = await store.loadRecent(user);
+    await store.saveRecent(user, mergeRecent(kept, items));
+  }
+
+  /// A search answered from the device: the kept recent articles, the saved
+  /// ones and the start-up list, within what this view lists.
+  Future<List<Article>> _searchLocal(Filter f) async {
+    final user = _userId;
+    final store = ref.read(localStoreProvider);
+    final side = ref.read(sidebarProvider).value;
+    final pool = <Article>[
+      ...state.items,
+      if (user != null) ...await store.loadRecent(user),
+      for (final o in ref.read(offlineSavedProvider).values) o.article,
+      if (user != null) ...?(await store.loadHome(user))?.articles,
+    ];
+    bool inView(Article a) => switch (f.kind) {
+      FilterKind.saved => a.isSaved,
+      FilterKind.favorites => a.isFavorite,
+      FilterKind.source => a.sourceId == f.id,
+      FilterKind.folder => side?.subFor(a.sourceId)?.folderId == f.id,
+      _ => true,
+    };
+    return _pending(
+      searchLocal(
+        query: ref.read(searchProvider).query,
+        pool: pool,
+        sourceOf: (id) => side?.subFor(id)?.title ?? '',
+        where: inView,
+      ),
+    );
   }
 
   /// The copy on the device for this list: the start-up snapshot, or the

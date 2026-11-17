@@ -252,7 +252,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: Column(
         children: [
-          _OfflineBanner(offline: list.offline),
+          _OfflineBanner(offline: list.offline, localSearch: list.localSearch),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () => _pullToRefresh(t, ctrl),
@@ -706,9 +706,12 @@ class _SideMenu extends ConsumerWidget {
 
 /// "Offline" and/or "N changes waiting to sync", above the list.
 class _OfflineBanner extends ConsumerWidget {
-  const _OfflineBanner({required this.offline});
+  const _OfflineBanner({required this.offline, this.localSearch = false});
 
   final bool offline;
+
+  /// The list is a search answered from the device.
+  final bool localSearch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -736,7 +739,8 @@ class _OfflineBanner extends ConsumerWidget {
               Expanded(
                 child: Text(
                   [
-                    if (offline) t.offlineBanner,
+                    if (offline)
+                      localSearch ? t.offlineSearchBanner : t.offlineBanner,
                     if (n > 0) t.pendingSync(n),
                   ].join(' · '),
                   style: TextStyle(color: c.muted, fontSize: 12.5),

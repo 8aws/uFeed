@@ -233,6 +233,7 @@ los extras.
 ## 4. Paridad con la web (comprobación final)
 
 - [x] Búsqueda en la lista (texto; con IA en los planes que la tienen) y selección/copia de texto del artículo (hecho 2026-11-17)
+- [x] Búsqueda sin conexión sobre lo guardado en el dispositivo (últimos 200 artículos vistos, guardados y lista de arranque), con aviso de que pueden faltar los más recientes (hecho 2026-11-17)
 - [ ] Todo / Sin leer / Guardados / Favoritos / carpetas / fuentes
 - [x] Los leídos desaparecen al instante de las vistas «sin leer» (hecho 2026-10-20)
 - [x] Plegar y desplegar carpetas en el menú lateral (hecho 2026-10-20)

@@ -1537,6 +1537,12 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Del dispositivo'**
   String get languageSystem;
+
+  /// No description provided for @offlineSearchBanner.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin conexión: resultados de lo guardado en el dispositivo. Actualiza para obtener los artículos más recientes.'**
+  String get offlineSearchBanner;
 }
 
 class _AppLocalizationsDelegate

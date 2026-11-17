@@ -334,5 +334,6 @@
   "searchClose": "Cerrar búsqueda",
   "noResults": "No se ha encontrado nada.",
   "language": "Idioma",
-  "languageSystem": "Del dispositivo"
+  "languageSystem": "Del dispositivo",
+  "offlineSearchBanner": "Sin conexión: resultados de lo guardado en el dispositivo. Actualiza para obtener los artículos más recientes."
 }

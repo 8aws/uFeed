@@ -249,6 +249,29 @@ class Article {
     otherCopies: otherCopies,
   );
 
+  /// The same article without its (long) HTML; the excerpt stays.
+  Article withoutHtml() => Article(
+    id: id,
+    sourceId: sourceId,
+    url: url,
+    title: title,
+    author: author,
+    summary: summary,
+    aiSummary: aiSummary,
+    contentHtml: null,
+    imageUrl: imageUrl,
+    lang: lang,
+    wordCount: wordCount,
+    publishedAt: publishedAt,
+    fetchedAt: fetchedAt,
+    fullStatus: fullStatus,
+    isRead: isRead,
+    isSaved: isSaved,
+    isFavorite: isFavorite,
+    dupCount: dupCount,
+    otherCopies: otherCopies,
+  );
+
   /// For the offline copy (same shape as the API's).
   Json toJson() => {
     'id': id,
