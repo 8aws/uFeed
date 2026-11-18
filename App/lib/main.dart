@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/prefs.dart';
 import 'listen/audio_handler.dart';
+import 'notify/new_articles.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,4 +24,5 @@ Future<void> main() async {
   // Lock screen and Control Center: set up after the first frame, so a slow
   // audio session never holds the app on the launch screen.
   unawaited(initAudioHandler());
+  unawaited(initNotifications());
 }

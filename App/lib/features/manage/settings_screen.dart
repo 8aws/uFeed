@@ -18,6 +18,7 @@ import '../../core/layout.dart';
 import '../../core/theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../../listen/listen_bar.dart';
+import '../../notify/new_articles.dart';
 import '../home/home_state.dart';
 import '../reader/article_html.dart';
 
@@ -151,6 +152,9 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => showVoiceSheet(context),
               ),
+            ]),
+            section(t.notifications, Icons.notifications_outlined, const [
+              _NotifySettings(),
             ]),
             section(t.filters, Icons.volume_off_outlined, const [_Filters()]),
             section(t.feeds, Icons.rss_feed, [
@@ -815,4 +819,92 @@ class _VersionTile extends StatelessWidget {
       );
     },
   );
+}
+
+/// "Tell me about new articles": a local notification, checked now and then in
+/// the background (iOS decides when). Nothing leaves the device.
+class _NotifySettings extends ConsumerStatefulWidget {
+  const _NotifySettings();
+
+  @override
+  ConsumerState<_NotifySettings> createState() => _NotifySettingsState();
+}
+
+class _NotifySettingsState extends ConsumerState<_NotifySettings> {
+  late bool _on = notificationsOn(ref.read(prefsProvider));
+  late int _min = notifyMin(ref.read(prefsProvider));
+  bool _busy = false;
+
+  Future<void> _toggle(bool on) async {
+    final t = AppLocalizations.of(context);
+    final prefs = ref.read(prefsProvider);
+    setState(() => _busy = true);
+    var next = on;
+    if (on) {
+      next = await enableNotifications(prefs, min: _min);
+      if (next) {
+        // What is on screen now doesn't count as new.
+        await markSeen(
+          prefs,
+          ref.read(sidebarProvider).value?.unreadTotal ?? 0,
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(t.notifyDenied)));
+      }
+    } else {
+      await disableNotifications(prefs);
+    }
+    if (mounted) {
+      setState(() {
+        _on = next;
+        _busy = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final c = context.colors;
+    return Column(
+      children: [
+        SwitchListTile(
+          title: Text(t.notifyNew),
+          value: _on,
+          onChanged: _busy ? null : _toggle,
+        ),
+        if (_on)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                Expanded(child: Text(t.notifyMin)),
+                SegmentedButton<int>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: 1, label: Text('1')),
+                    ButtonSegment(value: 5, label: Text('5')),
+                    ButtonSegment(value: 10, label: Text('10')),
+                  ],
+                  selected: {_min},
+                  onSelectionChanged: (v) {
+                    setState(() => _min = v.first);
+                    setNotifyMin(ref.read(prefsProvider), v.first);
+                  },
+                ),
+              ],
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Text(
+            t.notifyHint,
+            style: TextStyle(color: c.muted, fontSize: 12.5),
+          ),
+        ),
+      ],
+    );
+  }
 }

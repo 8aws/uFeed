@@ -178,7 +178,9 @@ Las estimaciones son jornadas de trabajo conjunto, orientativas.
   - Android: Gemini Nano (ML Kit GenAI) solo resume en inglés, japonés y coreano y
     en pocos modelos; ML Kit Translation sí sirve para es↔en.
 - [ ] **Notificaciones locales:** comprobación periódica en segundo plano (iOS decide
-      cuándo, típicamente cada pocas horas).
+      cuándo, típicamente cada pocas horas). HECHO en código 2026-11-18 (`lib/notify/new_articles.dart`,
+      workmanager + flutter_local_notifications, sección «Notificaciones» en Ajustes, avisa de N nuevos
+      con mínimo 1/5/10 y sin enviar nada a terceros); PENDIENTE de probar en un iPhone real.
   - [ ] Avisa de N artículos nuevos en las fuentes o carpetas elegidas, o da un
         resumen diario a la hora que elija el usuario.
   - [ ] Sin servidor de push ni datos a terceros.

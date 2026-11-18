@@ -1549,6 +1549,36 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Apariencia e idioma'**
   String get appearanceLanguage;
+
+  /// No description provided for @notifications.
+  ///
+  /// In es, this message translates to:
+  /// **'Notificaciones'**
+  String get notifications;
+
+  /// No description provided for @notifyNew.
+  ///
+  /// In es, this message translates to:
+  /// **'Avisarme de artículos nuevos'**
+  String get notifyNew;
+
+  /// No description provided for @notifyMin.
+  ///
+  /// In es, this message translates to:
+  /// **'Solo cuando haya al menos'**
+  String get notifyMin;
+
+  /// No description provided for @notifyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'iOS decide cuándo comprobar (más o menos cada pocas horas), así que el aviso puede llegar con retraso. No se envía nada a terceros: todo ocurre en tu dispositivo.'**
+  String get notifyHint;
+
+  /// No description provided for @notifyDenied.
+  ///
+  /// In es, this message translates to:
+  /// **'Permite las notificaciones de uFeed en los Ajustes de iOS.'**
+  String get notifyDenied;
 }
 
 class _AppLocalizationsDelegate

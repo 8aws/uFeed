@@ -17,6 +17,7 @@ import '../../core/theme.dart';
 import '../../listen/listen_bar.dart';
 import '../manage/feed_actions.dart';
 import '../../listen/listen_controller.dart';
+import '../../notify/new_articles.dart';
 import '../../offline/providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../reader/open_article.dart';
@@ -130,6 +131,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (_scroll.hasClients) _scroll.jumpTo(0);
       // "For you" is picked for you, not searched.
       if (next.kind == FilterKind.forYou && _searching) _closeSearch();
+    });
+    // What the person sees now is not "new" for the notifications.
+    ref.listen(sidebarProvider.select((s) => s.value?.unreadTotal), (_, total) {
+      if (total != null) markSeen(ref.read(prefsProvider), total).ignore();
     });
     final search = ref.watch(searchProvider);
     final aiSearch = ref.watch(planProvider).value?.aiFeatures ?? false;

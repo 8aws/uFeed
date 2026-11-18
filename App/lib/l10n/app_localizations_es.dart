@@ -811,4 +811,21 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get appearanceLanguage => 'Apariencia e idioma';
+
+  @override
+  String get notifications => 'Notificaciones';
+
+  @override
+  String get notifyNew => 'Avisarme de artículos nuevos';
+
+  @override
+  String get notifyMin => 'Solo cuando haya al menos';
+
+  @override
+  String get notifyHint =>
+      'iOS decide cuándo comprobar (más o menos cada pocas horas), así que el aviso puede llegar con retraso. No se envía nada a terceros: todo ocurre en tu dispositivo.';
+
+  @override
+  String get notifyDenied =>
+      'Permite las notificaciones de uFeed en los Ajustes de iOS.';
 }

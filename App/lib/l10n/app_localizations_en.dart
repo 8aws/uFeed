@@ -807,4 +807,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appearanceLanguage => 'Appearance and language';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get notifyNew => 'Tell me about new articles';
+
+  @override
+  String get notifyMin => 'Only when there are at least';
+
+  @override
+  String get notifyHint =>
+      'iOS decides when to check (roughly every few hours), so a notice can come late. Nothing is sent to anyone else: it all happens on your device.';
+
+  @override
+  String get notifyDenied =>
+      'Allow notifications for uFeed in the iOS Settings.';
 }

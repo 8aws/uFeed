@@ -336,5 +336,10 @@
   "language": "Idioma",
   "languageSystem": "Del dispositivo",
   "offlineSearchBanner": "Sin conexión: resultados de lo guardado en el dispositivo. Actualiza para obtener los artículos más recientes.",
-  "appearanceLanguage": "Apariencia e idioma"
+  "appearanceLanguage": "Apariencia e idioma",
+  "notifications": "Notificaciones",
+  "notifyNew": "Avisarme de artículos nuevos",
+  "notifyMin": "Solo cuando haya al menos",
+  "notifyHint": "iOS decide cuándo comprobar (más o menos cada pocas horas), así que el aviso puede llegar con retraso. No se envía nada a terceros: todo ocurre en tu dispositivo.",
+  "notifyDenied": "Permite las notificaciones de uFeed en los Ajustes de iOS."
 }

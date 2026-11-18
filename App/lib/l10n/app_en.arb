@@ -335,5 +335,10 @@
   "language": "Language",
   "languageSystem": "Device",
   "offlineSearchBanner": "Offline — showing what is saved on this device. Refresh to get the latest articles.",
-  "appearanceLanguage": "Appearance and language"
+  "appearanceLanguage": "Appearance and language",
+  "notifications": "Notifications",
+  "notifyNew": "Tell me about new articles",
+  "notifyMin": "Only when there are at least",
+  "notifyHint": "iOS decides when to check (roughly every few hours), so a notice can come late. Nothing is sent to anyone else: it all happens on your device.",
+  "notifyDenied": "Allow notifications for uFeed in the iOS Settings."
 }
